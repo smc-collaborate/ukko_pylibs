@@ -1,0 +1,66 @@
+ci:
+  autofix_prs: false
+  skip: [markdown-link-check]
+
+fail_fast: false
+exclude: (?x)(_generated/|^installer/hacks/|^tools/_hacks/)
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: fix-byte-order-marker
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      # - id: check-json
+      - id: check-shebang-scripts-are-executable
+      - id: check-executables-have-shebangs
+
+#  - repo: https://github.com/maxwinterstein/shfmt-py
+#    rev: v3.4.3.1
+#    hooks:
+#      - id: shfmt
+
+  # C || C++ || Cuda
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v20.1.8
+    hooks:
+      - id: clang-format
+        args: [--style=file]
+        types_or: [c++, c, cuda]
+        require_serial: true
+  # CMake
+  # - repo: https://github.com/cheshirekow/cmake-format-precommit
+  #   rev: v0.6.13
+  #   hooks:
+  #     - id: cmake-format
+  #       additional_dependencies: [pyyaml>=5.1]
+  #     - id: cmake-lint
+  #       additional_dependencies: [pyyaml>=5.1]
+
+  # Shell
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+    - id: shellcheck
+      args: ["-x", "-P","SCRIPTDIR"]
+
+  # Python
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 25.1.0
+    hooks:
+      - id: black
+
+  # Markdown
+  - repo: https://github.com/tcort/markdown-link-check
+    rev: v3.13.7
+    hooks:
+      - id: markdown-link-check
+        args: [-q]
