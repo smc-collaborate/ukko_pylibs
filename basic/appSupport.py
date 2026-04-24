@@ -87,8 +87,8 @@ def appInfo_set(name: str | list[str], value: Any):
     return simpleUtils.entry_set(g_appInfo, name, value)
 
 
-def getExeName():
-    return appInfo_get("exeFullName")
+def getExeName() -> str:
+    return str(appInfo_get("exeFullName"))
 
 
 #
@@ -143,6 +143,8 @@ def exeInfo_isInstalled():
 
 
 appLog = SimpleLogger(getExeName())
+def isVerbose()->bool:
+    return appLog.isVerbose()
 
 
 class ParamSpec:
@@ -1181,12 +1183,10 @@ def error_exit(msg: str, withSuggestion: bool | str = True) -> NoReturn:
         if isinstance(withSuggestion, str):
             extraLines = withSuggestion
         else:
-            global g_appDefinition
             exe_action = getExeName()
-            if g_appDefinition is not None:
-                exe_suffix = g_appDefinition.get("post_exe", "")
-                if exe_suffix is not None and str(exe_suffix).strip() != "":
-                    exe_action += str(exe_suffix)
+            exe_suffix = appInfo_get("APP_DEFINITION.post_exe", "")
+            if exe_suffix is not None and str(exe_suffix).strip() != "":
+                exe_action += str(exe_suffix)
             extraLines = f"Suggest: {exe_action} --help"
 
         msg += "\n" + extraLines
@@ -1361,10 +1361,10 @@ def appDir(defaultDir: str = ".") -> str:
         appDir = defaultDir
         reason = "defaultDir"
 
-    dirFromDef = getValue("app.dir", None)
+    dirFromDef = appInfo_get("APP_DEFINITION.app_dir", None)
     if dirFromDef is not None:
         appDir = dirFromDef
-        reason = "app.dir from definition"
+        reason = "app_dir from definition"
 
     appLog.print_verbose(f"App directory: {appDir} (Reason: {reason})")
     return appDir
@@ -1381,9 +1381,9 @@ def getDir(subDirName: str = "") -> str:
             return subdir
         return None
 
-    dirPath = getValue(f"{subDirName}.dir", None)
+    dirPath = appInfo_get(f"APP_DEFINITION.{subDirName}_dir", None)
     if dirPath is not None:
-        reason = f"{subDirName}.dir from definition"
+        reason = f"{subDirName}_dir from definition"
     else:
         basePath = appDir()
         dirPath = None
