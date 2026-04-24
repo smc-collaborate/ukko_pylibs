@@ -143,7 +143,9 @@ def exeInfo_isInstalled():
 
 
 appLog = SimpleLogger(getExeName())
-def isVerbose()->bool:
+
+
+def isVerbose() -> bool:
     return appLog.isVerbose()
 
 
