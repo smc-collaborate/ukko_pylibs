@@ -61,10 +61,10 @@ class IJsonLineStreamerSpec:
     ADDITIONAL_APP_PARAMETERS: dict[str, Any] | list[dict[str, Any]] | None = None
 
     @staticmethod
-    def getCollectionObject(params: dict[str, Any]) -> Any|None:
+    def getCollectionObject(params: dict[str, Any]) -> Any | None:
         #
         # If this object is a Context Manager (i.e. defines __enter__ and __exit__), the app will automatically call those methods at the appropriate times.
-        return None # < This is optional - some implementations may not need a persistent object
+        return None  # < This is optional - some implementations may not need a persistent object
 
     @staticmethod
     def doCollectSample(
@@ -147,14 +147,15 @@ class JsonLineStreamingApp:
             f"MonitorStreamingServer[{spec.DATA_KIND}]", params["tcpPort"]
         )
 
-
         self.option_includeIsoDate: bool = params["include-iso-date"]
         self.option_includeEmptyValues: bool = params["include-empty-values"]
         self.option_interval_seconds: float = params["interval_ms"] / 1000.0
         self.option_tcpPort: int = params["tcpPort"]
 
     def waitForConnection(self):
-        print(f"📡  Ready to stream {self.spec.DATA_KIND} via TCP port {self.option_tcpPort}")
+        print(
+            f"📡  Ready to stream {self.spec.DATA_KIND} via TCP port {self.option_tcpPort}"
+        )
         print(
             "    Hints:\n"
             f"     • Type 'nc localhost {self.option_tcpPort}'  in another window to make a connection\n"
@@ -173,7 +174,11 @@ class JsonLineStreamingApp:
             flush=True,
         )
 
-    def doCollectDataAndStream(self, collectionFunction: Callable[[Any, bool], tuple[str, Any]], collectionObject: Any):
+    def doCollectDataAndStream(
+        self,
+        collectionFunction: Callable[[Any, bool], tuple[str, Any]],
+        collectionObject: Any,
+    ):
         sample_epoch = time.time()
         runIndex = 0
         while self.dataStreamer.hasConnections():
@@ -223,13 +228,9 @@ class JsonLineStreamingApp:
                 collectionObject, self.option_includeEmptyValues
             )
 
-            data[name] = (
-                obj  # @todo: Make smarter and overwrite timestamps if needed
-            )
+            data[name] = obj  # @todo: Make smarter and overwrite timestamps if needed
 
-            appLog.print_verbose(
-                f"Reviewed data: {Utils.asJsonStr(data,indent=2)}"
-            )
+            appLog.print_verbose(f"Reviewed data: {Utils.asJsonStr(data,indent=2)}")
             sentCount = self.dataStreamer.doBroadcast(Utils.asJsonStr(data))
 
             if sentCount > 0:
@@ -265,14 +266,25 @@ def jsonLineStreamingApp_doRun(spec: IJsonLineStreamerSpec):
             # +---------------------------------------------------------------------------
             # .. except that it also works when there is no context manager (i.e. no __enter__/__exit__) defined for the collection object.
 
-            collectionObject=spec.getCollectionObject(params)
+            collectionObject = spec.getCollectionObject(params)
 
-            __enter__ = None if (collectionObject is None) else getattr(collectionObject, "__enter__", None)
-            __exit__ = None if (collectionObject is None) else getattr(collectionObject, "__exit__", None)
+            __enter__ = (
+                None
+                if (collectionObject is None)
+                else getattr(collectionObject, "__enter__", None)
+            )
+            __exit__ = (
+                None
+                if (collectionObject is None)
+                else getattr(collectionObject, "__exit__", None)
+            )
 
-
-            appLog.print_verbose(f"Using collection object __enter__(): {'Yes' if __enter__ else 'No'}")
-            appLog.print_verbose(f"Using collection object __exit__(): {'Yes' if __exit__ else 'No'}")
+            appLog.print_verbose(
+                f"Using collection object __enter__(): {'Yes' if __enter__ else 'No'}"
+            )
+            appLog.print_verbose(
+                f"Using collection object __exit__(): {'Yes' if __exit__ else 'No'}"
+            )
 
             if __enter__ is not None:
                 __enter__()
@@ -280,7 +292,9 @@ def jsonLineStreamingApp_doRun(spec: IJsonLineStreamerSpec):
             exc = True
             try:
                 try:
-                    runner.doCollectDataAndStream(spec.doCollectSample, collectionObject)
+                    runner.doCollectDataAndStream(
+                        spec.doCollectSample, collectionObject
+                    )
                 except:
                     # The exceptional case is handled here
                     exc = False
@@ -291,7 +305,6 @@ def jsonLineStreamingApp_doRun(spec: IJsonLineStreamerSpec):
                 # The normal and non-local-goto cases are handled here
                 if exc and (__exit__ is not None):
                     __exit__(None, None, None)
-
 
         app.doHalt("App finished normally")
     except BaseException as e:
