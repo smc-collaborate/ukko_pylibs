@@ -63,11 +63,11 @@ def appInfo_get(
             else:
                 _value = pathDisplay(fullname)
     elif name == "name+version":
-        _value = f"{appInfo_get("exeFullName")}"
+        _value = f"{appInfo_get('exeFullName')}"
         suffix = appInfo_get("APP_DEFINITION.version")
 
         if suffix is not None:
-            _value += " (v{suffix})"
+            _value += f" (v{suffix})"
 
     elif name == "runBasics":
         _value = str(appInfo_get("name+version"))
