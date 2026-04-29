@@ -61,6 +61,10 @@ class IJsonLineStreamerSpec:
     ADDITIONAL_APP_PARAMETERS: dict[str, Any] | list[dict[str, Any]] | None = None
 
     @staticmethod
+    def onStartup(params: dict[str, Any]):
+        return None  # < This is optional - but some implementations may want to give a startup message
+
+    @staticmethod
     def getCollectionObject(params: dict[str, Any]) -> Any | None:
         #
         # If this object is a Context Manager (i.e. defines __enter__ and __exit__), the app will automatically call those methods at the appropriate times.
@@ -154,7 +158,7 @@ class JsonLineStreamingApp:
 
     def waitForConnection(self):
         print(
-            f"📡  Ready to stream {self.spec.DATA_KIND} via TCP port {self.option_tcpPort}"
+            f"📡  Ready to stream {self.spec.DATA_KIND} to any connection on TCP port {self.option_tcpPort}"
         )
         print(
             "    Hints:\n"
@@ -254,7 +258,7 @@ def jsonLineStreamingApp_doRun(spec: IJsonLineStreamerSpec):
         params = parseAppDefinition(spec)
 
         runner = JsonLineStreamingApp(spec, params)
-
+        spec.onStartup(params)
         while app.isRunning():
             runner.waitForConnection()
 
