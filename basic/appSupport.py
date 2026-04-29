@@ -142,7 +142,13 @@ def exeInfo_isInstalled():
     return "PYAPP_INSTALL_SOURCE" in os.environ
 
 
-appLog = SimpleLogger(getExeName())
+def logger_traditional_set(isVerbose: bool):
+    import logging
+
+    logging.getLogger().setLevel(logging.DEBUG if isVerbose else logging.INFO)
+
+
+appLog = SimpleLogger(getExeName(), onVerboseChange=logger_traditional_set)
 
 
 def isVerbose() -> bool:
@@ -150,6 +156,20 @@ def isVerbose() -> bool:
 
 
 class ParamSpec:
+    #
+    # Fields include:
+    #   * mayBeDirect - if the parameter can be passed directly as a value
+    #   * default     - the default value for the parameter
+    #   * type        - the type of the parameter (int, str, bool)
+    #   * lookup      - a dictionary of values for the parameter  (Or a list of permitted values)
+    #   * min         - the minimum value for the parameter
+    #   * max         - the maximum value for the parameter
+    #   * shortName   - a short name for the parameter (single character)
+    #   * name        - the name of the parameter
+    #   * supportMultiple
+    #   * mustBeDirect
+    #   * hidden
+
     @staticmethod
     def ensureIs(spec) -> "ParamSpec":
         if isinstance(spec, ParamSpec):
@@ -721,7 +741,10 @@ class Define:
         #   * max         - the maximum value for the parameter
         #   * shortName   - a short name for the parameter (single character)
         #   * name        - the name of the parameter
-        #
+        #   * supportMultiple
+        #   * mayBeDirect
+        #   * mustBeDirect
+        #   * hidden
         for _spec in self.app_definition["options"]:
             paramSpec = ParamSpec.ensureIs(_spec)
             _name = paramSpec.name()

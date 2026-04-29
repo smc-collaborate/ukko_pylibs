@@ -1,7 +1,7 @@
 import errno
 import sys
 import traceback
-from typing import Any, TextIO
+from typing import Any, Callable, TextIO
 import os
 
 
@@ -33,14 +33,22 @@ def UniLen_approx(s: str) -> int:
 
 
 class SimpleLogger:
-    def __init__(self, name: str):
+    def __init__(
+        self, name: str, onVerboseChange: Callable[[bool], None] | None = None
+    ):
         self.name = name
-        self.isVerbose_ = False
         self.lastErrorMsg: str | None = None
+        self.onVerboseChange = onVerboseChange
+        self.isVerbose(False)
 
     def isVerbose(self, setValue: bool | None = None):
         if setValue is not None:
             self.isVerbose_ = setValue
+            if self.onVerboseChange is not None:
+                try:
+                    self.onVerboseChange(setValue)
+                except Exception:
+                    pass  # < Swallow any exceptions from the callback to avoid interfering with the main app
         return self.isVerbose_
 
     def print_info(self, message: Any | None):
@@ -51,7 +59,7 @@ class SimpleLogger:
 
     def print_verbose(self, message: Any | None):
         if self.isVerbose():
-            self._prefix_print(message, icon="Ⓜ️")  # ▶️")
+            self._prefix_print(message, icon="Ⓜ️")
 
     @staticmethod
     def asPrintable(message: Any | None) -> str:
