@@ -1129,7 +1129,7 @@ def doHalt(msg: str | None = None):
     global g_appIsRunning
     if g_appIsRunning:
         g_appIsRunning = False
-        appLog.print_verbose(f"Halting {'' if msg is None else (' -- '+msg)}")
+        appLog.print_info(f"Halting {'' if msg is None else (' -- '+msg)}")
     else:
         appLog.print_verbose(f"Confirm Halted {'' if msg is None else (' -- '+msg)}")
 
