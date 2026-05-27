@@ -118,8 +118,8 @@ def parseAppDefinition(spec: IJsonLineStreamerSpec) -> dict[str, Any]:
                 "name": "interval_ms",
                 "default": 1000,  # Interval in milliseconds between data points
             },
-            {"name": "include-empty-values"},
-            {"name": "include-iso-date"},
+            {"name": "include-empty-values", "shortName": "e"},
+            {"name": "include-iso-date", "shortName": "d"},
         ],
     }
 
