@@ -10,11 +10,12 @@ import parse
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
+shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 from ukko_pylibs.basic.simpleUtils import Utils as Utils
+from ukko_pylibs.basic.simpleUtils import DictUtils as DictUtils
 import ukko_pylibs.basic.simpleUtils as simpleUtils
 from ukko_pylibs.basic.class_HandledException import (
     HandledException as HandledException,
@@ -23,7 +24,7 @@ import ukko_pylibs.basic.appSupport as app
 from ukko_pylibs.basic.appSupport import appLog
 import ukko_pylibs.basic.fileUtils as fileUtils
 from ukko_pylibs.imageProcessing.class_PixelFormatData import PIXEL_FORMATS
-from ukko_pylibs.transferableData.class_AnnotatedData import AnnotatedData
+
 
 #
 ################################################################################
@@ -85,19 +86,19 @@ class CustomisedContents:
         return self.isValid()
 
     def getAttribute(self, attrName: str, defaultValueOrNone: Any = None) -> Any:
-        result = simpleUtils.entry_get(self.attributes, attrName, defaultValueOrNone)
+        result = DictUtils.get(self.attributes, attrName, defaultValueOrNone)
         if result is None:
             appLog.print_warning(f"Missing attribute '{attrName}' in {self.name}")
         return result
 
     def getAttribute_int(self, attrName: str, defaultValue: int) -> int:
-        return simpleUtils.entry_getInt(self.attributes, attrName, defaultValue)
+        return DictUtils.getInt(self.attributes, attrName, defaultValue)
 
     def getAttribute_intOrNone(self, attrName: str) -> int | None:
-        return simpleUtils.entry_getIntOrNone(self.attributes, attrName)
+        return DictUtils.getIntOrNone(self.attributes, attrName)
 
     def getAttribute_str(self, attrName: str, defaultValue: str) -> str:
-        return simpleUtils.entry_getStr(self.attributes, attrName, defaultValue)
+        return DictUtils.getStr(self.attributes, attrName, defaultValue)
 
     ################################
     #
@@ -245,37 +246,6 @@ class CustomisedContents:
         else:
             return f"{self.name}({self.headerFormatText})=⚠️ {self.errorMsgs(' | ')} ⚠️ {Utils.asJsonStr(self.attributes)}"
 
-    def updateAnnotatedData(self, dest: AnnotatedData, kind: str | None) -> str:
-        if kind is not None:
-            dest.kind = kind
-
-        # |Logging| if (self.headerFormat is not None):
-        # |Logging|     appLog.print_info(f"Updating  with data from: {self}")
-        # |Logging| else:
-        # |Logging|     appLog.print_info(f"Updating with data from: CustomisedContents")
-        totalRawSize_bytes = self.getExpectedImageSize()
-        if (totalRawSize_bytes is not None) and dest.bitstream_data is not None:
-            totalRawSize_bytes += self.getAttribute_int(
-                "annotations/imageData/offset", 0
-            )
-
-            if len(dest.bitstream_data) < totalRawSize_bytes:
-                self.addError(
-                    f"Bitstream data is {len(dest.bitstream_data)}: Must be at least {totalRawSize_bytes} bytes long"
-                )
-            elif len(dest.bitstream_data) > totalRawSize_bytes:
-                self.addWarning(
-                    f"Discarded excess data: {len(dest.bitstream_data)} > {totalRawSize_bytes} bytes"
-                )
-
-        dest.customFormatDefinition = self.headerFormat.overallFormatDefinition
-        dest.changeAnnotations(self.getAttribute("annotations", {}))
-        dest.timestamp_utc_ns = self.getAttr_timestamp_ns()
-
-        dest.appendWarnings(self.warnings())
-        dest.appendErrors(self.errors())
-        return ", ".join(self.errors())
-
 
 def CustomisedContents_CreateFromHeaderFormat(
     name: str, headerFormat: "DataHeaderFormat", rawData: bytes
@@ -407,7 +377,7 @@ class DataHeaderFormat:
                             or not isinstance(result, parse.Result)
                             or (not result.named)
                         ):
-                            simpleUtils.entry_set(
+                            DictUtils.set(
                                 funcResult["value"],
                                 entry_attr + ".error",
                                 {
@@ -419,7 +389,7 @@ class DataHeaderFormat:
                             )
                         else:
                             if appLog.isVerbose():
-                                simpleUtils.entry_set(
+                                DictUtils.set(
                                     funcResult["value"],
                                     entry_attr + ".note",
                                     {
@@ -441,11 +411,9 @@ class DataHeaderFormat:
                                         value = int(value)
                                     except:  # ValueError:
                                         pass
-                                simpleUtils.entry_set(
-                                    funcResult["value"], nameOut, value
-                                )
+                                DictUtils.set(funcResult["value"], nameOut, value)
                                 # resultOut[nameOut]=value
-                            # simpleUtils.entry_set(theHeaderValues, entry_attr+".result",resultOut)
+                            # DictUtils.set(theHeaderValues, entry_attr+".result",resultOut)
                         # entry_value = entry_value.strip("\x00").strip(" \r\n\t")
                         entry_skip = True
                     elif code == "text[lines]":
@@ -454,7 +422,7 @@ class DataHeaderFormat:
                         entry_value = entry_value.strip("\x00").strip(" \r\n\t")
                 elif code.startswith("type:"):
                     typesLookupName = code.removeprefix("type:")
-                    conversion = simpleUtils.entry_get(defLookup, typesLookupName, None)
+                    conversion = DictUtils.get(defLookup, typesLookupName, None)
                     if conversion is None:
                         return {
                             "errmsg": f"Unknown type '{typesLookupName}' in conversion definition for {entry_attr}"
@@ -532,7 +500,7 @@ class DataHeaderFormat:
                     entry_skip = True
 
                 if not entry_skip:
-                    simpleUtils.entry_set(funcResult["value"], entry_attr, entry_value)
+                    DictUtils.set(funcResult["value"], entry_attr, entry_value)
                 if entry_printSuffix is not None:
                     if entry_numBytes == 0:
                         txtSuffix = ""
@@ -570,7 +538,7 @@ class DataHeaderFormat:
         appLog.print_verbose(f"Loading header  ({self.name()}) ")
 
         theHeaderValues[".format"] = self.overallFormatDefinition
-        simpleUtils.entry_set(theHeaderValues, ".header/name", self.name())
+        DictUtils.set(theHeaderValues, ".header/name", self.name())
 
         headerDataConversion = self.HEADER_INFO.get("HEADER_DATA_CONVERSION", []).copy()
         headerDataConversion.insert(
@@ -594,11 +562,11 @@ class DataHeaderFormat:
         pos = rawDataStream.tell()
         theHeaderValues.update(converted.get("value", {}))
 
-        simpleUtils.entry_set(theHeaderValues, ".header/numBytes", rawDataStream.tell())
-        if simpleUtils.entry_get(
+        DictUtils.set(theHeaderValues, ".header/numBytes", rawDataStream.tell())
+        if DictUtils.get(
             theHeaderValues, "annotations/fileFormat"
         ) is not None or not self.HEADER_INFO.get("isDefaultHeaderFormat", False):
-            simpleUtils.entry_set(
+            DictUtils.set(
                 theHeaderValues, "annotations/fileFormat/headerKind", self.name()
             )
 
@@ -616,11 +584,9 @@ class DataHeaderFormat:
             value = result.get("value", {})
             if (value is not None) and isinstance(value, dict):
                 for xx in value.keys():
-                    simpleUtils.entry_set(
-                        theHeaderValues, "annotations/" + xx, value[xx]
-                    )
+                    DictUtils.set(theHeaderValues, "annotations/" + xx, value[xx])
             else:
-                simpleUtils.entry_set(theHeaderValues, "annotations/contents", value)
+                DictUtils.set(theHeaderValues, "annotations/contents", value)
 
         ############################################
         # Done
@@ -641,9 +607,7 @@ class CustomContentsFormatDefinition:
 
     def includes(self, what: str) -> bool:
         defaultValue = self.KIND.split("/")[-1] == what
-        return simpleUtils.entry_getBool(
-            self.definitions, "includes/" + what, defaultValue
-        )
+        return DictUtils.getBool(self.definitions, "includes/" + what, defaultValue)
 
     def supportsImage(self) -> bool:
         return self.includes("image")
@@ -651,7 +615,7 @@ class CustomContentsFormatDefinition:
     def definition(
         self, name: str | list[str], defaultValue: Any | None = None
     ) -> Any | None:
-        return simpleUtils.entry_get(self.definitions, name, defaultValue)
+        return DictUtils.get(self.definitions, name, defaultValue)
 
     def getSummary(self) -> dict[str, Any]:
         result: dict[str, Any] = {}
@@ -687,18 +651,6 @@ class CustomContentsFormatDefinition:
 
         for x in definitionDict.get("headerFormats", []):
             self.headerFormatList.append(DataHeaderFormat(x, self.definitions))
-
-    def matchBitstreamDataToFormats(
-        self, annotatedData: AnnotatedData, bitstreamUnmatchedIsOk: bool = False
-    ) -> None:
-        if annotatedData.isInvalid():
-            return
-        customisedOrErrMsg = self.matchBytesToFormats(annotatedData.bitstream_data)
-
-        if not isinstance(customisedOrErrMsg, str):
-            self.applyCustomisedContents(annotatedData, customisedOrErrMsg)
-        elif not bitstreamUnmatchedIsOk:
-            self.noteError(annotatedData, f"{self.KIND}: {customisedOrErrMsg}")
 
     def matchBytesToFormats(self, dataIn: bytes | None) -> CustomisedContents | str:
         if len(self.headerFormatList) == 0:
@@ -738,33 +690,6 @@ class CustomContentsFormatDefinition:
                 txt = "data"
 
         return f"{str(txt)}{suffix}{self.definition('suggested_file_ext_raw', self.FILE_EXT.removesuffix('+'))}"
-
-    def noteError(self, annotatedData: AnnotatedData, errorReason: str) -> None:
-        annotatedData.invalidReason = f"Invalid {self.KIND} : {errorReason}"
-
-    def customiseAnnotatedData(
-        self, annotatedData: AnnotatedData, bitstreamUnmatchedIsOk=False
-    ) -> None:
-
-        annotatedData.appendAnnotations(self.definition("annotations", None))
-
-        self.matchBitstreamDataToFormats(
-            annotatedData, bitstreamUnmatchedIsOk=bitstreamUnmatchedIsOk
-        )
-
-    def applyCustomisedContents(
-        self, annotatedData: AnnotatedData, customisedContents: CustomisedContents
-    ) -> None:
-
-        customisedContents.updateAnnotatedData(annotatedData, self.KIND)
-
-        if not customisedContents.isValid():
-            self.noteError(annotatedData, customisedContents.errorMsgs())
-
-    def createAnnotatedData(self, rawData: bytes | None) -> AnnotatedData:
-        result = AnnotatedData(self.KIND, {}, rawData)
-        self.customiseAnnotatedData(result)
-        return result
 
 
 # Example:

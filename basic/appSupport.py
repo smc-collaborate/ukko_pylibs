@@ -11,7 +11,7 @@ import os
 import sys
 import textwrap
 import traceback
-from typing import Any, List, NoReturn, Tuple
+from typing import Any, Callable, List, NoReturn, Tuple
 
 ################################################################################
 #
@@ -24,6 +24,8 @@ if shared_dir not in sys.path:
 from ukko_pylibs.basic import fileUtils
 from ukko_pylibs.basic import simpleUtils
 from ukko_pylibs.basic.simpleUtils import Utils as Utils
+from ukko_pylibs.basic.simpleUtils import DictUtils as DictUtils
+from ukko_pylibs.basic.simpleUtils import PrettyText as PrettyText
 from ukko_pylibs.basic.logger import SimpleLogger
 from ukko_pylibs.basic.class_HandledException import HandledException
 
@@ -43,7 +45,7 @@ def appInfo_get(
 ) -> Any | None:
     global g_appInfo
 
-    _value = simpleUtils.entry_get(g_appInfo, name)
+    _value = DictUtils.get(g_appInfo, name)
     if _value is not None:
         return _value
 
@@ -76,7 +78,7 @@ def appInfo_get(
             _value += " args: " + json.dumps(_args)
 
     if _value is not None:
-        simpleUtils.entry_set(g_appInfo, name, _value)
+        DictUtils.set(g_appInfo, name, _value)
 
     return valueIfNotFoundOrNone if (_value is None) else _value
 
@@ -84,7 +86,7 @@ def appInfo_get(
 def appInfo_set(name: str | list[str], value: Any):
     global g_appInfo
 
-    return simpleUtils.entry_set(g_appInfo, name, value)
+    return DictUtils.set(g_appInfo, name, value)
 
 
 def getExeName() -> str:
@@ -142,13 +144,20 @@ def exeInfo_isInstalled():
     return "PYAPP_INSTALL_SOURCE" in os.environ
 
 
-def logger_traditional_set(isVerbose: bool):
+def logger_traditional_set(loggLevel: int):
     import logging
 
-    logging.getLogger().setLevel(logging.DEBUG if isVerbose else logging.INFO)
+    if loggLevel == SimpleLogger.VERBOSITY_ERRORS_ONLY:
+        logging.getLogger().setLevel(logging.ERROR)
+    elif loggLevel == SimpleLogger.VERBOSITY_WARNINGS:
+        logging.getLogger().setLevel(logging.WARNING)
+    elif loggLevel == SimpleLogger.VERBOSITY_INFO:
+        logging.getLogger().setLevel(logging.INFO)
+    elif loggLevel == SimpleLogger.VERBOSITY_INFO_DETAILED:
+        logging.getLogger().setLevel(logging.DEBUG)
 
 
-appLog = SimpleLogger(getExeName(), onVerboseChange=logger_traditional_set)
+appLog = SimpleLogger(getExeName(), onVerbosityThresholdChange=logger_traditional_set)
 
 
 def isVerbose() -> bool:
@@ -440,7 +449,7 @@ class ParamSpec:
                     return None
 
                 error_exit(
-                    f"Parameter {_name} expects {simpleUtils.withAOrAn( _type.__name__)} value -- but is {arg}"
+                    f"Parameter {_name} expects {PrettyText.withAOrAn( _type.__name__)} value -- but is {arg}"
                 )
         elif _type == float:
             try:
@@ -480,7 +489,7 @@ def reviewParams(
 ):
     peekOnly = actionOwner is None
     if not peekOnly:
-        appLog.isVerbose("--verbose" in args)
+        appLog.setVerbosity("--verbose" in args)
     help_marker = "h"
     options_in: list[ParamSpec] = []
     for _spec in options_in_:
@@ -514,16 +523,17 @@ def reviewParams(
         elif arg_cleaned.startswith("-") and not (force_non_options):
             #
             # Process option
+
             if arg_cleaned in (("-" + help_marker), "--help"):
                 giveHelp = True
                 peekOnly = True
             elif arg_cleaned == "--version":
                 if actionOwner is not None:
                     actionOwner.dumpVersion()
-                    doHalt("Version Info - Exiting")
+                    doHalt("Version Info - Exiting", suggestSilent=True)
                     sys.exit()
             elif arg_cleaned == "--verbose":
-                appLog.isVerbose(True)
+                appLog.setVerbosity(True)
             else:
                 argMatched = False
                 for spec in options_in:
@@ -626,7 +636,7 @@ def reviewParams(
     #
     # Validate extra parameters etc
     #
-    appLog.isVerbose(options_chosen.get("verbose", None))
+    appLog.setVerbosity(options_chosen.get("verbose", None) == True)
 
     if verboseIsSetDirectly:
         appLog.print_verbose(f"argv: " + Utils.asJsonStr(args, indent=2))
@@ -638,7 +648,7 @@ def reviewParams(
             txt = (
                 "No additional parameters expected"
                 if (limitedExtraParams == 0)
-                else f"Expected {simpleUtils.pluralize(limitedExtraParams, 'additional parameter')}"
+                else f"Expected {simpleUtils.PrettyText.pluralize(limitedExtraParams, 'additional parameter')}"
             )
             if not (peekOnly):
                 error_exit(
@@ -662,7 +672,7 @@ def reviewParams(
     if giveHelp:
         if actionOwner is not None:
             actionOwner.giveHelp(sys.stdout)
-            doHalt("Help Info Provided - Exiting")
+            doHalt("Help Info Provided - Exiting", suggestSilent=True)
             sys.exit()
 
 
@@ -684,8 +694,19 @@ def reviewParams(
 # |env:x|    appDefinitionsIn["options"]=specListOut
 # |env:x|    return appDefinitionsIn
 
+g_reviewedParams = {}
+
+
+def getValue(name: str, default: Any | None = None) -> Any | None:
+    global g_reviewedParams
+    if name in g_reviewedParams:
+        return g_reviewedParams[name]
+    else:
+        return default
+
 
 class Define:
+
     def getCallbackAndParams(self, args) -> Tuple[Any, dict[str, Any]]:
         params = self.parseParams(args)
 
@@ -717,6 +738,24 @@ class Define:
         self.choices_made = {}
         self.orig_app_definition = deepcopy(self.app_definition)
         appInfo_set("APP_DEFINITION", deepcopy(self.app_definition))
+
+        config_fname = DictUtils.get(app_definition, "config/fname")
+        if config_fname is not None:
+            config_defaults = deepcopy(
+                DictUtils.get(app_definition, "config/defaults", {})
+            )
+
+            if not config_defaults:
+                config_defaults = {}
+
+            settings = DictUtils.getDict(app_definition, "settings", {})
+
+            for key, value in settings.items():
+                if "default" in value:
+                    DictUtils.set(config_defaults, ["settings", key], value["default"])
+                    DictUtils.get(settings, [key, "default"])
+
+            config_init(config_fname, config_defaults)
 
     def giveHelp(self, file_dest=sys.stdout):
         exeName = getExeName()
@@ -1067,6 +1106,9 @@ class Define:
 
         _params = deepcopy(self.choices_made["params"])
         _params["__defaults_used__"] = self.choices_made.get("default_parameters", [])
+
+        global g_reviewedParams
+        g_reviewedParams = _params
         return _params
 
     def option_usedDefault(self, name):
@@ -1125,13 +1167,29 @@ def isRunning() -> bool:
     return g_appIsRunning
 
 
-def doHalt(msg: str | None = None):
+def doHalt(msg: str | None = None, suggestSilent: bool = False):
     global g_appIsRunning
     if g_appIsRunning:
         g_appIsRunning = False
-        appLog.print_info(f"Halting {'' if msg is None else (' -- '+msg)}")
+        appLog.print_infoOrVerbose(
+            f"?? Halting {'' if msg is None else (' -- '+msg)}",
+            isInfo=not suggestSilent and msg is not None,
+        )
     else:
         appLog.print_verbose(f"Confirm Halted {'' if msg is None else (' -- '+msg)}")
+
+
+def doExit() -> NoReturn:
+    doHalt()
+    sys.exit(1 if appLog.had_error() else 0)
+
+
+def doRun(callable: Callable[[], None]):
+    try:
+        callable()
+        doExit()
+    except BaseException as e:
+        exitOnException(e)
 
 
 def printVerbose_sysInfo():
@@ -1230,7 +1288,7 @@ def doExitWithCode() -> NoReturn:
         doHalt("Exiting: Had Error")
         sys.exit(1)
     else:
-        doHalt("Exiting: No Error")
+        doHalt("Exiting: No Error", suggestSilent=True)
         sys.exit(0)
 
 
@@ -1447,3 +1505,180 @@ def deprecationWarning(message: str):
         appLog.print_warning(
             f"Deprecation Warning: {message} (Also failed to get caller info: {e})"
         )
+
+
+CONFIG_DEFAULTS = {}
+CONFIG_LOADED = {}
+CONFIG_USED = CONFIG_LOADED.copy()
+
+
+def config_loadFromFile(configPath: str):
+    global CONFIG_LOADED
+    try:
+        with open(configPath, "r", encoding="utf-8") as f:
+            CONFIG_LOADED = json.load(f)
+    except Exception as e:
+        print(f"⚠️  Warning: Unable to load config file '{configPath}': {e}")
+        CONFIG_LOADED = {}
+
+
+def _recursive_merge(dict1: dict, dict2: dict) -> dict:
+    result = dict1.copy()
+    for key, value in dict2.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _recursive_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+def config_init(config_fname: str | None, defaults: dict[str, Any] | None = None):
+    global CONFIG_LOADED
+    global CONFIG_USED
+    global CONFIG_DEFAULTS
+
+    if defaults is not None:
+        CONFIG_DEFAULTS = defaults
+    if config_fname is not None:
+        config_loadFromFile(config_fname)
+
+    CONFIG_USED = _recursive_merge(CONFIG_DEFAULTS, CONFIG_LOADED)
+
+
+def config_get(key: str | list[str] = "") -> Any:
+    global CONFIG_USED
+    global CONFIG_DEFAULTS
+
+    if key == "":
+        return CONFIG_USED
+
+    result = DictUtils.get(CONFIG_USED, key, None)
+    if result is None:
+        appLog.print_error(
+            f"Config key '{key}' not found - nor found in CONFIG_DEFAULTS"
+        )
+    return result
+
+
+def setting_get_default(key: str) -> Any:
+    global CONFIG_DEFAULTS
+
+    result = DictUtils.get(CONFIG_DEFAULTS, "settings/" + key, "!!NOT_FOUND!!")
+
+    if result == "!!NOT_FOUND!!":
+        if not key.startswith("!"):
+            appLog.print_error(f"Default setting for key '{key}' not found")
+        result = None
+
+    return result
+
+
+def setting_set_int(
+    key: str, value: str | int, minValue: int | None = None, maxValue: int | None = None
+):
+
+    if not key.startswith("!"):
+
+        defaultValue = setting_get_default(key)
+
+        if (defaultValue is not None) and (not isinstance(defaultValue, int)):
+            appLog.print_error(
+                f"Default setting for key '{key}' is {defaultValue}: Not an integer"
+            )
+
+        if not isinstance(value, int):
+            try:
+                value = int(value)
+            except Exception as e:
+                appLog.print_warning(
+                    f"Setting[{key}]={value} is not an integer - Using default {defaultValue}"
+                )
+                return
+        if (minValue is not None) and (value < minValue):
+            appLog.print_warning(
+                f"Setting[{key}] : Clipping {value} to minimum {minValue}"
+            )
+            value = minValue
+
+        if (maxValue is not None) and (value > maxValue):
+            appLog.print_warning(
+                f"Setting[{key}] : Clipping {value} to maximum {maxValue}"
+            )
+            value = maxValue
+
+    global CONFIG_USED
+    CONFIG_USED["settings"][key] = value
+
+
+def setting_set_bool(key: str, value: str | bool):
+
+    defaultValue = setting_get_default(key)
+
+    if (defaultValue is not None) and (not isinstance(defaultValue, bool)):
+        appLog.print_warning(
+            f"Default setting for key '{key}' is {defaultValue}: Not boolean"
+        )
+
+    if not isinstance(value, bool):
+        try:
+            value = bool(value)
+        except Exception as e:
+            appLog.print_warning(
+                f"Setting[{key}]={value} is not a boolean - Using default {defaultValue}"
+            )
+            return
+
+    global CONFIG_USED
+    CONFIG_USED["settings"][key] = value
+
+
+def setting_get(key: str) -> Any:
+    global CONFIG_USED
+    global CONFIG_DEFAULTS
+
+    configKey = "settings/" + key
+    result = DictUtils.get(CONFIG_USED, configKey, None)
+    if key.startswith("!"):
+        return result
+
+    if result is None:
+        appLog.print_error(f"Setting '{key}' not found - nor found in CONFIG_DEFAULTS")
+    else:
+
+        defaultValue = setting_get_default(key)
+        expectedType = type(defaultValue)
+        if not isinstance(result, expectedType):
+            appLog.print_warning(
+                f"Type mismatch for setting '{key}': expected {expectedType}, got {type(result)}"
+            )
+
+    return result
+
+
+def setting_get_bool(key: str, defaultOnUtterFailure: bool = False) -> Any:
+    value = setting_get(key)
+
+    type_default = type(defaultOnUtterFailure)
+    if value is None:
+        return defaultOnUtterFailure  # < Error already noted
+    elif isinstance(value, type_default):
+        return value
+    else:
+        appLog.print_error(f"Setting[{key}] = {value} : Expected {type_default}")
+        return defaultOnUtterFailure
+
+
+def setting_get_int(key: str, defaultOnUtterFailure: int = 0) -> Any:
+
+    value = setting_get(key)
+
+    type_default = type(defaultOnUtterFailure)
+    if value is None:
+        return defaultOnUtterFailure  # < Error already noted
+    elif isinstance(value, type_default):
+        return value
+    elif not key.startswith("!"):
+        appLog.print_error(f"Setting[{key}] = {value} : Expected {type_default}")
+        return defaultOnUtterFailure
+    else:
+        return defaultOnUtterFailure

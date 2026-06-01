@@ -33,33 +33,78 @@ def UniLen_approx(s: str) -> int:
 
 
 class SimpleLogger:
+
+    VERBOSITY_ERRORS_ONLY = 0
+    VERBOSITY_WARNINGS = 1
+    VERBOSITY_INFO = 2
+    VERBOSITY_INFO_DETAILED = 3
+
+    VERBOSITY_ALL = 4
+
     def __init__(
-        self, name: str, onVerboseChange: Callable[[bool], None] | None = None
+        self, name: str, onVerbosityThresholdChange: Callable[[int], None] | None = None
     ):
         self.name = name
         self.lastErrorMsg: str | None = None
-        self.onVerboseChange = onVerboseChange
-        self.isVerbose(False)
+        self.onVerbosityThresholdChange = onVerbosityThresholdChange
+        self.detailCount = 0
+        self.infoCount = 0
+        self.warningCount = 0
+        self.errorCount = 0
+        self.setVerbosity(self.VERBOSITY_INFO)
 
-    def isVerbose(self, setValue: bool | None = None):
-        if setValue is not None:
-            self.isVerbose_ = setValue
-            if self.onVerboseChange is not None:
-                try:
-                    self.onVerboseChange(setValue)
-                except Exception:
-                    pass  # < Swallow any exceptions from the callback to avoid interfering with the main app
-        return self.isVerbose_
+    def amPrinting(self, level: int):
+        return level >= self.printThreshold
+
+    amPrintingInfo = lambda self: self.amPrinting(self.VERBOSITY_INFO)
+    amPrintingDetailed = lambda self: self.amPrinting(self.VERBOSITY_INFO_DETAILED)
+    amPrintingAll = lambda self: self.amPrinting(self.VERBOSITY_ALL)
+
+    def setVerbosity(self, setValue: bool | int) -> int:
+
+        if isinstance(setValue, bool):
+            self.printThreshold = (
+                self.VERBOSITY_ALL if setValue else self.VERBOSITY_INFO
+            )
+        else:
+            self.printThreshold = setValue
+
+        if self.onVerbosityThresholdChange is not None:
+            try:
+                self.onVerbosityThresholdChange(self.printThreshold)
+            except Exception:
+                pass  # < Swallow any exceptions from the callback to avoid interfering with the main app
+        return self.printThreshold
+
+    def isVerbose(self):
+        return self.printThreshold >= self.VERBOSITY_INFO_DETAILED
+
+    def print_infoOrVerbose(self, message: Any | None, isInfo: bool = True):
+        if message is None:
+            return
+        if isInfo:
+            self.print_info(message)
+        else:
+            self.print_verbose(message)
 
     def print_info(self, message: Any | None):
+        if message is None:
+            return
+        self.infoCount += 1
         self._prefix_print(message, icon="ℹ️")
 
     def print_warning(self, message: Any | None):
+        if message is None:
+            return
+        self.warningCount += 1
         self._prefix_print(message, icon="⚠️")
 
     def print_verbose(self, message: Any | None):
+        if message is None:
+            return
+        self.detailCount += 1
         if self.isVerbose():
-            self._prefix_print(message, icon="Ⓜ️")
+            self._prefix_print("Verbose|" + message, icon="Ⓜ️")
 
     @staticmethod
     def asPrintable(message: Any | None) -> str:
@@ -117,6 +162,7 @@ class SimpleLogger:
                 exit(1)
             return 0
 
+        self.errorCount += 1
         self.lastErrorMsg = msg
 
         msg = msg.strip().removeprefix("❌").strip()

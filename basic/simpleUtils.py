@@ -1,6 +1,13 @@
+import array
+import base64
+from collections import OrderedDict
 import hashlib
+import inspect
 import json
+import re
 import sys
+import time
+import traceback
 from typing import Any
 from datetime import datetime as dt_datetime
 from datetime import timezone as dt_timezone
@@ -11,6 +18,8 @@ from datetime import timezone as dt_timezone
 
 import os
 
+import numpy as np
+
 
 shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
 if shared_dir not in sys.path:
@@ -20,17 +29,90 @@ if shared_dir not in sys.path:
 #
 
 
-class HandledException(Exception):
-    """An exception that is expected to occur in normal operation - simply look at 'msg'"""
-
-    def __init__(self, msg: str, doLog: bool = True):
-        super().__init__(msg)
-        if doLog:
-            sys.stderr.write(f"⚠️  CreatedHandledException: {msg}\n")
-        self.msg = msg
-
-
 class Utils:
+
+    @staticmethod
+    def error(msg, optional_extra_msg=None):
+
+        msg_full = f"{msg}{optional_extra_msg if optional_extra_msg else ''}"
+
+        try:
+            if sys.modules.get("ukko_pylibs.basic.appSupport") is not None:
+                from ukko_pylibs.basic.appSupport import appLog
+
+                appLog.print_error(msg_full)
+                return
+        except BaseException:
+            sys.stderr.write(f"❌ Error: {msg_full}\n")
+        return
+
+    @staticmethod
+    def load_file_to_text(file_path):
+        """
+        Loads the content of a file into a text string.
+
+        Args:
+            file_path (str): The path to the file.
+
+        Returns:
+            str: The content of the file as a string, or None if an error occurs.
+        """
+        try:
+            with open(file_path, "r") as file:
+                text = file.read()
+            return text
+        except FileNotFoundError:
+            print(os.environ)
+            return Utils.error(f"Text File not found at '{file_path}'")
+        except Exception as e:
+            return Utils.error(f"An exception occurred: {e}")
+
+    @staticmethod
+    def json_load_from_file(fname: str, defaultValue=None):
+        """
+        Load a JSON dict from a file
+
+        Args:
+            fname (str): The name of the file to load
+
+        Returns:
+            dict: The loaded configuration as a dictionary.
+        """
+
+        try:
+            data = json.loads(open(fname).read())
+            data["_src"] = "file[" + fname + "]"
+            return data
+        except Exception as e:
+            if defaultValue is None:
+                print("Error loading JSON from file(" + fname + "): " + str(e))
+            return defaultValue
+
+    @staticmethod
+    def json_load_dict_from_file(fname: str) -> dict[str, Any]:
+        """
+        Load a JSON dict from a file
+
+        Args:
+            fname (str): The name of the file to load
+
+        Returns:
+            dict: The loaded configuration as a dictionary.
+        """
+        result = Utils.json_load_from_file(fname, None)
+        return result if isinstance(result, dict) else {}
+
+    @staticmethod
+    def json_loads(txt: str) -> Any | None:
+        try:
+            return json.loads(txt)
+        except json.JSONDecodeError as e:
+            txt = re.sub(r"\\x([0-9a-fA-F]{2})", r"\\u00\1", txt)
+
+        return json.loads(
+            txt
+        )  # < Let the exception propagate this time - there isn't much more we can do
+
     @staticmethod
     def asJsonStr(obj, indent: int | str | None = None):
         """Safer version of json.dumps that can handle some extra types like bytes and avoids odd crashes"""
@@ -86,6 +168,16 @@ class Utils:
             return f""
 
     @staticmethod
+    def toHexText(src: bytes, maxNumChars: int | None = 100) -> str:
+        txt = src.hex()
+        if (maxNumChars is not None) and (len(txt) > maxNumChars):
+            suffix = f"... ({len(src)} bytes)"
+            maxHexChars = maxNumChars - len(suffix)
+            maxHexChars -= maxHexChars % 2
+            txt = f"{txt[0:maxHexChars]}{suffix}"
+        return txt
+
+    @staticmethod
     def fill_withText(dest, text: str):
         """Fills a byte array or string with the given text (truncating if needed)"""
         if isinstance(dest, str):
@@ -124,40 +216,6 @@ class Utils:
         return "." + ("" if isStandardImageFormat(ext) else "raw_") + ext
 
     @staticmethod
-    def entry_deleteIfFound(obj: dict[str, Any], keys: str | list[str]) -> bool:
-        iterateList = keys.split("/") if isinstance(keys, str) else keys.copy()
-
-        key_to_modify = iterateList.pop()
-
-        obj_to_modify = entry_get(obj, iterateList)
-
-        if isinstance(obj_to_modify, dict) and key_to_modify in obj_to_modify:
-            obj_to_modify.pop(key_to_modify, None)
-            return True
-        else:
-            return False
-
-    @staticmethod
-    def entry_deleteIfIs(
-        obj: dict[str, Any], keys: str | list[str], value: Any
-    ) -> bool:
-        iterateList = keys.split("/") if isinstance(keys, str) else keys.copy()
-
-        key_to_modify = iterateList.pop()
-
-        obj_to_modify = entry_get(obj, iterateList)
-
-        if (
-            isinstance(obj_to_modify, dict)
-            and key_to_modify in obj_to_modify
-            and obj_to_modify[key_to_modify] == value
-        ):
-            obj_to_modify.pop(key_to_modify, None)
-            return True
-        else:
-            return False
-
-    @staticmethod
     def md5_of_file(fname: str) -> str:
         with open(fname, "rb") as file:
             raw_bytes = file.read()
@@ -187,227 +245,502 @@ class Utils:
         else:
             return data.hex() + txtSuffix
 
+    @staticmethod
+    def _make_jsonable(
+        contents, base64_encoding=True
+    ) -> list | dict[str, Any] | str | int | float | None:
 
-def flattenObj(obj_in: dict[str, Any], sep: str = ".") -> dict[str, Any]:
-    """Flattens a nested dictionary into a single level dictionary with keys joined by sep"""
-    obj_out: dict[str, Any] = {}
+        if contents is None:
+            return None
 
-    def _recurse(o: dict[str, Any], prefix: str = ""):
-        for k, v in o.items():
-            if isinstance(v, dict):
-                _recurse(v, f"{prefix}{k}{sep}")
-            elif isinstance(v, list) and all(isinstance(i, int) for i in v):
-                last = None
-                first = None
-                txt_ranges = []
-                for x in v + [None]:  # Add a None at the end to flush the last range
-                    if last is None:
-                        first = x
-                        last = x
-                    elif x == last + 1:
-                        last = x
-                    else:
-                        if first == last:
-                            txt_ranges.append(f"{first}")
-                        else:
-                            txt_ranges.append(f"{first}-{last}")
-                        first = x
-                        last = x
-                obj_out[f"{prefix}{k}"] = ",".join(txt_ranges)
+        if hasattr(contents, "__slots__"):
+            # This is a ROS message
+            d = OrderedDict()
+
+            for field_name, field_type in zip(contents.__slots__, contents.SLOT_TYPES):
+                value = getattr(contents, field_name, None)
+
+                # Remove leading underscore from field name
+                d[field_name[1:]] = Utils._make_jsonable(value, base64_encoding)
+            return d
+
+        if (type(contents) is dict) or (type(contents) is OrderedDict):
+            d = OrderedDict()
+            try:
+                for key in list(contents.keys()):
+                    d[key] = Utils._make_jsonable(contents[key])
+            except Exception as e:
+                print("⚠️ Utils._make_jsonable(" + str(contents) + "): " + str(e))
+            return d
+
+        if isinstance(contents, bytes):
+            if base64_encoding:
+                # Encode the bytes to base64
+                return base64.b64encode(contents).decode("utf-8")
             else:
-                obj_out[f"{prefix}{k}"] = v
+                return "bytes(" + str(len(contents)) + ")"
 
-    _recurse(obj_in)
-    return obj_out
+        if isinstance(contents, bytearray):
+            if base64_encoding:
+                # Encode the bytes to base64
+                return base64.b64encode(contents).decode("utf-8")
+            else:
+                return "bytearray(" + str(len(contents)) + ")"
+
+        if isinstance(contents, (list, tuple, array.array, np.ndarray)):
+            # Since arrays and ndarrays can't contain mixed types convert to list
+            d = list()
+            for x in contents:
+                d.append(Utils._make_jsonable(x))
+            return d
+
+        return contents
+
+    @staticmethod
+    def msg_to_dict(
+        msg, is_full: bool = True
+    ) -> dict[str, Any] | OrderedDict[str, Any] | None:
+        if msg is None:
+            return None
+
+        # |Quick| if isinstance(msg, AnnotatedData):
+        # |Quick|     return msg.toFullJson(is_full)
+        try:
+            result = Utils._make_jsonable(
+                msg, is_full
+            )  # msgconverter.convert_ros_message_to_dictionary(msg,True)
+            try:
+                result = DictUtils.doCleanup(result)
+            except Exception as e:
+                print("⚠️ Utils.msg_to_dict(" + str(msg) + "): " + str(e))
+
+            if not (type(result) is dict) and not (type(result) is OrderedDict):
+                return {"value": result}
+            else:
+                return result
+
+        except Exception as e:
+            print("⚠️ Utils.msg_to_dict(" + str(msg) + "): " + str(e))
+            print(traceback.format_exc())
+            return {"msg_to_dict.ee": str(e)}
+
+    @staticmethod
+    def msg_to_json_text(msg, is_full: bool = False):
+        if msg is None:
+            return "null"
+
+        try:
+            result = Utils.msg_to_dict(msg, is_full)
+
+            return Utils.asJsonStr(result)
+        except Exception as e:
+            print("⚠️ Utils.msg_to_json_text(" + str(type(msg)) + "): " + str(e))
+
+            result = {"msg_to_json_text.ee": str(e)}
+            return Utils.asJsonStr(result)
+
+    @staticmethod
+    def getIdSuffix(id):
+        return "" if (id is None) or (id == "") else (str(id) + "/")
 
 
-def extendDict(modifyThis: dict[str, Any], withThis: dict[str, Any] | None) -> None:
-    if (withThis is None) or (len(withThis) == 0):
-        return
-
-    for key, newValue in withThis.items():
-        oldValue = modifyThis.get(key, None)
-
-        if newValue == oldValue:
-            pass
-        elif oldValue is None:
-            modifyThis[key] = newValue
-        elif isinstance(oldValue, list):
-            modifyThis[key].extend(newValue)
+class PrettyText:
+    @staticmethod
+    def asPrintableAscii(charCode: int) -> str:
+        if (charCode < 32) or (charCode > 126):
+            return f"\\x{charCode:02x}"
         else:
-            modifyThis[key] = [oldValue, newValue]
+            return chr(charCode)
 
-
-def asPrintableAscii(charCode: int) -> str:
-    if (charCode < 32) or (charCode > 126):
-        return f"\\x{charCode:02x}"
-    else:
-        return chr(charCode)
-
-
-def aOrAn(item: str) -> str:
-    if item is not None and len(item) > 0 and item[0].lower() in "aeiou":
-        # If the first letter is a vowel, return "an"
-        return "an"
-    else:
-        return "a"
-
-
-def withAOrAn(item: str) -> str:
-    return f"{aOrAn(item)} {item}"
-
-
-def pluralize(count: int, singular: str, plural: str | None = None):
-    if plural is None:
-        if singular.endswith("y"):
-            plural = singular.removesuffix("y") + "ies"
-        elif (singular.endswith("s")) or (singular.endswith("x")):
-            plural = singular + "es"
+    @staticmethod
+    def aOrAn(item: str) -> str:
+        if item is not None and len(item) > 0 and item[0].lower() in "aeiou":
+            # If the first letter is a vowel, return "an"
+            return "an"
         else:
-            plural = singular + "s"
-    return f"{count} {singular}" if count == 1 else f"{count} {plural}"
+            return "a"
+
+    @staticmethod
+    def withAOrAn(item: str) -> str:
+        return f"{PrettyText.aOrAn(item)} {item}"
+
+    @staticmethod
+    def pluralize(count: int, singular: str, plural: str | None = None):
+        if plural is None:
+            if singular.endswith("y"):
+                plural = singular.removesuffix("y") + "ies"
+            elif (singular.endswith("s")) or (singular.endswith("x")):
+                plural = singular + "es"
+            else:
+                plural = singular + "s"
+        return f"{count} {singular}" if count == 1 else f"{count} {plural}"
 
 
-def entry_get(
-    obj_in: dict[str, Any] | list[Any] | None,
-    keys: str | list[str],
-    defaultIfNotFound: Any = None,
-) -> Any | None:
-    if obj_in is None:
-        return defaultIfNotFound
-    iterateList = keys.split("/") if isinstance(keys, str) else keys.copy()
-    obj: Any | None = obj_in
-    for k in iterateList:
-        if isinstance(obj, dict) and k in obj:
-            obj = obj[k]
-        elif isinstance(obj, list) and k.isdigit() and (0 <= int(k) < len(obj)):
-            obj = obj[int(k)]
-        else:
+class DictUtils:
+
+    @staticmethod
+    def extend(modifyThis: dict[str, Any], withThis: dict[str, Any] | None) -> None:
+        if (withThis is None) or (len(withThis) == 0):
+            return
+
+        for key, newValue in withThis.items():
+            oldValue = modifyThis.get(key, None)
+
+            if newValue == oldValue:
+                pass
+            elif oldValue is None:
+                modifyThis[key] = newValue
+            elif isinstance(oldValue, list):
+                modifyThis[key].extend(newValue)
+            else:
+                modifyThis[key] = [oldValue, newValue]
+
+    @staticmethod
+    def getFlattened(obj_in: dict[str, Any], sep: str = ".") -> dict[str, Any]:
+        """Flattens a nested dictionary into a single level dictionary with keys joined by sep"""
+        obj_out: dict[str, Any] = {}
+
+        def _recurse(o: dict[str, Any], prefix: str = ""):
+            for k, v in o.items():
+                if isinstance(v, dict):
+                    _recurse(v, f"{prefix}{k}{sep}")
+                elif isinstance(v, list) and all(isinstance(i, int) for i in v):
+                    last = None
+                    first = None
+                    txt_ranges = []
+                    for x in v + [
+                        None
+                    ]:  # Add a None at the end to flush the last range
+                        if last is None:
+                            first = x
+                            last = x
+                        elif x == last + 1:
+                            last = x
+                        else:
+                            if first == last:
+                                txt_ranges.append(f"{first}")
+                            else:
+                                txt_ranges.append(f"{first}-{last}")
+                            first = x
+                            last = x
+                    obj_out[f"{prefix}{k}"] = ",".join(txt_ranges)
+                else:
+                    obj_out[f"{prefix}{k}"] = v
+
+        _recurse(obj_in)
+        return obj_out
+
+    @staticmethod
+    def get(
+        obj_in: dict[str, Any] | list[Any] | None,
+        keys: str | list[str],
+        defaultIfNotFound: Any = None,
+        getDeepestFound: bool = False,
+    ) -> Any | None:
+        try:
+            if obj_in is None:
+                return defaultIfNotFound
+            iterateList = keys.split("/") if isinstance(keys, str) else keys.copy()
+            obj: Any | None = obj_in
+            for k in iterateList:
+                if isinstance(obj, dict) and k in obj:
+                    obj = obj[k]
+                elif isinstance(obj, list) and k.isdigit() and (0 <= int(k) < len(obj)):
+                    obj = obj[int(k)]
+                else:
+                    return defaultIfNotFound if getDeepestFound == False else obj
+            return obj
+        except Exception as e:
+            sys.stderr.write(f"⚠️  DictUtils.get(): Exception {e}\n")
             return defaultIfNotFound
-    return obj
 
+    @staticmethod
+    def deleteIfFound(obj: dict[str, Any], keys: str | list[str]) -> bool:
+        iterateList = keys.split("/") if isinstance(keys, str) else keys.copy()
 
-def entry_getStrOrNone(obj: dict[str, Any] | None, key: str | list[str]) -> str | None:
-    value = entry_get(obj, key, None)
-    if value is None:
-        return None
-    else:
-        return str(value)
+        key_to_modify = iterateList.pop()
 
+        obj_to_modify = DictUtils.get(obj, iterateList)
 
-def entry_deleteIfFound(obj: dict[str, Any], keys: str | list[str]) -> bool:
-    iterateList = keys.split("/") if isinstance(keys, str) else keys.copy()
+        if isinstance(obj_to_modify, dict) and key_to_modify in obj_to_modify:
+            obj_to_modify.pop(key_to_modify, None)
+            return True
+        else:
+            return False
 
-    key_to_modify = iterateList.pop()
+    @staticmethod
+    def deleteIfIs(obj: dict[str, Any], keys: str | list[str], value: Any) -> bool:
+        iterateList = keys.split("/") if isinstance(keys, str) else keys.copy()
 
-    obj_to_modify = entry_get(obj, iterateList)
+        key_to_modify = iterateList.pop()
 
-    if isinstance(obj_to_modify, dict) and key_to_modify in obj_to_modify:
-        obj_to_modify.pop(key_to_modify, None)
-        return True
-    else:
-        return False
+        obj_to_modify = DictUtils.get(obj, iterateList)
 
+        if (
+            isinstance(obj_to_modify, dict)
+            and key_to_modify in obj_to_modify
+            and obj_to_modify[key_to_modify] == value
+        ):
+            obj_to_modify.pop(key_to_modify, None)
+            return True
+        else:
+            return False
 
-def entry_deleteIfIs(obj: dict[str, Any], keys: str | list[str], value: Any) -> bool:
-    iterateList = keys.split("/") if isinstance(keys, str) else keys.copy()
+    @staticmethod
+    def set(obj: dict[str, Any], key: str | list[str], value: Any) -> bool:
+        iterateList = []
+        if isinstance(key, str):
+            iterateList = key.split("/")
+        else:
+            iterateList = key.copy()
 
-    key_to_modify = iterateList.pop()
+        key = iterateList.pop()
 
-    obj_to_modify = entry_get(obj, iterateList)
+        for k in iterateList:
+            if not isinstance(obj, dict):
+                sys.stderr.write(
+                    f"⚠️  DictUtils.set(a): Expected dict, but got {type(obj)} for key '{key}' in {Utils.asJsonStr(obj)} - \n"
+                )
+                return False
 
-    if (
-        isinstance(obj_to_modify, dict)
-        and key_to_modify in obj_to_modify
-        and obj_to_modify[key_to_modify] == value
-    ):
-        obj_to_modify.pop(key_to_modify, None)
-        return True
-    else:
-        return False
+            if not (k in obj):
+                obj[k] = {}
+            if not isinstance(obj[k], dict):
+                sys.stderr.write(
+                    f"⚠️  DictUtils.set(b): Expected dict, but got {type(obj[k])} for key '{k}' in {Utils.asJsonStr(obj)} - \n"
+                )
+                obj[k] = {}
+            obj = obj[k]
 
-
-def entry_set(obj: dict[str, Any], key: str | list[str], value: Any) -> bool:
-    iterateList = []
-    if isinstance(key, str):
-        iterateList = key.split("/")
-    else:
-        iterateList = key.copy()
-
-    key = iterateList.pop()
-
-    for k in iterateList:
-        if not isinstance(obj, dict):
+        if isinstance(obj, dict):
+            obj[key] = value
+            return True
+        else:
             sys.stderr.write(
-                f"⚠️  entry_set(a): Expected dict, but got {type(obj)} for key '{key}' in {Utils.asJsonStr(obj)} - \n"
+                f"⚠️  DictUtils.set(c): Expected dict, but got {type(obj)} for key '{key}' in {Utils.asJsonStr(obj)} - \n"
             )
             return False
 
-        if not (k in obj):
-            obj[k] = {}
-        if not isinstance(obj[k], dict):
-            sys.stderr.write(
-                f"⚠️  entry_set(b): Expected dict, but got {type(obj[k])} for key '{k}' in {Utils.asJsonStr(obj)} - \n"
-            )
-            obj[k] = {}
-        obj = obj[k]
-
-    if isinstance(obj, dict):
-        obj[key] = value
-        return True
-    else:
-        sys.stderr.write(
-            f"⚠️  entry_set(b): Expected dict, but got {type(obj)} for key '{key}' in {Utils.asJsonStr(obj)} - \n"
-        )
-        return False
-
-
-def entry_getInt(
-    obj: dict[str, Any] | None, key: str | list[str], defaultValue: int
-) -> int:
-    result = entry_getIntOrNone(obj, key)
-    return defaultValue if (result is None) or (not isinstance(result, int)) else result
-
-
-def entry_getBool(
-    obj: dict[str, Any] | None, key: str | list[str], defaultValue: bool
-) -> bool:
-    result = entry_get(obj, key, None)
-    return (
-        defaultValue if (result is None) or (not isinstance(result, bool)) else result
-    )
-
-
-def entry_getBoolOrFalse(obj: dict[str, Any] | None, key: str | list[str]) -> bool:
-    return entry_getBool(obj, key, False)
-
-
-def entry_getIntOrNone(
-    obj: dict[str, Any] | None, key: str | list[str], defaultValue: int | None = None
-) -> int | None:
-    value = entry_get(obj, key, None)
-    if value is None:
-        return defaultValue
-    elif isinstance(value, int):
-        return value
-    elif isinstance(value, str):
+    @staticmethod
+    def getInt(
+        obj_in: dict[str, Any] | list[Any] | None,
+        keys: str | list[str],
+        defaultIfNotFound: int,
+    ) -> int:
         try:
-            return int(value)
-        except ValueError:
-            return defaultValue
-    else:
-        sys.stderr.write(
-            f"⚠️  getEntry_int(): Expected int or str, but got {type(value)} for key '{key}' in {Utils.asJsonStr(obj)}\n"
+            result = DictUtils.get(obj_in, keys, defaultIfNotFound)
+
+            if isinstance(result, int):
+                return result
+
+            sys.stderr.write(
+                f"⚠️  DictUtils.getInt(): Expected int but got {type(result)}:{result}.  Returning default {defaultIfNotFound}\n"
+            )
+        except Exception as e:
+            sys.stderr.write(f"⚠️  DictUtils.getInt(): Exception {e}\n")
+        return defaultIfNotFound
+
+    @staticmethod
+    def getBool(
+        obj: dict[str, Any] | None, key: str | list[str], defaultValue: bool
+    ) -> bool:
+        result = DictUtils.get(obj, key)
+        return (
+            defaultValue
+            if (result is None) or (not isinstance(result, bool))
+            else result
         )
-        return defaultValue
 
+    @staticmethod
+    def getBoolOrFalse(obj: dict[str, Any] | None, key: str | list[str]) -> bool:
+        return DictUtils.getBool(obj, key, False)
 
-def entry_getStr(obj: dict[str, Any], key: str | list[str], defaultValue: str) -> str:
-    value = entry_get(obj, key, None)
-    if value is None:
-        return defaultValue
-    else:
-        return str(value)
+    @staticmethod
+    def getIntOrNone(
+        obj: dict[str, Any] | None,
+        key: str | list[str],
+        defaultValue: int | None = None,
+    ) -> int | None:
+        value = DictUtils.get(obj, key, None)
+        if value is None:
+            return defaultValue
+        elif isinstance(value, int):
+            return value
+        elif isinstance(value, str):
+            try:
+                return int(value)
+            except ValueError:
+                return defaultValue
+        else:
+            sys.stderr.write(
+                f"⚠️  getIntOrNone(): Expected int or str, but got {type(value)} for key '{key}' in {Utils.asJsonStr(obj)}\n"
+            )
+            return defaultValue
+
+    @staticmethod
+    def getStr(obj: dict[str, Any], key: str | list[str], defaultValue: str) -> str:
+        value = DictUtils.get(obj, key)
+        if value is None:
+            return defaultValue
+        else:
+            return str(value)
+
+    @staticmethod
+    def getDict(
+        obj_in: dict[str, Any],
+        keys: str | list[str],
+        defaultIfNotFound: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        _defaultIfNotFound = defaultIfNotFound or {}
+        try:
+            result = DictUtils.get(obj_in, keys, _defaultIfNotFound)
+
+            if result is None:
+                return _defaultIfNotFound
+            elif isinstance(result, dict):
+                return result
+            else:
+                sys.stderr.write(
+                    f"⚠️  DictUtils.getDict(): Expected dict, but got {type(result)} for key '{keys}' in {Utils.asJsonStr(obj_in)}\n"
+                )
+                return _defaultIfNotFound
+        except Exception as e:
+            sys.stderr.write(f"⚠️  DictUtils.getDict(): Exception {e}\n")
+            return _defaultIfNotFound
+
+    @staticmethod
+    def getStrOrNone(obj: dict[str, Any] | None, key: str | list[str]) -> str | None:
+        value = DictUtils.get(obj, key, None)
+        if value is None:
+            return None
+        else:
+            return str(value)
+
+    @staticmethod
+    def dict_diff(contents_old, contents_new):
+        # This can be removed for a release version - it is to make our lives easier for diagnostics
+        try:
+
+            if contents_old == contents_new:
+                return None
+
+            if contents_old is None:
+                return "new:" + Utils.asJsonStr(contents_new)
+            if contents_new is None:
+                return "removed: " + Utils.asJsonStr(contents_old)
+
+            if type(contents_old) != type(contents_new):
+                return (
+                    Utils.asJsonStr(contents_old)
+                    + " types:-> "
+                    + Utils.asJsonStr(contents_new)
+                )
+
+            if (type(contents_old) is not dict) and (
+                type(contents_old) is not OrderedDict
+            ):
+                return (
+                    Utils.asJsonStr(contents_old)
+                    + " -> "
+                    + Utils.asJsonStr(contents_new)
+                )
+
+            result = dict()
+
+            for key in list(contents_old.keys()):
+                try:
+                    diff = DictUtils.dict_diff(
+                        contents_old.get(key, None), contents_new.get(key, None)
+                    )
+                    if diff is not None:
+                        result[key] = diff
+                except Exception as e:
+                    result[key] = "⚠️ Utils.dict_diff(" + key + ").a: " + str(e)
+
+            for key in list(contents_new.keys()):
+                try:
+                    if key not in contents_old:
+                        result[key] = "New: " + Utils.asJsonStr(contents_new[key])
+                except Exception as e:
+                    result[key] = "⚠️ Utils.dict_diff(" + key + ").b: " + str(e)
+
+            if len(result) == 0:
+                return None
+            else:
+                return result
+        except Exception as e:
+            return "⚠️ " + str(e)
+
+    @staticmethod
+    def doCleanup(contents):
+        # This can be removed for a release version - it is to make our lives easier for diagnostics
+        if (contents is not None) and (
+            (type(contents) is dict) or (type(contents) is OrderedDict)
+        ):
+            try:
+                for key in list(contents.keys()):
+                    try:
+                        value = contents[key]
+                        valueAsText: str | None = str(value)
+                        try:
+                            if type(value) in [
+                                bytes,
+                                bytearray,
+                                list,
+                                tuple,
+                                array.array,
+                                np.ndarray,
+                            ]:
+                                # |x| print(f"ℹ️ DictUtils.doCleanup[{key}] = Type {type(value)}: a   ")
+                                if len(value) > 0:
+                                    # |x| print(f"ℹ️ DictUtils.doCleanup[{key}] = Type {type(value)}: ab    {type(value[0])}")
+
+                                    if isinstance(value[0], int) or isinstance(
+                                        value[0], np.integer
+                                    ):  # |x| or isinstance(value[0],np.uint8):
+                                        # |x| print(f"ℹ️ DictUtils.doCleanup[{key}] = Type {type(value)}: abc   ")
+                                        valueAsText = (
+                                            bytes(value)
+                                            .decode("utf-8", errors="replace")
+                                            .rstrip("\x00")
+                                        )
+                        except Exception as e:
+                            print(
+                                f"⚠️ BytesConversionFailure(Type {type(value)}): {value} = {e}"
+                            )
+                            valueAsText = None
+
+                        # |x| print(f"ℹ️ DictUtils.doCleanup[{key}] = Type {type(value)}: {value} = {valueAsText}")
+
+                        # |Logging| print("!!! DictUtils.doCleanup(" + key + "): " + str(value))
+                        if key.startswith("diag_json_") and (valueAsText is not None):
+                            # |Logging| print("!! Interpreting diag_json: " + key + " = " + value)
+                            if (valueAsText != "") and (valueAsText != "null"):
+                                contents["diag_" + key.removeprefix("diag_json_")] = (
+                                    Utils.json_loads(valueAsText)
+                                )
+                            del contents[key]
+                        elif (key == "json") and (valueAsText is not None):
+                            if (valueAsText != "") and (valueAsText != "null"):
+                                contents["json_obj"] = Utils.json_loads(valueAsText)
+                            del contents[key]
+                        elif (type(value) is dict) or (type(value) is OrderedDict):
+                            contents[key] = DictUtils.doCleanup(value)
+                        elif key == "device_state":
+                            contents[key + "_text"] = DeviceStateEnum.asText(value)
+                            del contents[key]
+                        elif (
+                            key.endswith("_error_msg") or key.endswith("_err_msg")
+                        ) and (valueAsText == ""):
+                            del contents[key]
+
+                    except Exception as e:
+                        sys.stderr.write(f"⚠️ DictUtils.doCleanup({key}): {e}\n")
+            except Exception as e:
+                sys.stderr.write(f"⚠️ DictUtils.doCleanup({contents}): {e}\n")
+        # |x| print(f"ℹ️ DictUtils.doCleanup[{__file__}] -> {contents}")
+
+        return contents
 
 
 def strToInt(value: str, defaultValue: int, context: str | None = None) -> int:
@@ -508,3 +841,67 @@ def timestampObj_from_ns(ns: int) -> dict[str, Any] | None:
         "ns": ns,
         "text": formatted,
     }
+
+
+first_ns: int | None = None
+
+
+class LineNumber:
+    def __str__(self):
+        x = inspect.currentframe()
+        if (x is None) or (x.f_back is None):
+            return "?"
+        else:
+            return str(x.f_back.f_lineno)
+
+
+__line__ = LineNumber()
+
+
+class DeviceStateEnum:
+    DEVICE_STATE_OFF = 0
+    DEVICE_STATE_ENABLED = 1
+    DEVICE_STATE_ENABLE_FAILED = 2
+    DEVICE_STATE_ACTIVE_RUNNING = 3
+
+    @staticmethod
+    def asText(state):
+        txt = ""
+        if state == DeviceStateEnum.DEVICE_STATE_OFF:
+            txt = "OFF"
+        elif state == DeviceStateEnum.DEVICE_STATE_ENABLED:
+            txt = "ENABLED"
+        elif state == DeviceStateEnum.DEVICE_STATE_ENABLE_FAILED:
+            txt = "❌ ENABLE_FAILED"
+        elif state == DeviceStateEnum.DEVICE_STATE_ACTIVE_RUNNING:
+            txt = "ACTIVE_RUNNING"
+        else:
+            txt = "❌ UNKNOWN"
+
+        return txt + " (" + str(state) + ")"
+
+
+def diff_from_start_ns(time_ns: int):
+    global first_ns
+
+    time_ns = time.monotonic_ns()
+    if first_ns is None:
+        first_ns = time_ns
+        return "0 ms [Start]"
+    else:
+        diff_ms = (time_ns - first_ns) / 1_000_000  # Convert to milliseconds
+        return f"{diff_ms:.1f} msᵀ"  # ᵀ marker indicates a warning - assuming time is synced perfectly between the spacecraft and this system
+
+
+def logTimed(msg: str):
+    """
+    Log a message with a timestamp.
+    """
+    print(f"{diff_from_start_ns(time.monotonic_ns())} ms : {msg}")
+
+
+def time_ns_toText(ns: int):
+    now_ns = time.monotonic_ns()
+    diff_from_start_ns(now_ns)
+
+    return f"{diff_from_start_ns(ns)} ago"

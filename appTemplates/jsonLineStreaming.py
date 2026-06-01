@@ -239,7 +239,7 @@ class JsonLineStreamingApp:
 
             if sentCount > 0:
                 appLog.print_info(
-                    f"Sent to {simpleUtils.pluralize(sentCount, 'connection')}"
+                    f"Sent to {simpleUtils.PrettyText.pluralize(sentCount, 'connection')}"
                 )
             else:
                 appLog.print_warning("Not sent to any connections")

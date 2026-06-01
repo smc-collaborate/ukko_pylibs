@@ -14,6 +14,7 @@ if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 from ukko_pylibs.basic.simpleUtils import Utils as Utils
+from ukko_pylibs.basic.simpleUtils import DictUtils as DictUtils
 import ukko_pylibs.basic.simpleUtils as simpleUtils
 from ukko_pylibs.basic.class_HandledException import (
     HandledException as HandledException,
@@ -248,14 +249,14 @@ class ITransferableData:
 
     def appendWarnings(self, warningsList: list | None) -> None:
         if warningsList is not None and len(warningsList) > 0:
-            simpleUtils.extendDict(self.dict_annotations, {"warnings": warningsList})
+            DictUtils.extend(self.dict_annotations, {"warnings": warningsList})
 
     def appendErrors(self, errorsList: list | None) -> None:
         if errorsList is not None and len(errorsList) > 0:
-            simpleUtils.extendDict(self.dict_annotations, {"errors": errorsList})
+            DictUtils.extend(self.dict_annotations, {"errors": errorsList})
 
     def appendAnnotations(self, extraValues: dict[str, Any] | None) -> None:
-        simpleUtils.extendDict(self.dict_annotations, extraValues)
+        DictUtils.extend(self.dict_annotations, extraValues)
 
     def changeAnnotation(
         self, key: str, newValueOrNone: Any = None
@@ -473,7 +474,7 @@ class ITransferableData:
 
         result["included"] = True
         result["numBytes"] = len(self.bitstream_data)
-        result["ext"] = simpleUtils.entry_get(
+        result["ext"] = DictUtils.get(
             self.getAttrOrNone("customFormatDefinition"),
             "suggested_file_ext_raw",
             ".raw",
