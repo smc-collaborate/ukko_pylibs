@@ -532,9 +532,10 @@ def reviewParams(
                     actionOwner.dumpVersion()
                     doHalt("Version Info - Exiting", suggestSilent=True)
                     sys.exit()
-            elif arg_cleaned == "--verbose":
-                appLog.setVerbosity(True)
             else:
+                if arg_cleaned == "--verbose":
+                    appLog.setVerbosity(True)
+
                 argMatched = False
                 for spec in options_in:
                     _name: str = spec.name()
@@ -1171,10 +1172,7 @@ def doHalt(msg: str | None = None, suggestSilent: bool = False):
     global g_appIsRunning
     if g_appIsRunning:
         g_appIsRunning = False
-        appLog.print_infoOrVerbose(
-            f"?? Halting {'' if msg is None else (' -- '+msg)}",
-            isInfo=not suggestSilent and msg is not None,
-        )
+        appLog.print_verbose(f"Halting {'' if msg is None else (' -- '+msg)}")
     else:
         appLog.print_verbose(f"Confirm Halted {'' if msg is None else (' -- '+msg)}")
 

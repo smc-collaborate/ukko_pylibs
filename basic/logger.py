@@ -51,6 +51,7 @@ class SimpleLogger:
         self.infoCount = 0
         self.warningCount = 0
         self.errorCount = 0
+        self.printThreshold = -1  # < To trigger a 'change event'
         self.setVerbosity(self.VERBOSITY_INFO)
 
     def amPrinting(self, level: int):
@@ -61,7 +62,7 @@ class SimpleLogger:
     amPrintingAll = lambda self: self.amPrinting(self.VERBOSITY_ALL)
 
     def setVerbosity(self, setValue: bool | int) -> int:
-
+        oldThreshold = self.printThreshold
         if isinstance(setValue, bool):
             self.printThreshold = (
                 self.VERBOSITY_ALL if setValue else self.VERBOSITY_INFO
@@ -69,7 +70,10 @@ class SimpleLogger:
         else:
             self.printThreshold = setValue
 
-        if self.onVerbosityThresholdChange is not None:
+        if (
+            oldThreshold != self.printThreshold
+            and self.onVerbosityThresholdChange is not None
+        ):
             try:
                 self.onVerbosityThresholdChange(self.printThreshold)
             except Exception:
