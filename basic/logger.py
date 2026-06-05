@@ -23,52 +23,52 @@ from ukko_pylibs.basic.simpleUtils import PrettyText
 
 
 class SimpleLogger:
-    def __init__(
-        self, name: str, onVerboseChange: Callable[[bool], None] | None = None
-    ):
-        self.name = name
-        self.lastErrorMsg: str | None = None
-        self.onVerboseChange = onVerboseChange
-        self.isVerbose(False)
 
-    def isVerbose(self, setValue: bool | None = None):
-        if setValue is not None:
-            self.isVerbose_ = setValue
-            if self.onVerboseChange is not None:
-                try:
-                    self.onVerboseChange(setValue)
-                except Exception:
-                    pass  # < Swallow any exceptions from the callback to avoid interfering with the main app
-        return self.isVerbose_
+    VERBOSITY_ERRORS_ONLY = 0
+    VERBOSITY_WARNINGS = 1
+    VERBOSITY_INFO = 2
+    VERBOSITY_INFO_VERBOSE = 3
+    VERBOSITY_TEDIOUS_DETAIL = 4
+    VERBOSITY_MAX = 4
 
-    def print_info(self, message: Any | None):
-        self._prefix_print(message, icon="ℹ️")
+    def _getLevelIconAndPrefix(self, level: int) -> Tuple[str, str]:
+        if level == self.VERBOSITY_ERRORS_ONLY:
+            return "❌", "Error"
+        elif level == self.VERBOSITY_WARNINGS:
+            return "⚠️", "Warning"
+        elif level == self.VERBOSITY_INFO:
+            return "ℹ️", "Info"
+        elif level == self.VERBOSITY_INFO_VERBOSE:
+            return "Ⓜ️", "Verbose"
+        elif level == self.VERBOSITY_TEDIOUS_DETAIL:
+            return "🔍", "Detailed"
+        else:
+            return "❓", f"[Level {level}]"
 
-    def print_warning(self, message: Any | None):
-        self._prefix_print(message, icon="⚠️")
+    def amPrinting(self, level: int):
+        return level <= self.printThreshold
 
-    def print_verbose(self, message: Any | None):
-        if self.isVerbose():
-            self._prefix_print(message, icon="Ⓜ️")
-
-    @staticmethod
-    def asPrintable(message: Any | None) -> str:
-        if message is None:
-            return ""
-        if isinstance(message, list) or isinstance(message, tuple):
-            return "\n".join([SimpleLogger.asPrintable(m) for m in message])
-        return str(message)
-
-    def _prefix_print(
+    def doPrintEntry(
         self,
-        msg: Any | None,
-        icon: str = "ℹ️",
+        level: int,
+        message: Any | None,
         noPrefix: bool = False,
         dest: TextIO | None = None,
-    ):
-        msg_text = self.asPrintable(msg)
+    ) -> bool:
+
+        if message is None or not self.amPrinting(level):
+            return False
+
+        iconPrefix, txtPrefix = self._getLevelIconAndPrefix(level)
+
+        self.kindCounts[txtPrefix] = self.kindCounts.get(txtPrefix, 0) + 1
+
+        if noPrefix:
+            txtPrefix = ""
+
+        msg_text = self.asPrintable(message)
         if msg_text == "":
-            return
+            return False
 
         if dest is None:
             textOut = sys.stderr
@@ -76,9 +76,12 @@ class SimpleLogger:
             textOut = dest
 
         lines = msg_text.split("\n")
-        topLine = lines.pop(0).strip().removeprefix(icon).strip()
+        topLine = lines.pop(0).strip().removeprefix(iconPrefix).strip()
 
-        prefix = icon
+        prefix = iconPrefix
+        if iconPrefix != "" and txtPrefix != "":
+            prefix += "  "
+        prefix += txtPrefix
         bar = " "
         if not noPrefix and self.name != "":
             if prefix != "":
@@ -87,29 +90,104 @@ class SimpleLogger:
             bar = " | "
 
         textOut.write(f"{prefix}{bar}{topLine}\n")
-        padding = " " * UniLen_approx(prefix)
+        padding = " " * PrettyText.UniLen_approx(prefix)
         for line in lines:
             textOut.write(f"{padding}{bar}{line}\n")
 
+        return True
+
+    def __init__(
+        self, name: str, onVerbosityThresholdChange: Callable[[int], None] | None = None
+    ):
+        self.name = name
+        self.lastErrorMsg: str | None = None
+        self.onVerbosityThresholdChange = onVerbosityThresholdChange
+        self.kindCounts = {}
+        self.printThreshold = self.VERBOSITY_WARNINGS
+
+        # Ensures we get the detailed logging during parameter review
+        for x in sys.argv[1:]:
+            if x == "--":
+                break
+            if x.startswith("--verbosity="):
+                self.setVerbosity(x.split("=", 1)[1], silentOnFailure=True)
+                break
+
+        # |x|sys.stderr.write(f"⚠️  self.printThreshold ={self.printThreshold}\n")
+
+    def setVerbosity(
+        self, setValue: bool | int | str, silentOnFailure: bool = False
+    ) -> int:
+        oldThreshold = self.printThreshold
+        # |x| sys.stderr.write(f"⚠️  setVerbosity({json.dumps(setValue)}): From {oldThreshold}\n")
+        if isinstance(setValue, bool):
+            self.printThreshold = (
+                self.VERBOSITY_INFO_VERBOSE if setValue else self.VERBOSITY_INFO
+            )
+        elif isinstance(setValue, str):
+            if setValue == "quiet":
+                self.printThreshold = self.VERBOSITY_WARNINGS
+            elif setValue == "info":
+                self.printThreshold = self.VERBOSITY_INFO
+            elif setValue == "verbose":
+                self.printThreshold = self.VERBOSITY_INFO_VERBOSE
+            elif setValue == "all":
+                self.printThreshold = self.VERBOSITY_TEDIOUS_DETAIL
+            elif not silentOnFailure:
+                sys.stderr.write(
+                    f"⚠️  setVerbosity({json.dumps(setValue)}): Invalid value\n"
+                )
+        if (
+            oldThreshold != self.printThreshold
+            and self.onVerbosityThresholdChange is not None
+        ):
+            try:
+                self.onVerbosityThresholdChange(self.printThreshold)
+            except Exception:
+                pass  # < Swallow any exceptions from the callback to avoid interfering with the main app
+        return self.printThreshold
+
+    def isVerbose(self):
+        return self.printThreshold >= self.VERBOSITY_INFO_VERBOSE
+
+    ##########
+    #
+    def print_infoOrVerbose(self, message: Any | None, isInfo: bool = True):
+        self.doPrintEntry(
+            self.VERBOSITY_INFO if isInfo else self.VERBOSITY_INFO_VERBOSE, message
+        )
+
+    def print_info(self, message: Any | None):
+        self.doPrintEntry(self.VERBOSITY_INFO, message)
+
+    def print_warning(self, message: Any | None):
+        self.doPrintEntry(self.VERBOSITY_WARNINGS, message)
+
+    def print_verbose(self, message: Any | None):
+        self.doPrintEntry(self.VERBOSITY_INFO_VERBOSE, message)
+
+    def print_tediousDetail(self, message: Any | None):
+        self.doPrintEntry(self.VERBOSITY_TEDIOUS_DETAIL, message)
+
     def print_error(
         self,
-        msg: str,
+        message: str,
         isFatal: bool = False,
         noPrefix: bool = False,
         dest: TextIO | None = None,
     ):
         """Print an error message to stderr with a prefix.  Avoids printing the same message multiple times.
-        :param msg: The error message to print
+        :param message: The error message to print
         :return: The length of the gap for the next line
         """
-        if self.lastErrorMsg == msg:
+        if self.lastErrorMsg == message:
             if isFatal:
                 exit(1)
-            return 0
+            return False
 
-        self.lastErrorMsg = msg
+        self.lastErrorMsg = message
 
-        msg = msg.strip().removeprefix("❌").strip()
+        msg = message.strip().removeprefix("❌").strip()
         prefix = "Error: "
         if msg.startswith("["):
             endPos = msg.find(":")
@@ -127,10 +205,18 @@ class SimpleLogger:
         elif msg.startswith("Error"):
             prefix = ""
 
-        self._prefix_print(msg, ("❌ " + prefix).strip(), noPrefix=noPrefix, dest=dest)
+        self.doPrintEntry(self.VERBOSITY_ERRORS_ONLY, msg, noPrefix=noPrefix, dest=dest)
 
         if isFatal:
             exit(1)
+
+    @staticmethod
+    def asPrintable(message: Any | None) -> str:
+        if message is None:
+            return ""
+        if isinstance(message, list) or isinstance(message, tuple):
+            return "\n".join([SimpleLogger.asPrintable(m) for m in message])
+        return str(message)
 
     def _print_exception_(
         self,
@@ -160,7 +246,7 @@ class SimpleLogger:
         if alwaysTraceback or self.isVerbose():
             txt += "\nTraceback:\n" + traceback.format_exc()
         else:
-            txt += "\n -- Use '--verbose' for more information"
+            txt += "\n -- Use '--verbosity=verbose' for more information"
 
         if isError:
             self.print_error(txt, isFatal=False)
@@ -172,7 +258,7 @@ class SimpleLogger:
     ):
         """
         :param e: The exception that occurred
-        :param action: Custo error message to display
+        :param action: Custom error message to display
         """
         self._print_exception_(True, e, action, alwaysTraceback)
 

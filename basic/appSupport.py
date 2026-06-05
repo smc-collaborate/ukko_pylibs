@@ -145,13 +145,22 @@ def exeInfo_isInstalled():
     return "PYAPP_INSTALL_SOURCE" in os.environ
 
 
-def logger_traditional_set(isVerbose: bool):
+def logger_traditional_set(loggLevel: int):
     import logging
 
-    logging.getLogger().setLevel(logging.DEBUG if isVerbose else logging.INFO)
+    if loggLevel == SimpleLogger.VERBOSITY_ERRORS_ONLY:
+        logging.getLogger().setLevel(logging.ERROR)
+    elif loggLevel == SimpleLogger.VERBOSITY_WARNINGS:
+        logging.getLogger().setLevel(logging.WARNING)
+    elif loggLevel == SimpleLogger.VERBOSITY_INFO:
+        logging.getLogger().setLevel(logging.INFO)
+    elif loggLevel == SimpleLogger.VERBOSITY_INFO_VERBOSE:
+        logging.getLogger().setLevel(logging.DEBUG)
+    elif loggLevel == SimpleLogger.VERBOSITY_TEDIOUS_DETAIL:
+        logging.getLogger().setLevel(logging.DEBUG - 1)
 
 
-appLog = SimpleLogger(getExeName(), onVerboseChange=logger_traditional_set)
+appLog = SimpleLogger(getExeName(), onVerbosityThresholdChange=logger_traditional_set)
 
 
 def isVerbose() -> bool:
