@@ -14,12 +14,9 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic.simpleUtils import Utils as Utils
-from ukko_pylibs.basic.simpleUtils import DictUtils as DictUtils
+from ukko_pylibs.basic.simpleUtils import Utils
+from ukko_pylibs.basic.simpleUtils import DictUtils
 import ukko_pylibs.basic.simpleUtils as simpleUtils
-from ukko_pylibs.basic.class_HandledException import (
-    HandledException as HandledException,
-)
 import ukko_pylibs.basic.appSupport as app
 from ukko_pylibs.basic.appSupport import appLog
 import ukko_pylibs.basic.fileUtils as fileUtils
@@ -769,7 +766,7 @@ def customFormat_get(
 
             result = CustomContentsFormatDefinition(definition)
         elif includeSpecialCases and (customFormatName == "image"):
-            samples_dir = os.path.abspath(f"{project_root_dir}/samples")
+            samples_dir = os.path.abspath(f"{app.getMainDir()}/samples")
             definition: dict[str, Any] = {
                 "note": "Special case for creating a raster image from a .png file",
                 "kind": "generic/image",
@@ -860,10 +857,6 @@ def customFormat_getBasicInfo(
     return result
 
 
-this_dir = os.path.abspath(f"{os.path.dirname(__file__)}")
-project_root_dir = os.path.abspath(f"{this_dir}/../")
-
-
 def getCustomFormat_fromFile(fname: str) -> CustomContentsFormatDefinition | None:
     jsonData = fileUtils.loadJsonDictFromFile(
         fname, "annotatedData Custom Format Definition", exceptionOnError=False
@@ -917,11 +910,13 @@ def _customFormatList_load() -> Tuple[
     ##################################################################
     # Step 1 - Generate list of 'dataFormats' directories to review
     #
-    pathMain = os.path.abspath(project_root_dir + "/dataFormats/")
+    appMainDir = app.getMainDir()
+    appMainParentDir = os.path.abspath(appMainDir + "/../")
+    pathMain = os.path.abspath(appMainDir + "/dataFormats/")
 
     paths: list[str] = [pathMain]
 
-    for f in os.scandir(project_root_dir + "/../"):
+    for f in os.scandir(appMainParentDir + "/../"):
         if f.path.split("/")[-1].startswith("annotatedData_ext-"):
             tryThis = os.path.abspath(f.path + "/dataFormats")
             if f.is_dir() and os.path.isdir(tryThis) and not (tryThis in paths):

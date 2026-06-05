@@ -101,6 +101,17 @@ def pathDisplay(pathName: str) -> str:
     return pathConvert(pathName, kind="friendly").removesuffix(os.sep)
 
 
+def getMainDir() -> str:
+
+    try:
+        import __main__
+
+        return os.path.abspath(__main__.__file__)
+    except Exception as e:
+        appLog.print_error_withException(e, f"getMainDir() ->defaulting to ~")
+        return os.path.expanduser("~")
+
+
 def pathConvert(pathName: str, kind: str = "friendly") -> str:
     """Converts a path to [abs, abs:friendly, rel, friendly, raw] format.  If conversion isn't available then returns the pathName given"""
 
