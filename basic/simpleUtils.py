@@ -174,8 +174,6 @@ class Utils:
                 try:
                     if isinstance(o, bytes):
                         return f"<{len(o)} bytes>"
-                    elif o.__class__.__name__ == "mappingproxy":
-                        return f"<Object[{o.__class__.__name__}]>"
                     elif o.__class__.__name__.startswith("numpy"):
                         import numpy as np
 
@@ -183,7 +181,18 @@ class Utils:
                     elif hasattr(o, "__dict__"):
                         return o.__dict__
                     else:
-                        return str(o)
+                        items = o.items()
+                        outResult = {}
+                        for k, v in items:
+                            outResult[f"{k}"] = f"{v}"
+                            if str(k) == "__doc__":
+                                _doc = str(v).strip()
+                                if _doc != "None" and _doc != "":
+                                    return f"<doc:{_doc.split()[0]}>"
+                        if o.__class__.__name__ == "mappingproxy":
+                            return outResult
+                        else:
+                            return str(o)
                 except Exception:
                     return f"<Object[{o.__class__.__name__}:{type(o)}]"
 
