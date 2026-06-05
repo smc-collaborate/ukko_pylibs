@@ -537,7 +537,7 @@ def reviewParams(
     args,
     options_in_: list,
     actionOwner=None,
-    limitedExtraParams: int | None = None,
+    limitedExtraParams: int | str | None = None,
     appValue_escapeArguments: bool = False,
 ):
     peekOnly = actionOwner is None
@@ -691,18 +691,20 @@ def reviewParams(
         f"AS LOADED: " + Utils.asJsonStr(options_chosen, indent=2)
     )
 
-    if not (limitedExtraParams is None):
+    if not peekOnly and not (limitedExtraParams is None):
         found_count = len(options_chosen.get("--", []))
-        if found_count != limitedExtraParams:
+        if isinstance(limitedExtraParams, str):
+            if found_count == 0:
+                error_exit(f"Expected {limitedExtraParams}")
+        elif found_count != limitedExtraParams:
             txt = (
                 "No additional parameters expected"
                 if (limitedExtraParams == 0)
                 else f"Expected {PrettyText.pluralize(limitedExtraParams, 'additional parameter')}"
             )
-            if not (peekOnly):
-                error_exit(
-                    f"{txt}, but provided with {found_count}: {','.join(remaining_args)}"
-                )
+            if found_count > 0:
+                txt += f"  {found_count}: {','.join(remaining_args)}"
+            error_exit(txt)
 
     appLog.print_tediousDetail(f"AS USED: " + Utils.asJsonStr(options_chosen, indent=2))
     appLog.print_tediousDetail(f"Remaining Arguments: {remaining_args}")
@@ -870,8 +872,11 @@ class Define:
                     param_info += f"[{_name}⁺] "
 
                 extra_msg = "Options marked with ⁺ may be passed directly, without the option name"
-        if extra_params is None:
-            param_info += "[param] .. [param]"
+
+        if isinstance(extra_params, str):
+            param_info += " -- " + extra_params
+        elif extra_params is None:
+            param_info += " [--] [param] .. [param]"
         elif extra_params > 0:
             param_info += " [--] [param] " * (extra_params)
 
