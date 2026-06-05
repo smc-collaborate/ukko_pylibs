@@ -1540,3 +1540,180 @@ def deprecationWarning(message: str):
         appLog.print_warning(
             f"Deprecation Warning: {message} (Also failed to get caller info: {e})"
         )
+
+
+CONFIG_DEFAULTS = {}
+CONFIG_LOADED = {}
+CONFIG_USED = CONFIG_LOADED.copy()
+
+
+def config_loadFromFile(configPath: str):
+    global CONFIG_LOADED
+    try:
+        with open(configPath, "r", encoding="utf-8") as f:
+            CONFIG_LOADED = json.load(f)
+    except Exception as e:
+        print(f"⚠️  Warning: Unable to load config file '{configPath}': {e}")
+        CONFIG_LOADED = {}
+
+
+def _recursive_merge(dict1: dict, dict2: dict) -> dict:
+    result = dict1.copy()
+    for key, value in dict2.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _recursive_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+def config_init(config_fname: str | None, defaults: dict[str, Any] | None = None):
+    global CONFIG_LOADED
+    global CONFIG_USED
+    global CONFIG_DEFAULTS
+
+    if defaults is not None:
+        CONFIG_DEFAULTS = defaults
+    if config_fname is not None:
+        config_loadFromFile(config_fname)
+
+    CONFIG_USED = _recursive_merge(CONFIG_DEFAULTS, CONFIG_LOADED)
+
+
+def config_get(key: str | list[str] = "") -> Any:
+    global CONFIG_USED
+    global CONFIG_DEFAULTS
+
+    if key == "":
+        return CONFIG_USED
+
+    result = DictUtils.get(CONFIG_USED, key, None)
+    if result is None:
+        appLog.print_error(
+            f"Config key '{key}' not found - nor found in CONFIG_DEFAULTS"
+        )
+    return result
+
+
+def setting_get_default(key: str) -> Any:
+    global CONFIG_DEFAULTS
+
+    result = DictUtils.get(CONFIG_DEFAULTS, "settings/" + key, "!!NOT_FOUND!!")
+
+    if result == "!!NOT_FOUND!!":
+        if not key.startswith("!"):
+            appLog.print_error(f"Default setting for key '{key}' not found")
+        result = None
+
+    return result
+
+
+def setting_set_int(
+    key: str, value: str | int, minValue: int | None = None, maxValue: int | None = None
+):
+
+    if not key.startswith("!"):
+
+        defaultValue = setting_get_default(key)
+
+        if (defaultValue is not None) and (not isinstance(defaultValue, int)):
+            appLog.print_error(
+                f"Default setting for key '{key}' is {defaultValue}: Not an integer"
+            )
+
+        if not isinstance(value, int):
+            try:
+                value = int(value)
+            except Exception as e:
+                appLog.print_warning(
+                    f"Setting[{key}]={value} is not an integer - Using default {defaultValue}"
+                )
+                return
+        if (minValue is not None) and (value < minValue):
+            appLog.print_warning(
+                f"Setting[{key}] : Clipping {value} to minimum {minValue}"
+            )
+            value = minValue
+
+        if (maxValue is not None) and (value > maxValue):
+            appLog.print_warning(
+                f"Setting[{key}] : Clipping {value} to maximum {maxValue}"
+            )
+            value = maxValue
+
+    global CONFIG_USED
+    CONFIG_USED["settings"][key] = value
+
+
+def setting_set_bool(key: str, value: str | bool):
+
+    defaultValue = setting_get_default(key)
+
+    if (defaultValue is not None) and (not isinstance(defaultValue, bool)):
+        appLog.print_warning(
+            f"Default setting for key '{key}' is {defaultValue}: Not boolean"
+        )
+
+    if not isinstance(value, bool):
+        try:
+            value = bool(value)
+        except Exception as e:
+            appLog.print_warning(
+                f"Setting[{key}]={value} is not a boolean - Using default {defaultValue}"
+            )
+            return
+
+    global CONFIG_USED
+    CONFIG_USED["settings"][key] = value
+
+
+def setting_get(key: str) -> Any:
+    global CONFIG_USED
+    global CONFIG_DEFAULTS
+
+    configKey = "settings/" + key
+    result = DictUtils.get(CONFIG_USED, configKey, None)
+    if key.startswith("!"):
+        return result
+
+    if result is None:
+        appLog.print_error(f"Setting '{key}' not found - nor found in CONFIG_DEFAULTS")
+    else:
+
+        defaultValue = setting_get_default(key)
+        expectedType = type(defaultValue)
+        if not isinstance(result, expectedType):
+            appLog.print_warning(
+                f"Type mismatch for setting '{key}': expected {expectedType}, got {type(result)}"
+            )
+
+    return result
+
+
+def setting_get_bool(key: str, defaultOnUtterFailure: bool = False) -> Any:
+    value = setting_get(key)
+
+    type_default = type(defaultOnUtterFailure)
+    if value is None:
+        return defaultOnUtterFailure  # < Error already noted
+    elif isinstance(value, type_default):
+        return value
+    else:
+        appLog.print_error(f"Setting[{key}] = {value} : Expected {type_default}")
+        return defaultOnUtterFailure
+
+
+def setting_get_int(key: str, defaultOnUtterFailure: int = 0) -> Any:
+
+    value = setting_get(key)
+
+    type_default = type(defaultOnUtterFailure)
+    if value is None:
+        return defaultOnUtterFailure  # < Error already noted
+    elif isinstance(value, type_default):
+        return value
+    elif not key.startswith("!"):
+        appLog.print_error(f"Setting[{key}] = {value} : Expected {type_default}")
+        return defaultOnUtterFailure
+    else:
+        return defaultOnUtterFailure
