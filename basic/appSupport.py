@@ -22,8 +22,11 @@ if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 from ukko_pylibs.basic import fileUtils
-from ukko_pylibs.basic import simpleUtils
-from ukko_pylibs.basic.simpleUtils import Utils as Utils
+from ukko_pylibs.basic.simpleUtils import Utils
+from ukko_pylibs.basic.simpleUtils import DictUtils
+from ukko_pylibs.basic.simpleUtils import PrettyText
+from ukko_pylibs.basic.simpleUtils import EscapeMgr
+
 from ukko_pylibs.basic.logger import SimpleLogger
 from ukko_pylibs.basic.class_HandledException import HandledException
 
@@ -43,7 +46,7 @@ def appInfo_get(
 ) -> Any | None:
     global g_appInfo
 
-    _value = simpleUtils.entry_get(g_appInfo, name)
+    _value = DictUtils.get(g_appInfo, name)
     if _value is not None:
         return _value
 
@@ -76,7 +79,7 @@ def appInfo_get(
             _value += " args: " + json.dumps(_args)
 
     if _value is not None:
-        simpleUtils.entry_set(g_appInfo, name, _value)
+        DictUtils.set(g_appInfo, name, _value)
 
     return valueIfNotFoundOrNone if (_value is None) else _value
 
@@ -84,7 +87,7 @@ def appInfo_get(
 def appInfo_set(name: str | list[str], value: Any):
     global g_appInfo
 
-    return simpleUtils.entry_set(g_appInfo, name, value)
+    return DictUtils.set(g_appInfo, name, value)
 
 
 def getExeName() -> str:
@@ -440,7 +443,7 @@ class ParamSpec:
                     return None
 
                 error_exit(
-                    f"Parameter {_name} expects {simpleUtils.withAOrAn( _type.__name__)} value -- but is {arg}"
+                    f"Parameter {_name} expects {PrettyText.withAOrAn( _type.__name__)} value -- but is {arg}"
                 )
         elif _type == float:
             try:

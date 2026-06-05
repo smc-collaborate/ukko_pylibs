@@ -17,10 +17,10 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-import ukko_pylibs.basic.simpleUtils as simpleUtils
-from ukko_pylibs.basic.class_HandledException import (
-    HandledException as HandledException,
-)
+from ukko_pylibs.basic.simpleUtils import DictUtils
+from ukko_pylibs.basic.class_HandledException import HandledException
+
+
 from ukko_pylibs.imageProcessing.class_PixelFormatData import (
     PIXEL_FORMATS,
     PixelFormatData,
@@ -44,10 +44,10 @@ class ShuffleLookup:
 
         if isinstance(formattingOptions, int):
             formattingOptions = {"count": formattingOptions}
-        bitsource_in = simpleUtils.entry_get(formattingOptions, "bit_source", None)
+        bitsource_in = DictUtils.get(formattingOptions, "bit_source", None)
         if isinstance(bitsource_in, list) and len(bitsource_in) > 0:
             appLog.print_verbose(f"Shuffling : {formattingOptions} ...")
-            self.count = simpleUtils.entry_getInt(
+            self.count = DictUtils.getInt(
                 formattingOptions, "count", 1 << len(bitsource_in)
             )
             appLog.print_info(f"-> Count: {self.count}")
@@ -75,9 +75,7 @@ class ShuffleLookup:
         else:
             appLog.print_verbose(f"Skip: Shuffling : {formattingOptions} ...")
             self.lookup = None
-            self.count = simpleUtils.entry_getInt(
-                formattingOptions, "count", nominalCount
-            )
+            self.count = DictUtils.getInt(formattingOptions, "count", nominalCount)
 
     @staticmethod
     def bit_exchange(value: int, bitlookup: list[int]) -> int:
@@ -186,10 +184,10 @@ class RawImg:
 
         appLog.print_verbose(f"Applying formatting extras: {self.formattingExtras}")
         col_conversion = ShuffleLookup(
-            self.width, simpleUtils.entry_get(self.formattingExtras, "conversion/cols")
+            self.width, DictUtils.get(self.formattingExtras, "conversion/cols")
         )
         row_conversion = ShuffleLookup(
-            self.height, simpleUtils.entry_get(self.formattingExtras, "conversion/rows")
+            self.height, DictUtils.get(self.formattingExtras, "conversion/rows")
         )
 
         width_in = col_conversion.count
@@ -238,7 +236,7 @@ class RawImg:
     def conversionEntry_asTextSuffix(_conversion: dict[str, Any] | None) -> str:
         if _conversion is None:
             return ""
-        conversion_txt = f"{simpleUtils.flattenObj(_conversion)}"
+        conversion_txt = f"{DictUtils.getFlattened(_conversion)}"
         conversion_txt = (
             conversion_txt.replace(" ", "")
             .replace("'", "")

@@ -15,8 +15,7 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic import simpleUtils
-from ukko_pylibs.basic.simpleUtils import Utils as Utils
+from ukko_pylibs.basic.simpleUtils import PrettyText
 import ukko_pylibs.basic.appSupport as app
 from ukko_pylibs.basic.class_HandledException import HandledException
 
@@ -211,7 +210,7 @@ def exportToFile_orHandledException(
         if (outputFilename == "-") or (outputFilename == "/dev/stdin"):
             outputFilename = "/dev/stdout"
         app.appLog.print_verbose(
-            f"Exporting {format:<4} to {outputFilename} ({'None' if (fileContents is None) else simpleUtils.pluralize(len(fileContents), 'byte')})"
+            f"Exporting {format:<4} to {outputFilename} ({'None' if (fileContents is None) else PrettyText.pluralize(len(fileContents), 'byte')})"
         )
 
         if outputFilename == "/dev/null":

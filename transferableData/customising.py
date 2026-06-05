@@ -15,6 +15,7 @@ if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 from ukko_pylibs.basic.simpleUtils import Utils as Utils
+from ukko_pylibs.basic.simpleUtils import DictUtils as DictUtils
 import ukko_pylibs.basic.simpleUtils as simpleUtils
 from ukko_pylibs.basic.class_HandledException import (
     HandledException as HandledException,
@@ -85,19 +86,19 @@ class CustomisedContents:
         return self.isValid()
 
     def getAttribute(self, attrName: str, defaultValueOrNone: Any = None) -> Any:
-        result = simpleUtils.entry_get(self.attributes, attrName, defaultValueOrNone)
+        result = DictUtils.get(self.attributes, attrName, defaultValueOrNone)
         if result is None:
             appLog.print_warning(f"Missing attribute '{attrName}' in {self.name}")
         return result
 
     def getAttribute_int(self, attrName: str, defaultValue: int) -> int:
-        return simpleUtils.entry_getInt(self.attributes, attrName, defaultValue)
+        return DictUtils.getInt(self.attributes, attrName, defaultValue)
 
     def getAttribute_intOrNone(self, attrName: str) -> int | None:
-        return simpleUtils.entry_getIntOrNone(self.attributes, attrName)
+        return DictUtils.getIntOrNone(self.attributes, attrName)
 
     def getAttribute_str(self, attrName: str, defaultValue: str) -> str:
-        return simpleUtils.entry_getStr(self.attributes, attrName, defaultValue)
+        return DictUtils.getStr(self.attributes, attrName, defaultValue)
 
     ################################
     #
@@ -376,7 +377,7 @@ class DataHeaderFormat:
                             or not isinstance(result, parse.Result)
                             or (not result.named)
                         ):
-                            simpleUtils.entry_set(
+                            DictUtils.set(
                                 funcResult["value"],
                                 entry_attr + ".error",
                                 {
@@ -388,7 +389,7 @@ class DataHeaderFormat:
                             )
                         else:
                             if appLog.isVerbose():
-                                simpleUtils.entry_set(
+                                DictUtils.set(
                                     funcResult["value"],
                                     entry_attr + ".note",
                                     {
@@ -410,11 +411,9 @@ class DataHeaderFormat:
                                         value = int(value)
                                     except:  # ValueError:
                                         pass
-                                simpleUtils.entry_set(
-                                    funcResult["value"], nameOut, value
-                                )
+                                DictUtils.set(funcResult["value"], nameOut, value)
                                 # resultOut[nameOut]=value
-                            # simpleUtils.entry_set(theHeaderValues, entry_attr+".result",resultOut)
+                            # DictUtils.set(theHeaderValues, entry_attr+".result",resultOut)
                         # entry_value = entry_value.strip("\x00").strip(" \r\n\t")
                         entry_skip = True
                     elif code == "text[lines]":
@@ -423,7 +422,7 @@ class DataHeaderFormat:
                         entry_value = entry_value.strip("\x00").strip(" \r\n\t")
                 elif code.startswith("type:"):
                     typesLookupName = code.removeprefix("type:")
-                    conversion = simpleUtils.entry_get(defLookup, typesLookupName, None)
+                    conversion = DictUtils.get(defLookup, typesLookupName, None)
                     if conversion is None:
                         return {
                             "errmsg": f"Unknown type '{typesLookupName}' in conversion definition for {entry_attr}"
@@ -501,7 +500,7 @@ class DataHeaderFormat:
                     entry_skip = True
 
                 if not entry_skip:
-                    simpleUtils.entry_set(funcResult["value"], entry_attr, entry_value)
+                    DictUtils.set(funcResult["value"], entry_attr, entry_value)
                 if entry_printSuffix is not None:
                     if entry_numBytes == 0:
                         txtSuffix = ""
@@ -539,7 +538,7 @@ class DataHeaderFormat:
         appLog.print_verbose(f"Loading header  ({self.name()}) ")
 
         theHeaderValues[".format"] = self.overallFormatDefinition
-        simpleUtils.entry_set(theHeaderValues, ".header/name", self.name())
+        DictUtils.set(theHeaderValues, ".header/name", self.name())
 
         headerDataConversion = self.HEADER_INFO.get("HEADER_DATA_CONVERSION", []).copy()
         headerDataConversion.insert(
@@ -563,11 +562,11 @@ class DataHeaderFormat:
         pos = rawDataStream.tell()
         theHeaderValues.update(converted.get("value", {}))
 
-        simpleUtils.entry_set(theHeaderValues, ".header/numBytes", rawDataStream.tell())
-        if simpleUtils.entry_get(
+        DictUtils.set(theHeaderValues, ".header/numBytes", rawDataStream.tell())
+        if DictUtils.get(
             theHeaderValues, "annotations/fileFormat"
         ) is not None or not self.HEADER_INFO.get("isDefaultHeaderFormat", False):
-            simpleUtils.entry_set(
+            DictUtils.set(
                 theHeaderValues, "annotations/fileFormat/headerKind", self.name()
             )
 
@@ -585,11 +584,9 @@ class DataHeaderFormat:
             value = result.get("value", {})
             if (value is not None) and isinstance(value, dict):
                 for xx in value.keys():
-                    simpleUtils.entry_set(
-                        theHeaderValues, "annotations/" + xx, value[xx]
-                    )
+                    DictUtils.set(theHeaderValues, "annotations/" + xx, value[xx])
             else:
-                simpleUtils.entry_set(theHeaderValues, "annotations/contents", value)
+                DictUtils.set(theHeaderValues, "annotations/contents", value)
 
         ############################################
         # Done
@@ -610,9 +607,7 @@ class CustomContentsFormatDefinition:
 
     def includes(self, what: str) -> bool:
         defaultValue = self.KIND.split("/")[-1] == what
-        return simpleUtils.entry_getBool(
-            self.definitions, "includes/" + what, defaultValue
-        )
+        return DictUtils.getBool(self.definitions, "includes/" + what, defaultValue)
 
     def supportsImage(self) -> bool:
         return self.includes("image")
@@ -620,7 +615,7 @@ class CustomContentsFormatDefinition:
     def definition(
         self, name: str | list[str], defaultValue: Any | None = None
     ) -> Any | None:
-        return simpleUtils.entry_get(self.definitions, name, defaultValue)
+        return DictUtils.get(self.definitions, name, defaultValue)
 
     def getSummary(self) -> dict[str, Any]:
         result: dict[str, Any] = {}

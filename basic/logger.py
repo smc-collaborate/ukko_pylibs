@@ -1,7 +1,8 @@
 import errno
+import json
 import sys
 import traceback
-from typing import Any, Callable, TextIO
+from typing import Any, Callable, TextIO, Tuple
 import os
 
 
@@ -14,22 +15,11 @@ if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 from ukko_pylibs.basic.class_HandledException import HandledException
-from ukko_pylibs.basic.simpleUtils import Utils as Utils
+from ukko_pylibs.basic.simpleUtils import Utils
+from ukko_pylibs.basic.simpleUtils import PrettyText
 
 #
 ################################################################################
-
-
-def UniLen_approx(s: str) -> int:
-    # A simple approximation of the display width of a string, treating wide characters as 2 and narrow as 1
-    # This is not perfect but should work reasonably well for most cases
-    width = 0
-    for ch in s:
-        if ch in ["🔒", "❌", "✅", "⚠️", "ℹ️", "❓", "⭐"]:
-            width += 2
-        else:
-            width += 1
-    return width
 
 
 class SimpleLogger:

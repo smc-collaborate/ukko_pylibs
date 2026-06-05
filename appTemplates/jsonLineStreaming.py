@@ -43,11 +43,11 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic import simpleUtils
 import ukko_pylibs.basic.appSupport as app
 from ukko_pylibs.network.basicTcpServer import BasicTcpServer
 from ukko_pylibs.basic.appSupport import appLog
 from ukko_pylibs.basic.simpleUtils import Utils
+from ukko_pylibs.basic.simpleUtils import PrettyText
 
 #
 ################################################################################
@@ -239,7 +239,7 @@ class JsonLineStreamingApp:
 
             if sentCount > 0:
                 appLog.print_info(
-                    f"Sent to {simpleUtils.pluralize(sentCount, 'connection')}"
+                    f"Sent to {PrettyText.pluralize(sentCount, 'connection')}"
                 )
             else:
                 appLog.print_warning("Not sent to any connections")
