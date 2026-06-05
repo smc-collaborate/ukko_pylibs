@@ -828,6 +828,13 @@ class Define:
             if not config_defaults:
                 config_defaults = {}
 
+            settings = DictUtils.getDict(app_definition, "settings", {})
+
+            for key, value in settings.items():
+                if "default" in value:
+                    DictUtils.set(config_defaults, ["settings", key], value["default"])
+                    DictUtils.get(settings, [key, "default"])
+
             config_init(config_fname, config_defaults)
 
     def giveHelp(self, file_dest=sys.stdout):
