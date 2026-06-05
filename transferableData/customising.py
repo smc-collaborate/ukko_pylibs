@@ -16,7 +16,7 @@ if shared_dir not in sys.path:
 
 from ukko_pylibs.basic.simpleUtils import Utils
 from ukko_pylibs.basic.simpleUtils import DictUtils
-import ukko_pylibs.basic.simpleUtils as simpleUtils
+from ukko_pylibs.basic.simpleUtils import ImageInfo
 import ukko_pylibs.basic.appSupport as app
 from ukko_pylibs.basic.appSupport import appLog
 import ukko_pylibs.basic.fileUtils as fileUtils
@@ -747,7 +747,7 @@ def customFormat_get(
             specStr = customFormatName.removeprefix("generic/").removesuffix("/image")
             specStr = customFormatName.removeprefix("image:")
 
-            imageData = simpleUtils.imageFormatTextToSpec(specStr)
+            imageData = ImageInfo.imageFormatTextToSpec(specStr)
 
             definition: dict[str, Any] = {
                 "kind": "generic/" + specStr + "/image",
