@@ -23,7 +23,7 @@ import ukko_pylibs.basic.appSupport as app
 from ukko_pylibs.basic.appSupport import appLog
 import ukko_pylibs.basic.fileUtils as fileUtils
 from ukko_pylibs.imageProcessing.class_PixelFormatData import PIXEL_FORMATS
-from ukko_pylibs.transferableData.class_AnnotatedData import AnnotatedData
+
 
 #
 ################################################################################
@@ -244,37 +244,6 @@ class CustomisedContents:
             return f"{self.name}({self.headerFormatText})=\n{Utils.asJsonStr(self.attributes)}"
         else:
             return f"{self.name}({self.headerFormatText})=⚠️ {self.errorMsgs(' | ')} ⚠️ {Utils.asJsonStr(self.attributes)}"
-
-    def updateAnnotatedData(self, dest: AnnotatedData, kind: str | None) -> str:
-        if kind is not None:
-            dest.kind = kind
-
-        # |Logging| if (self.headerFormat is not None):
-        # |Logging|     appLog.print_info(f"Updating  with data from: {self}")
-        # |Logging| else:
-        # |Logging|     appLog.print_info(f"Updating with data from: CustomisedContents")
-        totalRawSize_bytes = self.getExpectedImageSize()
-        if (totalRawSize_bytes is not None) and dest.bitstream_data is not None:
-            totalRawSize_bytes += self.getAttribute_int(
-                "annotations/imageData/offset", 0
-            )
-
-            if len(dest.bitstream_data) < totalRawSize_bytes:
-                self.addError(
-                    f"Bitstream data is {len(dest.bitstream_data)}: Must be at least {totalRawSize_bytes} bytes long"
-                )
-            elif len(dest.bitstream_data) > totalRawSize_bytes:
-                self.addWarning(
-                    f"Discarded excess data: {len(dest.bitstream_data)} > {totalRawSize_bytes} bytes"
-                )
-
-        dest.customFormatDefinition = self.headerFormat.overallFormatDefinition
-        dest.changeAnnotations(self.getAttribute("annotations", {}))
-        dest.timestamp_utc_ns = self.getAttr_timestamp_ns()
-
-        dest.appendWarnings(self.warnings())
-        dest.appendErrors(self.errors())
-        return ", ".join(self.errors())
 
 
 def CustomisedContents_CreateFromHeaderFormat(
@@ -688,18 +657,6 @@ class CustomContentsFormatDefinition:
         for x in definitionDict.get("headerFormats", []):
             self.headerFormatList.append(DataHeaderFormat(x, self.definitions))
 
-    def matchBitstreamDataToFormats(
-        self, annotatedData: AnnotatedData, bitstreamUnmatchedIsOk: bool = False
-    ) -> None:
-        if annotatedData.isInvalid():
-            return
-        customisedOrErrMsg = self.matchBytesToFormats(annotatedData.bitstream_data)
-
-        if not isinstance(customisedOrErrMsg, str):
-            self.applyCustomisedContents(annotatedData, customisedOrErrMsg)
-        elif not bitstreamUnmatchedIsOk:
-            self.noteError(annotatedData, f"{self.KIND}: {customisedOrErrMsg}")
-
     def matchBytesToFormats(self, dataIn: bytes | None) -> CustomisedContents | str:
         if len(self.headerFormatList) == 0:
             return f"{self.KIND}: No header formats defined"
@@ -738,33 +695,6 @@ class CustomContentsFormatDefinition:
                 txt = "data"
 
         return f"{str(txt)}{suffix}{self.definition('suggested_file_ext_raw', self.FILE_EXT.removesuffix('+'))}"
-
-    def noteError(self, annotatedData: AnnotatedData, errorReason: str) -> None:
-        annotatedData.invalidReason = f"Invalid {self.KIND} : {errorReason}"
-
-    def customiseAnnotatedData(
-        self, annotatedData: AnnotatedData, bitstreamUnmatchedIsOk=False
-    ) -> None:
-
-        annotatedData.appendAnnotations(self.definition("annotations", None))
-
-        self.matchBitstreamDataToFormats(
-            annotatedData, bitstreamUnmatchedIsOk=bitstreamUnmatchedIsOk
-        )
-
-    def applyCustomisedContents(
-        self, annotatedData: AnnotatedData, customisedContents: CustomisedContents
-    ) -> None:
-
-        customisedContents.updateAnnotatedData(annotatedData, self.KIND)
-
-        if not customisedContents.isValid():
-            self.noteError(annotatedData, customisedContents.errorMsgs())
-
-    def createAnnotatedData(self, rawData: bytes | None) -> AnnotatedData:
-        result = AnnotatedData(self.KIND, {}, rawData)
-        self.customiseAnnotatedData(result)
-        return result
 
 
 # Example:
