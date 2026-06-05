@@ -503,8 +503,6 @@ def reviewParams(
     args, options_in_: list, actionOwner=None, limitedExtraParams: int | None = None
 ):
     peekOnly = actionOwner is None
-    if not peekOnly:
-        appLog.isVerbose("--verbose" in args)
     help_marker = "h"
     options_in: list[ParamSpec] = []
     for _spec in options_in_:
@@ -546,8 +544,6 @@ def reviewParams(
                     actionOwner.dumpVersion()
                     doHalt("Version Info - Exiting", suggestSilent=True)
                     sys.exit()
-            elif arg_cleaned == "--verbose":
-                appLog.isVerbose(True)
             else:
                 argMatched = False
                 for spec in options_in:
@@ -614,8 +610,6 @@ def reviewParams(
     if (remaining_args is not None) and (len(remaining_args) > 0):
         options_chosen["--"] = remaining_args
 
-    verboseIsSetDirectly = options_chosen.get("verbose", False)
-
     ################################################
     # Load Defaults for missing _options
     #
@@ -643,18 +637,16 @@ def reviewParams(
 
                 error_exit(f"Missing required parameter: {prefix}{valueHelp}")
     if len(_used_defaults) > 0:
-        if verboseIsSetDirectly:
-            appLog.print_verbose(f"Used defaults for: {', '.join(_used_defaults)}")
+        appLog.print_tediousDetail(f"Used defaults for: {', '.join(_used_defaults)}")
 
     ################################################
     #
     # Validate extra parameters etc
     #
-    appLog.isVerbose(options_chosen.get("verbose", None))
-
-    if verboseIsSetDirectly:
-        appLog.print_verbose(f"argv: " + Utils.asJsonStr(args, indent=2))
-        appLog.print_verbose(f"AS LOADED: " + Utils.asJsonStr(options_chosen, indent=2))
+    appLog.print_tediousDetail(f"argv: " + Utils.asJsonStr(args, indent=2))
+    appLog.print_tediousDetail(
+        f"AS LOADED: " + Utils.asJsonStr(options_chosen, indent=2)
+    )
 
     if not (limitedExtraParams is None):
         found_count = len(options_chosen.get("--", []))
@@ -662,26 +654,26 @@ def reviewParams(
             txt = (
                 "No additional parameters expected"
                 if (limitedExtraParams == 0)
-                else f"Expected {simpleUtils.pluralize(limitedExtraParams, 'additional parameter')}"
+                else f"Expected {PrettyText.pluralize(limitedExtraParams, 'additional parameter')}"
             )
             if not (peekOnly):
                 error_exit(
                     f"{txt}, but provided with {found_count}: {','.join(remaining_args)}"
                 )
 
-    if verboseIsSetDirectly:
-        appLog.print_verbose(f"AS USED: " + Utils.asJsonStr(options_chosen, indent=2))
-    if verboseIsSetDirectly:
-        appLog.print_verbose(f"Remaining Arguments: {remaining_args}")
+    appLog.print_tediousDetail(f"AS USED: " + Utils.asJsonStr(options_chosen, indent=2))
+    appLog.print_tediousDetail(f"Remaining Arguments: {remaining_args}")
 
     if actionOwner is not None and hasattr(actionOwner, "choices_made"):
         actionOwner.choices_made["params"] = options_chosen
         actionOwner.choices_made["default_parameters"] = _used_defaults
 
-        appLog.print_verbose(
+        appLog.print_tediousDetail(
             f"Choices made: {Utils.asJsonStr(actionOwner.choices_made, indent=2)}"
         )
-        appLog.print_verbose(f"OptionsAvail: {Utils.asJsonStr(options_in_, indent=2)}")
+        appLog.print_tediousDetail(
+            f"OptionsAvail: {Utils.asJsonStr(options_in_, indent=2)}"
+        )
 
     if giveHelp:
         if actionOwner is not None:
@@ -727,6 +719,17 @@ class Define:
         return _actionFunction, params
 
     def __init__(self, app_definition):
+        if "options" not in app_definition:
+            app_definition["options"] = []
+        app_definition["options"].insert(
+            0,
+            {
+                "name": "verbosity",
+                "lookup": ["quiet", "info", "verbose", "all"],
+                "default": "quiet",
+            },
+        )
+
         self.app_definition = (
             app_definition  ##_fillInOptionsFromEnvVars(app_definition)
         )
@@ -735,8 +738,6 @@ class Define:
             self.app_definition["version"] = "0.0.0"
         if "description" not in self.app_definition:
             self.app_definition["description"] = "No description provided"
-        if "options" not in self.app_definition:
-            self.app_definition["options"] = []
 
         self.choices_made = {}
         self.orig_app_definition = deepcopy(self.app_definition)
@@ -796,10 +797,7 @@ class Define:
         if extra_params is None:
             param_info += "[param] .. [param]"
         elif extra_params > 0:
-            param_info += "[param] " * (extra_params)
-
-        if len(param_info) != 0:
-            param_info = " [--] " + param_info
+            param_info += " [--] [param] " * (extra_params)
 
         handled_help_and_version = False
         params_txt = f"[options] {param_info}".strip()
@@ -829,13 +827,7 @@ class Define:
                     "noDecoration": True,
                 }
             )
-            directPrefixes.append(
-                {
-                    "name": "--verbose",
-                    "description": "Enables verbose output for this app",
-                    "noDecoration": True,
-                }
-            )
+
             handled_help_and_version = True
 
             maxLen = 30
@@ -944,7 +936,6 @@ class Define:
 
         if not (handled_help_and_version):
             outLines.append([f"    -{help_marker}  | --help", ""])
-            outLines.append(["        | --verbose", ""])
             outLines.append(["        | --version", ""])
 
         if len(outLines) > 0:
@@ -1214,7 +1205,7 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
         if not isHandled:
             action = "Unhandled[" + action + "]"
             if not appLog.isVerbose():
-                suggestion = "Use '--verbose' for more information"
+                suggestion = "Use '--verbosity=verbose' for more information"
         emsgSuffix = ""
     else:
         emsgSuffix = f" {e}"
@@ -1523,7 +1514,7 @@ def deprecationWarning(message: str):
         msg = f"Deprecation Warning: {message}"
         stack_lines = []
         if not appLog.isVerbose():
-            msg += " (Use --verbose for more details)"
+            msg += " (Use --verbosity=verbose for more details)"
         else:
             caller_frame = inspect.stack().copy()[
                 2:
