@@ -11,7 +11,7 @@ import os
 import sys
 import textwrap
 import traceback
-from typing import Any, List, NoReturn, Tuple
+from typing import Any, Callable, List, NoReturn, Tuple
 
 ################################################################################
 #
@@ -120,8 +120,9 @@ def pathConvert(pathName: str, kind: str = "friendly") -> str:
         appModule = sys.modules["__main__"]
         if hasattr(appModule, "PATHS"):
             path_lookup = appModule.PATHS
-            if pathName in path_lookup:
-                path = str(path_lookup[pathName])
+            pathNameKey = pathName.removeprefix("[").removesuffix("]")
+            if pathNameKey in path_lookup:
+                path = str(path_lookup[pathNameKey])
     except Exception:
         pass  # < Silently handle - This defaults to pathName if any issue occurs
 
@@ -543,7 +544,7 @@ def reviewParams(
             elif arg_cleaned == "--version":
                 if actionOwner is not None:
                     actionOwner.dumpVersion()
-                    doHalt("Version Info - Exiting")
+                    doHalt("Version Info - Exiting", suggestSilent=True)
                     sys.exit()
             elif arg_cleaned == "--verbose":
                 appLog.isVerbose(True)
@@ -685,7 +686,7 @@ def reviewParams(
     if giveHelp:
         if actionOwner is not None:
             actionOwner.giveHelp(sys.stdout)
-            doHalt("Help Info Provided - Exiting")
+            doHalt("Help Info Provided - Exiting", suggestSilent=True)
             sys.exit()
 
 
@@ -1148,13 +1149,32 @@ def isRunning() -> bool:
     return g_appIsRunning
 
 
-def doHalt(msg: str | None = None):
+def doHalt(msg: str | None = None, suggestSilent: bool = False):
     global g_appIsRunning
     if g_appIsRunning:
         g_appIsRunning = False
-        appLog.print_info(f"Halting {'' if msg is None else (' -- '+msg)}")
+        appLog.print_verbose(f"Halting {'' if msg is None else (' -- '+msg)}")
     else:
-        appLog.print_verbose(f"Confirm Halted {'' if msg is None else (' -- '+msg)}")
+        appLog.print_tediousDetail(
+            f"Confirm Halted {'' if msg is None else (' -- '+msg)}"
+        )
+
+
+def doExit(defaultExitCode: int | None = None) -> NoReturn:
+    doHalt()
+    if defaultExitCode is not None and defaultExitCode != 0:
+        exitCode = defaultExitCode
+    else:
+        exitCode = 1 if appLog.had_error() else 0
+    sys.exit(exitCode)
+
+
+def doRun(callable: Callable[[], None]):
+    try:
+        callable()
+        doExit()
+    except BaseException as e:
+        exitOnException(e)
 
 
 def printVerbose_sysInfo():
@@ -1178,7 +1198,7 @@ def printVerbose_sysInfo():
         appLog.print_verbose(f"Platform: {sys.platform}")
         appLog.print_verbose(f"Executable: {sys.executable}")
         appLog.print_verbose(f"Current working directory: {os.getcwd()}")
-        appLog.print_verbose(f"Modules:\n" + "\n".join(lines))
+        appLog.print_tediousDetail(f"Modules:\n" + "\n".join(lines))
 
 
 def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
@@ -1224,6 +1244,56 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
         error_exit(f"{action}{emsgSuffix}", withSuggestion=suggestion)
 
 
+def returnJsonData(resultFull: Any, elementNameIfNotFull: str | None = None):
+    outputFormat = getValue("output-format", None)
+    if outputFormat is None:
+        isJson = getValue("json", None)
+        if isJson is not None:
+            outputFormat = "json" if isJson else "text"
+
+    if outputFormat is None:
+        appLog.print_warning(f"Unspecified 'output format' : defaulting to json")
+        outputFormat = "json"
+    else:
+        appLog.print_info(f"Output format: {outputFormat}")
+
+    resultPart = (
+        DictUtils.get(resultFull, elementNameIfNotFull, type(None))
+        if elementNameIfNotFull is not None
+        else resultFull
+    )
+
+    if resultPart is type(None):
+        appLog.print_error(f"Element '{elementNameIfNotFull}' not found")
+        resultPart = resultFull
+    else:
+        appLog.print_info(f"Output full: {Utils.asJsonStr(resultFull, indent=2)}")
+
+    if outputFormat == "json":
+        print(Utils.asJsonStr(resultPart, indent=2))
+    elif outputFormat == "json-full":
+        print(Utils.asJsonStr(resultFull, indent=2))
+    elif outputFormat == "text":
+        if isinstance(resultPart, list):
+            for x in resultPart:
+                print(str(x))
+        elif isinstance(resultPart, dict):
+            print(Utils.asJsonStr(resultPart, indent=2))
+        else:
+            print(str(resultPart))
+    else:
+        appLog.print_error(f"Unknown output format: {outputFormat}")
+        print(Utils.asJsonStr(resultPart, indent=2))
+
+    exitCode = DictUtils.get(resultFull, "exitCode", None)
+    if exitCode is None:
+        exitCode = 0 if isinstance(resultFull, dict) else 0
+        success = DictUtils.get(resultFull, "success", None)
+        if success == False:
+            exitCode = 1
+    doExit(exitCode)
+
+
 def error_exit(msg: str, withSuggestion: bool | str = True) -> NoReturn:
     # print_verbose(f"error_exit: {msg} | withSuggestion={withSuggestion}")
 
@@ -1253,7 +1323,7 @@ def doExitWithCode() -> NoReturn:
         doHalt("Exiting: Had Error")
         sys.exit(1)
     else:
-        doHalt("Exiting: No Error")
+        doHalt("Exiting: No Error", suggestSilent=True)
         sys.exit(0)
 
 
