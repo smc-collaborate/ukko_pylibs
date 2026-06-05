@@ -191,24 +191,42 @@ class ParamSpec:
     #   * shortName   - a short name for the parameter (single character)
     #   * name        - the name of the parameter
     #   * supportMultiple
+    #   * supportEscaping
     #   * mustBeDirect
     #   * hidden
+    def __init__(self, spec: dict[str, Any], defaultSupportEscaping: bool = False):
+        self.defaultSupportEscaping = defaultSupportEscaping
+        self.spec = spec
+        self._isEscaped = self._calcIsEscaped(defaultSupportEscaping)
 
-    @staticmethod
-    def ensureIs(spec) -> "ParamSpec":
-        if isinstance(spec, ParamSpec):
-            return spec
+    def isEscaped(self) -> bool:
+        return self._isEscaped
+
+    def _calcIsEscaped(self, defaultSupportEscaping: bool) -> bool:
+        if not self.type() is str:
+            return False
+
+        if not defaultSupportEscaping:
+            return self.spec.get("supportEscaping", False)
         else:
-            return ParamSpec(spec)
+            if not self.spec.get("supportEscaping", True):
+                return False
+
+            _lookup = self.getLookup()
+            if _lookup is None:
+                return True
+
+            for x in _lookup if isinstance(_lookup, list) else _lookup.keys():
+                if "/" in json.dumps(str(x)):
+                    return True
+
+            return False
 
     def getDescriptions(self) -> dict[str, Any]:
         return self.spec.get("descriptions", {})
 
     def getSuggestions(self) -> list[str]:
         return self.spec.get("suggestions", [])
-
-    def __init__(self, spec: dict[str, Any]):
-        self.spec = spec
 
     def __getitem__(self, key):
         return self.get(key)
@@ -288,7 +306,15 @@ class ParamSpec:
     def hasValue(self):
         return self.type() is not type(None)
 
-    def defaultTxt(self):
+    def defaultQuotedTxt(self):
+        txt = self._defaultTxt()
+        if txt is None:
+            txt = ""
+        elif txt == "":
+            txt = "''"
+        return f"{txt}"
+
+    def _defaultTxt(self) -> str | None:
         if not ("default" in self.spec):
             if ("type" in self.spec) or ("lookup" in self.spec):
                 return "••Required••"
@@ -296,9 +322,11 @@ class ParamSpec:
                 return ""
         _default = self.spec["default"]
         if (type(_default) is list) and (len(_default) > 0):
-            txt = str(_default[0])
+            _default = _default[0]
+        if _default is None:
+            return None
         else:
-            txt = str(_default)
+            return str(_default)
 
         # |env:x|
         # |env:x|        envVar , envValue, hint= spec._getEnvVarInfo()
@@ -371,6 +399,10 @@ class ParamSpec:
                 result = f"Expected a number in the range of {result}"
             elif style == ParamSpec.InfoStyle.TERSE_SUMMARY:
                 result = f"Range: {result}"
+        elif self.isEscaped():
+            result = (
+                "Extended Format: '<filename' or escape characters (such as \\n, \\t)"
+            )
         return result
 
     def load(self, arg, currentValue=None, peekOnly: bool = False):
@@ -486,8 +518,10 @@ class ParamSpec:
 
                 error_exit(f"Parameter {_name} expects a float value -- but is {arg}")
         elif _type == str:
-
-            return arg
+            if self.isEscaped():
+                return EscapeMgr.fromEscapedText(arg)
+            else:
+                return arg
         elif peekOnly:
             return None
         else:
@@ -500,13 +534,17 @@ class ParamSpec:
 
 
 def reviewParams(
-    args, options_in_: list, actionOwner=None, limitedExtraParams: int | None = None
+    args,
+    options_in_: list,
+    actionOwner=None,
+    limitedExtraParams: int | None = None,
+    appValue_escapeArguments: bool = False,
 ):
     peekOnly = actionOwner is None
     help_marker = "h"
     options_in: list[ParamSpec] = []
     for _spec in options_in_:
-        paramSpec = ParamSpec.ensureIs(_spec)
+        paramSpec = ParamSpec(_spec, appValue_escapeArguments)
         options_in.append(paramSpec)
 
         _shortName = paramSpec.shortNameWithHyphen()
@@ -608,7 +646,12 @@ def reviewParams(
             remaining_args.append(remaining_arg)
 
     if (remaining_args is not None) and (len(remaining_args) > 0):
-        options_chosen["--"] = remaining_args
+        if appValue_escapeArguments:
+            options_chosen["--"] = [
+                EscapeMgr.fromEscapedText(x) for x in remaining_args
+            ]
+        else:
+            options_chosen["--"] = remaining_args
 
     ################################################
     # Load Defaults for missing _options
@@ -700,6 +743,37 @@ def reviewParams(
 # |env:x|    appDefinitionsIn["options"]=specListOut
 # |env:x|    return appDefinitionsIn
 
+g_reviewedParams = {}
+g_appDefinition = {}
+
+
+def getAllParams() -> dict[str, Any]:
+    global g_reviewedParams
+    return deepcopy(g_reviewedParams)
+
+
+def getDefinition():
+    global g_appDefinition
+    return deepcopy(g_appDefinition)
+
+
+def getValue(name: str, default: Any | None = None) -> Any | None:
+    global g_reviewedParams
+    if name in g_reviewedParams:
+        return g_reviewedParams[name]
+    else:
+        return default
+
+
+def getNonDefaultParams() -> dict[str, Any]:
+    global g_reviewedParams
+    _reviewParams = deepcopy(g_reviewedParams)
+    defaultsUsed = _reviewParams.pop("__defaults_used__", [])
+    for k in defaultsUsed:
+        _reviewParams.pop(k, None)
+
+    return _reviewParams
+
 
 class Define:
     def getCallbackAndParams(self, args) -> Tuple[Any, dict[str, Any]]:
@@ -771,7 +845,9 @@ class Define:
         #   * mustBeDirect
         #   * hidden
         for _spec in self.app_definition["options"]:
-            paramSpec = ParamSpec.ensureIs(_spec)
+            paramSpec = ParamSpec(
+                _spec, self.app_definition.get("escapeArguments", False)
+            )
             _name = paramSpec.name()
 
             if paramSpec.get("hidden", False) or paramSpec.get("isChosen", False):
@@ -877,7 +953,7 @@ class Define:
         help_marker = "h"
         hasDefaults = False
         for _spec in self.app_definition["options"]:
-            spec = ParamSpec.ensureIs(_spec)
+            spec = ParamSpec(_spec, self.app_definition.get("escapeArguments", False))
             cols = ["    ", ""]
             if (
                 spec.get("hidden", False)
@@ -901,7 +977,9 @@ class Define:
 
             cols[0] += f" | --{decorated_name:<20}"
 
-            cols[1] = f"{ParamSpec.defaultTxt(spec):<20}".replace(" ", "\xa0") + " "
+            cols[1] = (
+                f"{ParamSpec.defaultQuotedTxt(spec):<20}".replace(" ", "\xa0") + " "
+            )
 
             txt_ = ParamSpec.getValueHelp(spec, ParamSpec.InfoStyle.TERSE_SUMMARY)
             _list = spec.getSuggestions()
@@ -1078,10 +1156,14 @@ class Define:
             self.app_definition["options"],
             self,
             self.app_definition.get("additional_parameters", 0),
+            self.app_definition.get("escapeArguments", False),
         )
 
         _params = deepcopy(self.choices_made["params"])
         _params["__defaults_used__"] = self.choices_made.get("default_parameters", [])
+
+        global g_reviewedParams
+        g_reviewedParams = _params
         return _params
 
     def option_usedDefault(self, name):
