@@ -819,6 +819,17 @@ class Define:
         self.orig_app_definition = deepcopy(self.app_definition)
         appInfo_set("APP_DEFINITION", deepcopy(self.app_definition))
 
+        config_fname = DictUtils.get(app_definition, "config/fname")
+        if config_fname is not None:
+            config_defaults = deepcopy(
+                DictUtils.get(app_definition, "config/defaults", {})
+            )
+
+            if not config_defaults:
+                config_defaults = {}
+
+            config_init(config_fname, config_defaults)
+
     def giveHelp(self, file_dest=sys.stdout):
         exeName = getExeName()
         exeNameDecorated = self.getExeName_decorated()
