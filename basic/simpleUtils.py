@@ -409,7 +409,7 @@ class Utils:
         quoteValuesWith: str = "`",
     ) -> str:
         def quoteIfNeeded(val: Any) -> str:
-            return f"{quoteValuesWith}!{val}{quoteValuesWith}"
+            return f"{quoteValuesWith}{val}{quoteValuesWith}"
 
         if (minVal is not None) and (maxVal is not None):
             txt = f"{optionalPrefixIfRanged}{quoteIfNeeded(minVal)}"
