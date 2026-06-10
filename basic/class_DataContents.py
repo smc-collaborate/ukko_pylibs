@@ -138,7 +138,7 @@ class DataContents:
         else:
             return [f"[{type(self.asFormatted)}]{self.asFormatted}"]
 
-    def getDisplayText(self, name: str) -> str:
+    def getAsDisplay(self, clipLen: int = CLIP_LENGTH) -> str:
 
         _paramText = str(self.asProvided)
         if self.asProvided != "" and isinstance(self.asProvided, str):
@@ -147,15 +147,24 @@ class DataContents:
             if _fname != "":
                 _paramText = _prefix + Utils.pathDisplay(_fname)
 
+        return PrettyText.asClipped(_paramText, clipLen)
+
+    def __str__(self) -> str:
+        return self.getAsDisplay()
+
+    def getDisplayText(self, name: str) -> str:
+
+        _paramText = self.getAsDisplay()
         if _paramText == "":
             return name
         else:
-            return f"{name}:{PrettyText.asClipped(_paramText, CLIP_LENGTH, formatter=EscapeMgr.asEscapedText)}"
+            return f"{name}:{_paramText}"
 
     def isEmpty(self) -> bool:
         return (
             self.asData == ""
             or self.asData == []
+            or self.asData == [""]
             or self.asData == {}
             or self.asData is None
         )
@@ -188,6 +197,7 @@ class DataContents:
         else:
             summaryTxt = ""
 
+        summaryTxt = summaryTxt.strip().replace("\\\\", "\\")
         if not self.fname:
             pass
         elif summaryTxt:
@@ -261,6 +271,8 @@ class DataContents:
             return True  # Already saved
 
         if self.asData is None:
+            return False
+        if self.isEmpty():
             return False
         try:
             with tempfile.NamedTemporaryFile(
