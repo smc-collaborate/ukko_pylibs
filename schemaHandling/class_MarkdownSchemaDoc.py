@@ -9,15 +9,13 @@ from typing import Any, Tuple, Union
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
+shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic.appSupport import appLog
-import ukko_pylibs.basic.appSupport as app
-import ukko_pylibs.basic.simpleUtils as simpleUtils
-from ukko_pylibs.basic.simpleUtils import Utils as Utils
-from ukko_pylibs.basic.class_HandledException import HandledException
+from ukko_pylibs.app.appSupport import appLog
+from ukko_pylibs.basic.simpleUtils import Utils
+from ukko_pylibs.basic.simpleUtils import PrettyText
 from ukko_pylibs.markdown.class_MarkdownTable import (
     IMarkdownElement,
     MarkdownTable,
@@ -304,7 +302,7 @@ def jsonSchemaAddEntry(
             #
             if dataToAdd.isOneOf():
                 addTo.destTable.addToParagraphBefore(
-                    f"One of {simpleUtils.pluralize(len(dataToAdd.oneOf), 'option')}:"
+                    f"One of {PrettyText.pluralize(len(dataToAdd.oneOf), 'option')}:"
                 )
                 for i, option in enumerate(dataToAdd.oneOf):
                     optionName = str(option.pop("description", f"Option {i+1}"))

@@ -4,11 +4,12 @@ from collections import OrderedDict
 import hashlib
 import inspect
 import json
+from posixpath import realpath
 import re
 import sys
 import time
 import traceback
-from typing import Any
+from typing import Any, Callable
 from datetime import datetime as dt_datetime
 from datetime import timezone as dt_timezone
 
@@ -21,12 +22,31 @@ import os
 import numpy as np
 
 
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
+shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 ################################################################################
 #
+pwdOnModuleLoad = os.getcwd()
+
+
+def get_cwdOnStartup():
+    cwdOnStartup = os.getenv("ORIG_PWD")
+
+    if not cwdOnStartup:
+        try:
+            if sys.modules.get("ukko_pylibs.app.appSupport") is not None:
+                from ukko_pylibs.app.appSupport import appInfo_get
+
+                runningDir = appInfo_get("APP_DEFINITION.runningDir", "")
+                cwdOnStartup = runningDir
+        except Exception:
+            pass
+
+    if not cwdOnStartup:
+        cwdOnStartup = pwdOnModuleLoad
+    return cwdOnStartup
 
 
 def print_error(msg, optional_extra_msg=None):
@@ -34,8 +54,8 @@ def print_error(msg, optional_extra_msg=None):
     msg_full = f"{msg}{optional_extra_msg if optional_extra_msg else ''}"
 
     try:
-        if sys.modules.get("ukko_pylibs.basic.appSupport") is not None:
-            from ukko_pylibs.basic.appSupport import appLog
+        if sys.modules.get("ukko_pylibs.app.appSupport") is not None:
+            from ukko_pylibs.app.appSupport import appLog
 
             appLog.print_error(msg_full)
             return
@@ -47,8 +67,8 @@ def print_error(msg, optional_extra_msg=None):
 def print_warning(msg):
 
     try:
-        if sys.modules.get("ukko_pylibs.basic.appSupport") is not None:
-            from ukko_pylibs.basic.appSupport import appLog
+        if sys.modules.get("ukko_pylibs.app.appSupport") is not None:
+            from ukko_pylibs.app.appSupport import appLog
 
             appLog.print_warning(msg)
             return
@@ -60,8 +80,8 @@ def print_warning(msg):
 def print_tediousDetail(msg: str):
 
     try:
-        if sys.modules.get("ukko_pylibs.basic.appSupport") is not None:
-            from ukko_pylibs.basic.appSupport import appLog
+        if sys.modules.get("ukko_pylibs.app.appSupport") is not None:
+            from ukko_pylibs.app.appSupport import appLog
 
             appLog.print_tediousDetail(msg)
             return
@@ -73,8 +93,8 @@ def print_tediousDetail(msg: str):
 def print_verbose(msg: str):
 
     try:
-        if sys.modules.get("ukko_pylibs.basic.appSupport") is not None:
-            from ukko_pylibs.basic.appSupport import appLog
+        if sys.modules.get("ukko_pylibs.app.appSupport") is not None:
+            from ukko_pylibs.app.appSupport import appLog
 
             appLog.print_verbose(msg)
             return
@@ -85,8 +105,8 @@ def print_verbose(msg: str):
 
 def print_info(msg: str):
     try:
-        if sys.modules.get("ukko_pylibs.basic.appSupport") is not None:
-            from ukko_pylibs.basic.appSupport import appLog
+        if sys.modules.get("ukko_pylibs.app.appSupport") is not None:
+            from ukko_pylibs.app.appSupport import appLog
 
             appLog.print_info(msg)
             return
@@ -96,6 +116,107 @@ def print_info(msg: str):
 
 
 class Utils:
+
+    @staticmethod
+    def isStdoutText():
+        stdout_is_tty_txt = (
+            os.environ.get("STDOUT_IS_TTY", "1" if sys.stdout.isatty() else "0")
+            .removeprefix('"')
+            .removesuffix('"')
+        )
+        isConsoleOut = not (
+            str(stdout_is_tty_txt).lower() in ["0", "", "none", "false"]
+        )
+        return isConsoleOut
+
+    @staticmethod
+    def pathDisplay(pathName: str) -> str:
+        """Converts a path to a friendly display format."""
+        return Utils.pathConvert(pathName, kind="friendly").removesuffix(os.sep)
+
+    @staticmethod
+    def pathConvert(pathName: str, kind: str = "friendly") -> str:
+        """Converts a path to [abs, abs:friendly, rel, friendly, raw] format.  If conversion isn't available then returns the pathName given"""
+
+        path = pathName
+        extra = ""
+        try:
+            appModule = sys.modules["__main__"]
+            if hasattr(appModule, "PATHS"):
+                path_lookup = appModule.PATHS
+                pathNameKey = pathName.removeprefix("[").removesuffix("]")
+                if pathNameKey in path_lookup:
+                    path = str(path_lookup[pathNameKey])
+                    extra += f"[{pathNameKey}→{path}]"
+        except Exception:
+            pass  # < Silently handle - This defaults to pathName if any issue occurs
+
+        options = []
+        if kind == "abs":
+            options.append(os.path.abspath(path))
+        elif kind == "abs:friendly":
+            options.append(Utils.pathConvert(path, "abs"))
+            options.append(Utils.pathConvert(realpath(path), "abs"))
+            options.append(Utils.pathConvert(path, "abs:~"))
+            options.append(Utils.pathConvert(realpath(path), "abs:~"))
+        elif kind == "abs:~":
+            homedir = os.path.expanduser("~")
+
+            path = os.path.abspath(path)
+            if path == homedir:
+                path = "~"
+            elif path.startswith(homedir + os.sep):
+                path = "~" + os.sep + path.removeprefix(homedir + os.sep)
+            options.append(path)
+        elif kind == "rel" or kind == "rel:real":
+            cwdOnStartup = get_cwdOnStartup()
+
+            if cwdOnStartup:
+                if kind.endswith(":real"):
+                    cwdOnStartup = realpath(cwdOnStartup)
+                extra += f"[cwdOnStartup:{cwdOnStartup}]"
+                path = os.path.relpath(path, cwdOnStartup)
+            else:
+                path = os.path.relpath(path)
+            options.append(path)
+        elif kind == "friendly":
+
+            options.append(Utils.pathConvert(path, "abs:friendly"))
+            options.append(Utils.pathConvert(path, "rel"))
+            options.append(Utils.pathConvert(realpath(path), "abs:friendly"))
+            options.append(Utils.pathConvert(realpath(path), "rel:real"))
+            options.append(Utils.pathConvert(path, "rel:a"))
+        else:
+            options.append(path)
+
+        path = min(options, key=lambda x: len(x))
+
+        # |Logging| print(f"----------")
+        # |Logging| print(f"pathConvert[{kind}] {extra}\n: {pathName}\n→ {path}")
+        # |Logging| print(f"----------")
+        return path
+
+    @staticmethod
+    def asUtf8orBytes(data: Any) -> str | bytes:
+
+        data_b = None
+        if isinstance(data, bytes):
+            data_b = data
+        elif isinstance(data, list):
+            data_b = bytes(data)
+
+        if isinstance(data_b, bytes):
+            try:
+                return data_b.decode("utf-8")
+            except Exception:
+                pass
+            return data_b
+        if data is None:
+            return ""
+        elif isinstance(data, str):
+            return data
+        else:
+            return f"[{type(data).__name__}]:{str(data)}"
 
     @staticmethod
     def load_file_to_text(file_path):
@@ -168,33 +289,108 @@ class Utils:
     def asJsonStr(obj, indent: int | str | None = None):
         """Safer version of json.dumps that can handle some extra types like bytes and avoids odd crashes"""
 
+        def stripStartAndEnd(s: Any, prefix: str, suffix: str) -> str | None:
+            if s is None:
+                return None
+            s = str(s).strip()
+            if s.startswith(prefix) and s.endswith(suffix):
+                return s[len(prefix) : -len(suffix)]
+            else:
+                return None
+
         class JsonEncoderExtended(json.JSONEncoder):
             def default(self, o):
                 # return f"<Obj[{o.__class__.__name__}:{type(o)}]"
                 try:
+                    if isinstance(o, type):
+                        # if o.__class__.__name__ != "mappingproxy":
+                        #    return o.__class__.__name__
+                        if hasattr(o, "__dict__"):
+                            _items = o.__dict__.items()
+                        elif hasattr(o, "items"):
+                            _items = o.items()
+                        else:
+                            _items = inspect.getmembers(o)
+                        outResult = {}
+                        for k, v in _items:
+                            outResult[f"{k}"] = f"{v}"
+                            returnThis = None
+                            if str(k) == "__weakref__":
+                                returnThis = stripStartAndEnd(
+                                    str(v),
+                                    "<attribute '__weakref__' of '",
+                                    "' objects>",
+                                )
+                            if str(k) == "__str__":
+                                returnThis = stripStartAndEnd(
+                                    str(v), "<slot wrapper '__str__' of '", "' objects>"
+                                )
+
+                            if str(k) == "__doc__":
+                                _topLine = str(v).strip().splitlines()[0]
+                                if "->" in _topLine:
+                                    returnThis = _topLine.split("->")[-1]
+
+                            if returnThis is not None:
+                                return f"«{returnThis}»"
+                        return {"«type»": outResult}
+
                     if isinstance(o, bytes):
-                        return f"<{len(o)} bytes>"
+                        # UTF-8 is the most common encoding for byte data, so we will try to decode it as UTF-8 first. If that fails, we will fall back to a hex representation.
+                        _len = len(o)
+                        if _len == 0:
+                            return ""
+                        extra = ""
+                        try:
+                            earlyPart = o[:100]
+                            if not (0 in earlyPart) and not (
+                                0xFF in earlyPart
+                            ):  # Just a check to avoid trying to decode obviously non-text data - this is not perfect but should avoid annoyances when trapping raised exceptions
+                                return {"utf-8": o.decode("utf-8")}
+                        except UnicodeDecodeError:
+                            pass
+                        except Exception as e:
+                            extra = f" (decoding error: {e})"
+                        TRUNCATION_LIMIT = None
+
+                        obj: dict[str, Any] = {"kind": "bytes", "len": _len}
+                        if TRUNCATION_LIMIT is None:
+                            obj["hex"] = o.hex()
+                        elif _len <= TRUNCATION_LIMIT * 2:
+                            obj["hex"] = o.hex()
+                        else:
+                            obj["truncated"] = TRUNCATION_LIMIT
+                            obj["hex"] = (
+                                o[:TRUNCATION_LIMIT].hex()
+                                + "…"
+                                + o[-TRUNCATION_LIMIT:].hex()
+                            )
+
+                        if extra != "":
+                            obj["_note"] = extra
+                        return obj
                     elif o.__class__.__name__.startswith("numpy"):
                         import numpy as np
 
                         return np.array_str(o)
+                    elif not isinstance(o, type) and hasattr(o, "asDict"):
+                        return o.asDict()
+                    elif hasattr(o, "__slots__"):
+                        outResult = {}
+                        for field_name in o.__slots__:
+                            value = getattr(o, field_name, None)
+                            outResult[f"{field_name}"] = f"{value}"
+                            if str(field_name) == "__doc__":
+                                _doc = str(value).strip()
+                                if _doc != "None" and _doc != "":
+                                    return f"<doc:{_doc.split()[0]}>"
+                        return outResult
                     elif hasattr(o, "__dict__"):
                         return o.__dict__
                     else:
-                        items = o.items()
-                        outResult = {}
-                        for k, v in items:
-                            outResult[f"{k}"] = f"{v}"
-                            if str(k) == "__doc__":
-                                _doc = str(v).strip()
-                                if _doc != "None" and _doc != "":
-                                    return f"<doc:{_doc.split()[0]}>"
-                        if o.__class__.__name__ == "mappingproxy":
-                            return outResult
-                        else:
-                            return str(o)
-                except Exception:
-                    return f"<Object[{o.__class__.__name__}:{type(o)}]"
+                        return str(o)
+                except Exception as e:
+                    return f"<Object[{o.__class__.__name__}:{type(o)}] (Note: {e})>"
 
         return json.dumps(
             obj,
@@ -401,6 +597,21 @@ class Utils:
 
 class PrettyText:
     @staticmethod
+    def asClipped(
+        text: Any,
+        maxLen: int = 20,
+        suffix: str = "…",
+        formatter: Callable | None = None,
+    ) -> str:
+        _text = str(formatter(text)) if formatter else str(text)
+
+        if len(_text) > maxLen:
+            maxLen -= len(suffix)
+            return _text[0:maxLen] + suffix
+        else:
+            return _text
+
+    @staticmethod
     def asPrintableAscii(charCode: int) -> str:
         if (charCode < 32) or (charCode > 126):
             return f"\\x{charCode:02x}"
@@ -420,7 +631,7 @@ class PrettyText:
         return f"{PrettyText.aOrAn(item)} {item}"
 
     @staticmethod
-    def pluralize(count: int, singular: str, plural: str | None = None):
+    def pluralize(count: int | float, singular: str, plural: str | None = None):
         if plural is None:
             if singular.endswith("y"):
                 plural = singular.removesuffix("y") + "ies"
@@ -444,6 +655,30 @@ class PrettyText:
 
 
 class DictUtils:
+    @staticmethod
+    def getWithDefaultValuesRemoved(
+        dictIn: dict, defaultValues: dict[str, Any], recurseDicts: bool = False
+    ) -> dict[str, Any]:
+        """Removes keys from dictIn that have the same value as in defaultValues"""
+        result = {}
+        # | ExtraLogging print_verbose("------------------------------")
+        # | ExtraLogging print_verbose(f"getWithDefaultValuesRemoved({Utils.asJsonStr(dictIn)},defaultValues: {Utils.asJsonStr(defaultValues)}):")
+        for key, value in dictIn.items():
+            if isinstance(value, dict) and (recurseDicts == True):
+                defaultValue = defaultValues.get(key, None)
+                if isinstance(defaultValue, dict) and (len(defaultValue) > 0):
+                    value = DictUtils.getWithDefaultValuesRemoved(
+                        value, defaultValue, recurseDicts=True
+                    )
+                    if value != {}:
+                        result[key] = value
+                        continue
+            if key not in defaultValues or defaultValues[key] != value:
+                # | ExtraLogging print_verbose(f"{key}:[default: {Utils.asJsonStr(defaultValues.get(key,None))}, actual: {Utils.asJsonStr(value)})]")
+                result[key] = value
+        # | ExtraLogging print_verbose(f"->{Utils.asJsonStr(result)}")
+        # | ExtraLogging print_verbose("------------------------------")
+        return result
 
     @staticmethod
     def extend(modifyThis: dict[str, Any], withThis: dict[str, Any] | None) -> None:
@@ -817,7 +1052,9 @@ class EscapeMgr:
         try:
             valueOut = json.loads(f'"{value}"')
         except Exception as e:
-            print_warning(f"Error interpreting value as escaped text: {e}")
+            print_warning(
+                f"Error interpreting {json.dumps(str(value))} as escaped text: {e}"
+            )
         print_tediousDetail(
             f"Interpreting value as escaped text: '{value}' -> json {json.dumps(valueOut)}"
         )
@@ -834,7 +1071,7 @@ class EscapeMgr:
             return str(value)
 
     @staticmethod
-    def asEscapedText(value: str) -> str:
+    def asEscapedText(value: Any) -> str:
         return json.dumps(value, ensure_ascii=False).removeprefix('"').removesuffix('"')
 
     @staticmethod
@@ -861,16 +1098,14 @@ class EscapeMgr:
         bashIssues = EscapeMgr.reviewForBashParams(valueTxt)
         if not bashIssues:
             resultTxt += valueTxt
-        elif bashIssues == {"empty"}:
-            if resultTxt == "":
-                resultTxt = "''"
-        elif not "singleQuotes" in bashIssues:
+        elif bashIssues == {"empty"} or not "singleQuotes" in bashIssues:
             resultTxt += f"'{valueTxt}'"
         elif not (bashIssues & {"backticks", "dollarSigns", "doubleQuotes"}):
             resultTxt += f'"{valueTxt}"'
         else:
             resultTxt += f"'{valueTxt.replace("'", "'\\''")}'"
 
+        print_tediousDetail(f"asBashParam({json.dumps(value)} -> {resultTxt})")
         return resultTxt
 
     @staticmethod
@@ -891,6 +1126,10 @@ class EscapeMgr:
             result.add("dollarSigns")
         if "|" in value:
             result.add("pipes")
+        if "<" in value:
+            result.add("lessThan")
+        if ">" in value:
+            result.add("greaterThan")
         if "&" in value:
             result.add("ampersands")
         if "(" in value:

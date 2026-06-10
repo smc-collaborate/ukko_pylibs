@@ -9,18 +9,19 @@ import os
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
+shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic.simpleUtils import Utils as Utils
-from ukko_pylibs.basic.simpleUtils import DictUtils as DictUtils
+from ukko_pylibs.basic.simpleUtils import Utils
+from ukko_pylibs.basic.simpleUtils import DictUtils
+from ukko_pylibs.basic.simpleUtils import ImageInfo
+
 import ukko_pylibs.basic.simpleUtils as simpleUtils
-from ukko_pylibs.basic.class_HandledException import (
-    HandledException as HandledException,
-)
-import ukko_pylibs.basic.appSupport as app
-from ukko_pylibs.basic.appSupport import appLog
+from ukko_pylibs.basic.class_HandledException import HandledException
+
+import ukko_pylibs.app.appSupport as app
+from ukko_pylibs.app.appSupport import appLog
 
 #
 ################################################################################
@@ -354,7 +355,7 @@ class ITransferableData:
 
         img_format = img_format__.lower()
 
-        stdFormatOrNone = simpleUtils.asStandardImageFormatOrNone(img_format)
+        stdFormatOrNone = ImageInfo.asStandardImageFormatOrNone(img_format)
         if stdFormatOrNone is not None:
             return stdFormatOrNone
 
@@ -487,7 +488,7 @@ class ITransferableData:
             result["format"] = "image/" + imageFormat
             result["image.format"] = imageFormat.removeprefix("raw_")
             result["isImage"] = True
-            asStandardImageFormat = simpleUtils.asStandardImageFormatOrNone(imageFormat)
+            asStandardImageFormat = ImageInfo.asStandardImageFormatOrNone(imageFormat)
             if asStandardImageFormat is not None:
                 result["isStandardFormat"] = True
                 result["ext"] = f".{asStandardImageFormat}"

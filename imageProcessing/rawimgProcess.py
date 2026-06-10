@@ -13,11 +13,13 @@ import os
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
+shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 from ukko_pylibs.basic.simpleUtils import DictUtils
+from ukko_pylibs.basic.simpleUtils import Utils
+
 from ukko_pylibs.basic.class_HandledException import HandledException
 
 
@@ -25,7 +27,8 @@ from ukko_pylibs.imageProcessing.class_PixelFormatData import (
     PIXEL_FORMATS,
     PixelFormatData,
 )
-from ukko_pylibs.basic.appSupport import appLog
+from ukko_pylibs.app.appSupport import appLog
+
 
 ################################################################################
 #
@@ -325,10 +328,10 @@ class RawImg:
         #
 
         if param_outputFile == "/dev/stdout":
-            isConsoleOut = sys.stdout.isatty()
+            isConsoleOut = Utils.isStdoutText()
 
             if isConsoleOut:
-                errMsg = f"Should not export a PNG Image to a terminal.\n • If this is intended, append: | cat\n • To view the image  , append: | feh -"
+                errMsg = f"Should not export a PNG Image to a terminal.\n • If this is intended, append: | cat\n • To view the image  , append: | feh -\n • You can also set the environment variable `STDOUT_IS_TTY=0` to disable this check."
                 raise HandledException(errMsg)
         try:
             with open(param_outputFile, "wb") as f:
@@ -393,10 +396,10 @@ class RawImg:
                 else:
                     param_pixelFormat = PIXEL_FORMATS["mono8"]
 
-            sys.stderr.write(
-                f"ℹ️  Importing PNG: {width}x{height} {param_pixelFormat.name()}{suffix}: (Planes: {inNumPlanes},depth:{inBitDepth},greyScale:{inGreyscale},bytesPerPixel:{inBytesPerPixel})\n"
+            appLog.print_verbose(
+                f"Importing PNG: {width}x{height} {param_pixelFormat.name()}{suffix}: (Planes: {inNumPlanes},depth:{inBitDepth},greyScale:{inGreyscale},bytesPerPixel:{inBytesPerPixel})\n"
             )
-            sys.stderr.write(f"ℹ️  Metadata     : {metadata}\n")
+            appLog.print_verbose(f"Metadata     : {metadata}\n")
             # Convert the row data to a list of tuples
             dataRows = []
             prev_percent = -1
@@ -417,12 +420,11 @@ class RawImg:
                     )
 
                 percent = math.ceil(100 * len(dataRows) / height)
-
                 if percent != prev_percent:
-                    sys.stderr.write(f"\rℹ️  Conversion Progress: {percent}%")
+                    appLog.print_progress(f"Conversion Progress: {percent}%")
                     prev_percent = percent
                 dataRows.append(dataRow)
-            sys.stderr.write("\n")
+            appLog.print_progress()
 
             return RawImg(width, height, param_pixelFormat, dataRows)
 

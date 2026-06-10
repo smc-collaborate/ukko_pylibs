@@ -6,11 +6,11 @@ import numpy as np
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
+shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-import ukko_pylibs.basic.appSupport as app
+import ukko_pylibs.app.appSupport as app
 
 ################################################################################
 #

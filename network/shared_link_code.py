@@ -9,13 +9,13 @@ from typing import Any, NoReturn
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
+shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 from ukko_pylibs.basic.simpleUtils import Utils as Utils
-import ukko_pylibs.basic.appSupport as app
-from ukko_pylibs.basic.appSupport import appLog
+import ukko_pylibs.app.appSupport as app
+from ukko_pylibs.app.appSupport import appLog
 from ukko_pylibs.basic.class_HandledException import HandledException
 from ukko_pylibs.transferableData.class_ITransferableData import ITransferableData
 from ukko_pylibs.network.class_IPhyConnection import IPhyConnection
@@ -438,11 +438,11 @@ class LinkToDevice(Generic[T_LinkedDataType]):
 # |x|        # Save the binary data to a file
 # |x|        if len(binaryData) < 50:
 # |x|            appLog.print_verbose(
-# |x|                f"Reply Binary: {binaryData.hex()} ({simpleUtils.pluralize(len(binaryData), 'byte')})"
+# |x|                f"Reply Binary: {binaryData.hex()} ({PrettyText.pluralize(len(binaryData), 'byte')})"
 # |x|            )
 # |x|        else:
 # |x|            appLog.print_verbose(
-# |x|                f"Reply Binary: {binaryData[:50].hex()} ... ({simpleUtils.pluralize(len(binaryData), 'byte')} total)"
+# |x|                f"Reply Binary: {binaryData[:50].hex()} ... ({PrettyText.pluralize(len(binaryData), 'byte')} total)"
 # |x|            )
 # |x|
 # |x|        md5_hash = hashlib.md5(binaryData).hexdigest()

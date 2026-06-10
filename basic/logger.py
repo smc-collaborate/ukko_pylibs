@@ -10,12 +10,11 @@ import os
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
+shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 from ukko_pylibs.basic.class_HandledException import HandledException
-from ukko_pylibs.basic.simpleUtils import Utils
 from ukko_pylibs.basic.simpleUtils import PrettyText
 
 #
@@ -45,8 +44,36 @@ class SimpleLogger:
         else:
             return "❓", f"[Level {level}]"
 
-    def amPrinting(self, level: int):
+    def amPrinting(self, level: int) -> bool:
         return level <= self.printThreshold
+
+    def amPrintingErrorsOnly(self) -> bool:
+        return self.amPrinting(self.VERBOSITY_ERRORS_ONLY)
+
+    def amPrintingWarnings(self) -> bool:
+        return self.amPrinting(self.VERBOSITY_WARNINGS)
+
+    def amPrintingInfo(self) -> bool:
+        return self.amPrinting(self.VERBOSITY_INFO)
+
+    def amPrintingVerbose(self) -> bool:
+        return self.amPrinting(self.VERBOSITY_INFO_VERBOSE)
+
+    def amPrintingTediousDetail(self) -> bool:
+        return self.amPrinting(self.VERBOSITY_TEDIOUS_DETAIL)
+
+    def print_progress(self, message: str | None = None) -> bool:
+        if self.amPrintingVerbose():
+            if message is None:
+                sys.stderr.write("\n")
+            else:
+                sys.stderr.write(f"\rℹ️  {message}")
+                # Deliberately do not print a newline here to allow overwriting the line with progress updates.
+                # The caller should 'print_progress()' when complete.
+                # Also - do not log these to the app log as they are transient and would not make sense in the log history.
+            return True
+        else:
+            return False
 
     def doPrintEntry(
         self,
@@ -105,14 +132,6 @@ class SimpleLogger:
         self.kindCounts = {}
         self.printThreshold = self.VERBOSITY_WARNINGS
 
-        # Ensures we get the detailed logging during parameter review
-        for x in sys.argv[1:]:
-            if x == "--":
-                break
-            if x.startswith("--verbosity="):
-                self.setVerbosity(x.split("=", 1)[1], silentOnFailure=True)
-                break
-
         # |x|sys.stderr.write(f"⚠️  self.printThreshold ={self.printThreshold}\n")
 
     def setVerbosity(
@@ -157,17 +176,17 @@ class SimpleLogger:
             self.VERBOSITY_INFO if isInfo else self.VERBOSITY_INFO_VERBOSE, message
         )
 
-    def print_info(self, message: Any | None):
-        self.doPrintEntry(self.VERBOSITY_INFO, message)
+    def print_info(self, message: Any | None) -> bool:
+        return self.doPrintEntry(self.VERBOSITY_INFO, message)
 
-    def print_warning(self, message: Any | None):
-        self.doPrintEntry(self.VERBOSITY_WARNINGS, message)
+    def print_warning(self, message: Any | None) -> bool:
+        return self.doPrintEntry(self.VERBOSITY_WARNINGS, message)
 
-    def print_verbose(self, message: Any | None):
-        self.doPrintEntry(self.VERBOSITY_INFO_VERBOSE, message)
+    def print_verbose(self, message: Any | None) -> bool:
+        return self.doPrintEntry(self.VERBOSITY_INFO_VERBOSE, message)
 
-    def print_tediousDetail(self, message: Any | None):
-        self.doPrintEntry(self.VERBOSITY_TEDIOUS_DETAIL, message)
+    def print_tediousDetail(self, message: Any | None) -> bool:
+        return self.doPrintEntry(self.VERBOSITY_TEDIOUS_DETAIL, message)
 
     def print_error(
         self,
@@ -175,7 +194,7 @@ class SimpleLogger:
         isFatal: bool = False,
         noPrefix: bool = False,
         dest: TextIO | None = None,
-    ):
+    ) -> bool:
         """Print an error message to stderr with a prefix.  Avoids printing the same message multiple times.
         :param message: The error message to print
         :return: The length of the gap for the next line
@@ -186,7 +205,6 @@ class SimpleLogger:
             return False
 
         self.lastErrorMsg = message
-
         msg = message.strip().removeprefix("❌").strip()
         prefix = "Error: "
         if msg.startswith("["):
@@ -205,10 +223,14 @@ class SimpleLogger:
         elif msg.startswith("Error"):
             prefix = ""
 
-        self.doPrintEntry(self.VERBOSITY_ERRORS_ONLY, msg, noPrefix=noPrefix, dest=dest)
+        isPrinted = self.doPrintEntry(
+            self.VERBOSITY_ERRORS_ONLY, msg, noPrefix=noPrefix, dest=dest
+        )
 
         if isFatal:
             exit(1)
+
+        return isPrinted
 
     @staticmethod
     def asPrintable(message: Any | None) -> str:

@@ -10,15 +10,15 @@ import parse
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
+shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 from ukko_pylibs.basic.simpleUtils import Utils
 from ukko_pylibs.basic.simpleUtils import DictUtils
 from ukko_pylibs.basic.simpleUtils import ImageInfo
-import ukko_pylibs.basic.appSupport as app
-from ukko_pylibs.basic.appSupport import appLog
+import ukko_pylibs.app.appSupport as app
+from ukko_pylibs.app.appSupport import appLog
 import ukko_pylibs.basic.fileUtils as fileUtils
 from ukko_pylibs.imageProcessing.class_PixelFormatData import PIXEL_FORMATS
 
@@ -752,7 +752,7 @@ def customFormat_get(
             definition: dict[str, Any] = {
                 "kind": "generic/" + specStr + "/image",
                 "description": "Image",
-                "suggested_file_ext_raw": Utils.makeImageFormatExt(specStr),
+                "suggested_file_ext_raw": ImageInfo.makeImageFormatExt(specStr),
                 "suggested_file_ext": ".img+",
                 "suggested_file_prefix": "image",
                 "includes": {"image": True, "annotations": True},

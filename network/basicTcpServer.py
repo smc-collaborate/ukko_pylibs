@@ -12,18 +12,15 @@ import netifaces as ni
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
+shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 from ukko_pylibs.basic import simpleUtils
-from ukko_pylibs.basic.simpleUtils import Utils as Utils
-from ukko_pylibs.basic.class_HandledException import (
-    HandledException as HandledException,
-)
-from ukko_pylibs.basic.appSupport import appLog
+from ukko_pylibs.basic.simpleUtils import PrettyText
+from ukko_pylibs.app.appSupport import appLog
 from ukko_pylibs.basic.logger import SimpleLogger
-import ukko_pylibs.basic.appSupport as app
+import ukko_pylibs.app.appSupport as app
 
 ################################################################################
 
@@ -224,7 +221,7 @@ class BasicTcpServer(Interface_BasicServerOut):
 
         if sentCount > 0:
             appLog.print_info(
-                f"Sent to {simpleUtils.pluralize(sentCount, 'connection')}: {simpleUtils.pluralize(numBytesSentPerConnection, 'byte')}"
+                f"Sent to {PrettyText.pluralize(sentCount, 'connection')}: {PrettyText.pluralize(numBytesSentPerConnection, 'byte')}"
             )
 
         return sentCount
@@ -251,7 +248,7 @@ class BasicTcpServer(Interface_BasicServerOut):
             appLog.print_verbose("No connections to broadcast to")
         else:
             appLog.print_verbose(
-                f"Broadcasted to {simpleUtils.pluralize(sentCount, 'connection')}: {simpleUtils.pluralize(numBytesSentPerConnection, 'byte')}"
+                f"Broadcasted to {PrettyText.pluralize(sentCount, 'connection')}: {PrettyText.pluralize(numBytesSentPerConnection, 'byte')}"
             )
 
         return sentCount
