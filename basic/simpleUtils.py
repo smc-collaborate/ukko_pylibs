@@ -1103,7 +1103,7 @@ class EscapeMgr:
         elif not (bashIssues & {"backticks", "dollarSigns", "doubleQuotes"}):
             resultTxt += f'"{valueTxt}"'
         else:
-            resultTxt += f"'{valueTxt.replace("'", "'\\''")}'"
+            resultTxt += "'" + valueTxt.replace("'", "\\'") + "'"
 
         print_tediousDetail(f"asBashParam({json.dumps(value)} -> {resultTxt})")
         return resultTxt
