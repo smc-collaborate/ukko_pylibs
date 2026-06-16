@@ -11,14 +11,15 @@ from typing import Any, NoReturn, Tuple
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
+shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic import simpleUtils
-from ukko_pylibs.basic.simpleUtils import Utils as Utils
-import ukko_pylibs.basic.appSupport as app
+from ukko_pylibs.basic.simpleUtils import PrettyText
+import ukko_pylibs.app.appSupport as app
 from ukko_pylibs.basic.class_HandledException import HandledException
+from ukko_pylibs.basic.simpleUtils import Utils
+
 
 ################################################################################
 #
@@ -80,7 +81,7 @@ def loadJsonDictFromFile(
     exceptionOnError: bool = True,
     giveWarningOnFileMissing: bool = True,
 ) -> dict[str, Any]:
-    fname_friendly = app.pathDisplay(inputJsonFile)
+    fname_friendly = Utils.pathDisplay(inputJsonFile)
     errmsg = "Unknown Error"
     showWarning = True
     try:
@@ -145,7 +146,7 @@ def loadJson(
     except json.JSONDecodeError:
         errmsg = f"Unable to load {inputKind}: {sourceDescription} wasn't valid JSON"
     except Exception as e:
-        errmsg = f"Unable to load {inputKind} from '{app.pathDisplay(inputJson)}': A [{type(e).__name__}] exception occurred: {e}"
+        errmsg = f"Unable to load {inputKind} from '{Utils.pathDisplay(inputJson)}': A [{type(e).__name__}] exception occurred: {e}"
 
     if exceptionOnError:
         raiseHandledException(errmsg)
@@ -168,7 +169,7 @@ def loadJson_dict_withSourceDescription_orException(
     ):
         pass
     elif inputJson.startswith("@"):
-        sourceDescription = f"{app.pathDisplay(inputJson[1:])}"
+        sourceDescription = f"{Utils.pathDisplay(inputJson[1:])}"
 
     return (result, sourceDescription)
 
@@ -200,7 +201,7 @@ def loadBytesFromFile_orHandledException(
         return file_bytes
     except Exception as e:
         raiseHandledException(
-            f"Unable to load {what} from file '{app.pathDisplay(inputBinaryFile)}': A [{type(e).__name__}] exception occurred: {e}"
+            f"Unable to load {what} from file '{Utils.pathDisplay(inputBinaryFile)}': A [{type(e).__name__}] exception occurred: {e}"
         )
 
 
@@ -211,7 +212,7 @@ def exportToFile_orHandledException(
         if (outputFilename == "-") or (outputFilename == "/dev/stdin"):
             outputFilename = "/dev/stdout"
         app.appLog.print_verbose(
-            f"Exporting {format:<4} to {outputFilename} ({'None' if (fileContents is None) else simpleUtils.pluralize(len(fileContents), 'byte')})"
+            f"Exporting {format:<4} to {outputFilename} ({'None' if (fileContents is None) else PrettyText.pluralize(len(fileContents), 'byte')})"
         )
 
         if outputFilename == "/dev/null":
@@ -238,10 +239,7 @@ def exportToFile_orHandledException(
             pass
         else:
             if outputFilename == "/dev/stdout":
-
-                isConsoleOut = sys.stdout.isatty()
-
-                if (isConsoleOut) and not (isText):
+                if Utils.isStdoutText() and not (isText):
                     errMsg = f"Should not export binary data (such as {format}) to a terminal.  Did you intend to add: | xxd ?\n • If this is intended,  append: | cat"
                     if (
                         (format.lower() == "image")
@@ -255,11 +253,13 @@ def exportToFile_orHandledException(
                         errMsg += (
                             "\n • To view the protobuf, append: | protoc --decode_raw"
                         )
+                    errMsg += "\n • You can also set the environment variable `STDOUT_IS_TTY=0` to disable this check."
                     raise HandledException(errMsg)
         with open(outputFilename, "wb") as file:
             file_bytes = file.write(fileContents)
             return outputFilename, file_bytes
-
+    except HandledException:
+        raise
     except Exception as e:
         prefix = ""
         if isinstance(e, HandledException):

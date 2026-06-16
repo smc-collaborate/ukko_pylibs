@@ -9,17 +9,19 @@ import os
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
+shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic.simpleUtils import Utils as Utils
+from ukko_pylibs.basic.simpleUtils import Utils
+from ukko_pylibs.basic.simpleUtils import DictUtils
+from ukko_pylibs.basic.simpleUtils import ImageInfo
+
 import ukko_pylibs.basic.simpleUtils as simpleUtils
-from ukko_pylibs.basic.class_HandledException import (
-    HandledException as HandledException,
-)
-import ukko_pylibs.basic.appSupport as app
-from ukko_pylibs.basic.appSupport import appLog
+from ukko_pylibs.basic.class_HandledException import HandledException
+
+import ukko_pylibs.app.appSupport as app
+from ukko_pylibs.app.appSupport import appLog
 
 #
 ################################################################################
@@ -248,14 +250,14 @@ class ITransferableData:
 
     def appendWarnings(self, warningsList: list | None) -> None:
         if warningsList is not None and len(warningsList) > 0:
-            simpleUtils.extendDict(self.dict_annotations, {"warnings": warningsList})
+            DictUtils.extend(self.dict_annotations, {"warnings": warningsList})
 
     def appendErrors(self, errorsList: list | None) -> None:
         if errorsList is not None and len(errorsList) > 0:
-            simpleUtils.extendDict(self.dict_annotations, {"errors": errorsList})
+            DictUtils.extend(self.dict_annotations, {"errors": errorsList})
 
     def appendAnnotations(self, extraValues: dict[str, Any] | None) -> None:
-        simpleUtils.extendDict(self.dict_annotations, extraValues)
+        DictUtils.extend(self.dict_annotations, extraValues)
 
     def changeAnnotation(
         self, key: str, newValueOrNone: Any = None
@@ -353,7 +355,7 @@ class ITransferableData:
 
         img_format = img_format__.lower()
 
-        stdFormatOrNone = simpleUtils.asStandardImageFormatOrNone(img_format)
+        stdFormatOrNone = ImageInfo.asStandardImageFormatOrNone(img_format)
         if stdFormatOrNone is not None:
             return stdFormatOrNone
 
@@ -473,7 +475,7 @@ class ITransferableData:
 
         result["included"] = True
         result["numBytes"] = len(self.bitstream_data)
-        result["ext"] = simpleUtils.entry_get(
+        result["ext"] = DictUtils.get(
             self.getAttrOrNone("customFormatDefinition"),
             "suggested_file_ext_raw",
             ".raw",
@@ -486,7 +488,7 @@ class ITransferableData:
             result["format"] = "image/" + imageFormat
             result["image.format"] = imageFormat.removeprefix("raw_")
             result["isImage"] = True
-            asStandardImageFormat = simpleUtils.asStandardImageFormatOrNone(imageFormat)
+            asStandardImageFormat = ImageInfo.asStandardImageFormatOrNone(imageFormat)
             if asStandardImageFormat is not None:
                 result["isStandardFormat"] = True
                 result["ext"] = f".{asStandardImageFormat}"

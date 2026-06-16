@@ -43,11 +43,11 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic import simpleUtils
-import ukko_pylibs.basic.appSupport as app
+import ukko_pylibs.app.appSupport as app
 from ukko_pylibs.network.basicTcpServer import BasicTcpServer
-from ukko_pylibs.basic.appSupport import appLog
+from ukko_pylibs.app.appSupport import appLog
 from ukko_pylibs.basic.simpleUtils import Utils
+from ukko_pylibs.basic.simpleUtils import PrettyText
 
 #
 ################################################################################
@@ -87,19 +87,11 @@ class IJsonLineStreamerSpec:
 # Add 'common' path
 #
 #
-common_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../common")
+common_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if common_dir not in sys.path:
     sys.path.append(common_dir)
 
-################################################################################
-#
-# Add ukko libraries
-#
-ukko_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../common/ukko_libs")
-if ukko_dir not in sys.path:
-    sys.path.append(ukko_dir)
-
-import ukko_pylibs.basic.appSupport as app
+import ukko_pylibs.app.appSupport as app
 
 #
 ################################################################################
@@ -239,7 +231,7 @@ class JsonLineStreamingApp:
 
             if sentCount > 0:
                 appLog.print_info(
-                    f"Sent to {simpleUtils.pluralize(sentCount, 'connection')}"
+                    f"Sent to {PrettyText.pluralize(sentCount, 'connection')}"
                 )
             else:
                 appLog.print_warning("Not sent to any connections")

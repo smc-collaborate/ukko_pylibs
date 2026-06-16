@@ -10,19 +10,16 @@ from copy import deepcopy
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
+shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-import ukko_pylibs.basic.appSupport as app
-from ukko_pylibs.basic.appSupport import appLog
+import ukko_pylibs.app.appSupport as app
+from ukko_pylibs.app.appSupport import appLog
 from ukko_pylibs.basic.simpleUtils import Utils as Utils
 import ukko_pylibs.basic.fileUtils as fileUtils
-import ukko_pylibs.basic.simpleUtils as simpleUtils
-from ukko_pylibs.basic.class_HandledException import (
-    HandledException as HandledException,
-)
 from ukko_pylibs.transferableData.class_ITransferableData import ITransferableData
+from ukko_pylibs.basic.simpleUtils import PrettyText
 
 #
 ################################################################################
@@ -433,7 +430,7 @@ class Schema:
                     appLog.print_warning(f"Schema({self.name}): {self.errMsg}")
 
         except Exception as e:
-            self.errMsg = f"Failed to load schema from {app.pathDisplay(self.jsonSchemaFilename)}: {str(e)}"
+            self.errMsg = f"Failed to load schema from {Utils.pathDisplay(self.jsonSchemaFilename)}: {str(e)}"
             appLog.print_warning(
                 f"Schema({self.name}): Error loading schema: {self.errMsg}"
             )
@@ -628,9 +625,6 @@ class Schema:
         return (resultJsonAlreadyPrinted is None) and (resultBinary is None)
 
 
-from ukko_pylibs.basic.logger import UniLen_approx as UniLen_approx
-
-
 def objToMarkdownText(srcObj: dict, txtPrefix: str = "") -> str:
     out_notes = txtPrefix
     try:
@@ -693,11 +687,13 @@ class MarkdownTable:
 
         for row in self.rows:
             for i, cell in enumerate(row):
-                maxWidths[i] = max(maxWidths[i], UniLen_approx(self._asStr(cell)))
+                maxWidths[i] = max(
+                    maxWidths[i], PrettyText.UniLen_approx(self._asStr(cell))
+                )
 
         for i, header in enumerate(self.headers):
             if (maxWidths[i] > 0) or not self.hideEmptyColumns:
-                maxWidths[i] = max(maxWidths[i], UniLen_approx(header))
+                maxWidths[i] = max(maxWidths[i], PrettyText.UniLen_approx(header))
 
         return maxWidths
 
@@ -718,7 +714,7 @@ class MarkdownTable:
 
             def _formatColEntry(cell: str, visWidth: int) -> str:
                 cellStr = self._asStr(cell)
-                visLen = UniLen_approx(cellStr)
+                visLen = PrettyText.UniLen_approx(cellStr)
                 if visLen > visWidth:
                     cellStr = cellStr[: visWidth - 3] + "..."
                 # if len(cellStr)!= visLen:cellStr=f"{cellStr} ({visLen} chars)"
@@ -1032,7 +1028,7 @@ class SchemaDocMarkdown:
 
             if oneOf is not None:
                 destTable.addToParagraphBefore(
-                    f"One of {simpleUtils.pluralize(len(oneOf), 'option')}:"
+                    f"One of {PrettyText.pluralize(len(oneOf), 'option')}:"
                 )
                 for i, option in enumerate(oneOf):
                     optionName = str(

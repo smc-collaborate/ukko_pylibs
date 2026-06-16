@@ -1,10 +1,10 @@
-# `ukko_pylibs` : Shared Python Libraries
+# `ukko_pylibs` : Shared Python Libraries  [Tag: `v0.1.1`]
 
 ## Development Notes ##
 
 1. **How to import**<br>
   To avoid multiple copies of python modules existing in your project always import them from `ukko_pylibs`.<br>
-   Using another prefix (such as `import basic.appSupport as app` will import as a new module).
+   Using another prefix (such as `import app.appSupport as app` will import as a new module).
    ```python
    ################################################################################
    #
@@ -13,7 +13,7 @@
    shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../common/")
    if shared_dir not in sys.path: sys.path.append(shared_dir)
 
-   import ukko_pylibs.basic.appSupport as app
+   import ukko_pylibs.app.appSupport as app
    #
    #################################################################################
    ```

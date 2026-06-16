@@ -9,18 +9,15 @@ import sys
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
+shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-import ukko_pylibs.basic.appSupport as app
+import ukko_pylibs.app.appSupport as app
 from ukko_pylibs.basic.simpleUtils import Utils as Utils
-from ukko_pylibs.basic.class_HandledException import (
-    HandledException as HandledException,
-)
 from ukko_pylibs.transferableData.class_ITransferableData import ITransferableData
 from ukko_pylibs.network.class_DataLink_ import DataLink
-from ukko_pylibs.basic.appSupport import appLog
+from ukko_pylibs.app.appSupport import appLog
 
 #
 ################################################################################

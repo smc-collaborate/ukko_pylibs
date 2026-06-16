@@ -11,21 +11,26 @@ import os
 import sys
 import textwrap
 import traceback
-from typing import Any, List, NoReturn, Tuple
+from typing import Any, Callable, NoReturn, Tuple
 
 ################################################################################
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
+shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 from ukko_pylibs.basic import fileUtils
-from ukko_pylibs.basic import simpleUtils
-from ukko_pylibs.basic.simpleUtils import Utils as Utils
+from ukko_pylibs.basic.simpleUtils import Utils
+from ukko_pylibs.basic.simpleUtils import DictUtils
+from ukko_pylibs.basic.simpleUtils import PrettyText
+from ukko_pylibs.basic.simpleUtils import EscapeMgr
+
 from ukko_pylibs.basic.logger import SimpleLogger
 from ukko_pylibs.basic.class_HandledException import HandledException
+
+from ukko_pylibs.basic.class_DataContents import DataContents
 
 #
 ################################################################################
@@ -43,7 +48,7 @@ def appInfo_get(
 ) -> Any | None:
     global g_appInfo
 
-    _value = simpleUtils.entry_get(g_appInfo, name)
+    _value = DictUtils.get(g_appInfo, name)
     if _value is not None:
         return _value
 
@@ -61,7 +66,7 @@ def appInfo_get(
             ):
                 _value = os.path.basename(fullname)
             else:
-                _value = pathDisplay(fullname)
+                _value = Utils.pathDisplay(fullname)
     elif name == "name+version":
         _value = f"{appInfo_get('exeFullName')}"
         suffix = appInfo_get("APP_DEFINITION.version")
@@ -76,7 +81,7 @@ def appInfo_get(
             _value += " args: " + json.dumps(_args)
 
     if _value is not None:
-        simpleUtils.entry_set(g_appInfo, name, _value)
+        DictUtils.set(g_appInfo, name, _value)
 
     return valueIfNotFoundOrNone if (_value is None) else _value
 
@@ -84,7 +89,7 @@ def appInfo_get(
 def appInfo_set(name: str | list[str], value: Any):
     global g_appInfo
 
-    return simpleUtils.entry_set(g_appInfo, name, value)
+    return DictUtils.set(g_appInfo, name, value)
 
 
 def getExeName() -> str:
@@ -93,62 +98,39 @@ def getExeName() -> str:
 
 #
 ###################################
-def pathDisplay(pathName: str) -> str:
-    """Converts a path to a friendly display format."""
-    return pathConvert(pathName, kind="friendly").removesuffix(os.sep)
 
 
-def pathConvert(pathName: str, kind: str = "friendly") -> str:
-    """Converts a path to [abs, abs:friendly, rel, friendly, raw] format.  If conversion isn't available then returns the pathName given"""
+def getMainDir() -> str:
 
-    path = pathName
     try:
-        appModule = sys.modules["__main__"]
-        if hasattr(appModule, "PATHS"):
-            path_lookup = appModule.PATHS
-            if pathName in path_lookup:
-                path = str(path_lookup[pathName])
-    except Exception:
-        pass  # < Silently handle - This defaults to pathName if any issue occurs
+        import __main__
 
-    if kind == "abs":
-        return os.path.abspath(path)
-    elif kind == "abs:friendly":
-        path = os.path.abspath(path)
-        homedir = os.path.expanduser("~")
-        if path == homedir:
-            path = "~"
-        elif path.startswith(homedir + os.sep):
-            path = "~" + os.sep + path.removeprefix(homedir + os.sep)
-        return path
-    elif kind == "rel":
-        cwdOnStartup = str(appInfo_get("APP_DEFINITION.runningDir", ""))
-        if cwdOnStartup != "":
-            return os.path.relpath(path, cwdOnStartup)
-        else:
-            return os.path.relpath(path)
-    elif kind == "friendly":
-        out1 = pathConvert(path, "abs:friendly")
-        out2 = pathConvert(path, "rel")
-        return out1 if len(out1) < len(out2) else out2
-    elif kind == "raw":
-        return path
-    else:
-        # Default to raw
-        return path
+        return os.path.abspath(__main__.__file__)
+    except Exception as e:
+        appLog.print_error_withException(e, f"getMainDir() ->defaulting to ~")
+        return os.path.expanduser("~")
 
 
 def exeInfo_isInstalled():
     return "PYAPP_INSTALL_SOURCE" in os.environ
 
 
-def logger_traditional_set(isVerbose: bool):
+def logger_traditional_set(loggLevel: int):
     import logging
 
-    logging.getLogger().setLevel(logging.DEBUG if isVerbose else logging.INFO)
+    if loggLevel == SimpleLogger.VERBOSITY_ERRORS_ONLY:
+        logging.getLogger().setLevel(logging.ERROR)
+    elif loggLevel == SimpleLogger.VERBOSITY_WARNINGS:
+        logging.getLogger().setLevel(logging.WARNING)
+    elif loggLevel == SimpleLogger.VERBOSITY_INFO:
+        logging.getLogger().setLevel(logging.INFO)
+    elif loggLevel == SimpleLogger.VERBOSITY_INFO_VERBOSE:
+        logging.getLogger().setLevel(logging.DEBUG)
+    elif loggLevel == SimpleLogger.VERBOSITY_TEDIOUS_DETAIL:
+        logging.getLogger().setLevel(logging.DEBUG - 1)
 
 
-appLog = SimpleLogger(getExeName(), onVerboseChange=logger_traditional_set)
+appLog = SimpleLogger(getExeName(), onVerbosityThresholdChange=logger_traditional_set)
 
 
 def isVerbose() -> bool:
@@ -156,6 +138,7 @@ def isVerbose() -> bool:
 
 
 class ParamSpec:
+
     #
     # Fields include:
     #   * mayBeDirect - if the parameter can be passed directly as a value
@@ -167,24 +150,43 @@ class ParamSpec:
     #   * shortName   - a short name for the parameter (single character)
     #   * name        - the name of the parameter
     #   * supportMultiple
+    #   * supportEscaping
     #   * mustBeDirect
     #   * hidden
 
-    @staticmethod
-    def ensureIs(spec) -> "ParamSpec":
-        if isinstance(spec, ParamSpec):
-            return spec
+    def __init__(self, spec: dict[str, Any], defaultSupportEscaping: bool = False):
+        self.defaultSupportEscaping = defaultSupportEscaping
+        self.spec = spec
+        self._isEscaped = self._calcIsEscaped(defaultSupportEscaping)
+
+    def isEscaped(self) -> bool:
+        return self._isEscaped
+
+    def _calcIsEscaped(self, defaultSupportEscaping: bool) -> bool:
+        if not self.type() is str:
+            return False
+
+        if not defaultSupportEscaping:
+            return self.spec.get("supportEscaping", False)
         else:
-            return ParamSpec(spec)
+            if not self.spec.get("supportEscaping", True):
+                return False
+
+            _lookup = self.getLookup()
+            if _lookup is None:
+                return True
+
+            for x in _lookup if isinstance(_lookup, list) else _lookup.keys():
+                if "/" in json.dumps(str(x)):
+                    return True
+
+            return False
 
     def getDescriptions(self) -> dict[str, Any]:
         return self.spec.get("descriptions", {})
 
     def getSuggestions(self) -> list[str]:
         return self.spec.get("suggestions", [])
-
-    def __init__(self, spec: dict[str, Any]):
-        self.spec = spec
 
     def __getitem__(self, key):
         return self.get(key)
@@ -213,10 +215,31 @@ class ParamSpec:
         else:
             return None
 
-    def defaultValue(self):
+    def defaultValue(self, withoutEnv: bool = False):
         if self.spec is None:
             return None
-        elif not ("default" in self.spec):
+
+        if not withoutEnv:
+            envVarName = self.spec.get("defaultEnvVar", None)
+
+            if envVarName is not None:
+                envVarValue = os.environ.get(envVarName, None)
+                if envVarValue is not None:
+                    value = self.convertArg(
+                        envVarValue, returnNoneInsteadOfThrowingError=True
+                    )
+                    if value is None:
+                        appLog.print_warning(
+                            f"Param[{self.name()}]: Environment variable ${envVarName}={json.dumps(envVarValue)} not suitable.  Ignored"
+                        )
+                    else:
+                        if not self.spec.get("_notedEnvVarDefault", None):
+                            self.spec["_notedEnvVarDefault"] = appLog.print_verbose(
+                                f"Param[{self.name()}]: Environment variable ${envVarName}={json.dumps(envVarValue)} used for default"
+                            )
+                        return value
+
+        if not ("default" in self.spec):
             return None
         else:
             value = self.spec["default"]
@@ -264,17 +287,29 @@ class ParamSpec:
     def hasValue(self):
         return self.type() is not type(None)
 
-    def defaultTxt(self):
+    def defaultQuotedTxt(self):
+        txt = self._defaultTxt()
+        if txt is None:
+            txt = ""
+        elif (self.type() is DataContents) and txt == "":
+            txt = ""
+        elif txt == "":
+            txt = "''"
+        return f"{txt}"
+
+    def _defaultTxt(self) -> str | None:
         if not ("default" in self.spec):
             if ("type" in self.spec) or ("lookup" in self.spec):
                 return "••Required••"
             else:
                 return ""
-        _default = self.spec["default"]
+        _default = self.defaultValue()
         if (type(_default) is list) and (len(_default) > 0):
-            txt = str(_default[0])
+            _default = _default[0]
+        if _default is None:
+            return None
         else:
-            txt = str(_default)
+            return str(_default)
 
         # |env:x|
         # |env:x|        envVar , envValue, hint= spec._getEnvVarInfo()
@@ -347,11 +382,19 @@ class ParamSpec:
                 result = f"Expected a number in the range of {result}"
             elif style == ParamSpec.InfoStyle.TERSE_SUMMARY:
                 result = f"Range: {result}"
+        elif self.type() is DataContents:
+            result = "Extended support, including 'file:file.bin', 'hex:12ab' & 'base64:MQ==' "
+        elif self.isEscaped():
+            result = "Supports escape characters (such as \\n, \\t)"
         return result
 
-    def load(self, arg, currentValue=None, peekOnly: bool = False):
+    def load(
+        self, arg, currentValue=None, returnNoneInsteadOfThrowingError: bool = False
+    ):
 
-        value = self.convertArg(arg, peekOnly=peekOnly)
+        value = self.convertArg(
+            arg, returnNoneInsteadOfThrowingError=returnNoneInsteadOfThrowingError
+        )
 
         if not (self.spec.get("supportMultiple", False)):
             return value
@@ -367,18 +410,23 @@ class ParamSpec:
 
         return valueList
 
-    def convertArg(self, arg, peekOnly: bool = False) -> Any:
+    def convertArg(self, arg, returnNoneInsteadOfThrowingError: bool = False) -> Any:
+
+        def _error(msg: str, e: Exception | None = None):
+            if returnNoneInsteadOfThrowingError:
+                return None
+            else:
+                error_exit(f"Parameter {_name}: {msg}", e, withSuggestion=True)
+
         _name = self.spec.get("name", "<Unnamed>")
         _lookup = self.getLookup()
         if _lookup is not None:
             if isinstance(_lookup, dict):
                 if arg in _lookup:
                     return _lookup[arg]
-                elif peekOnly:
-                    return None
                 else:
-                    error_exit(
-                        f"Parameter {_name}: {self.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)} -- but is {arg}"
+                    return _error(
+                        f"{self.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)} -- but is {arg}"
                     )
             elif arg in _lookup:
                 return arg
@@ -390,84 +438,61 @@ class ParamSpec:
                     for humanFormatted in _lookup:
                         if humanFormatted.startswith(parts[0] + "=<"):
                             return arg
-            if peekOnly:
-                return None
-
-            error_exit(
-                f"Parameter {_name}: {self.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)} -- but is {arg}"
+            return _error(
+                f"{self.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)} -- but is {arg}"
             )
 
         _type = self.type()
 
-        if _type is None:
+        if _type is type(None):
             if arg is None:
                 return True  # Just return True for 'Yes - it is included'
-            elif peekOnly:
-                return None
             else:
-                error_exit(
-                    f"Parameter {_name} has no type defined, cannot parse value: '{arg}'"
-                )
+                return _error(f"No type defined, cannot parse value: '{arg}'")
 
         if _type == bool:
             if arg.lower() in ("true", "yes", "1"):
                 return True
             elif arg.lower() in ("false", "no", "0"):
                 return False
-            elif peekOnly:
-                return None
             else:
-                error_exit(f"Parameter {_name} expects a boolean value -- but is {arg}")
-        elif (_type == int) or (_type == float):
+                return _error(f"Expects a boolean value -- but is {arg}")
+        elif (_type is int) or (_type is float):
             try:
-                if _type == int:
+                if _type is int:
                     value = int(arg)
                 else:
                     value = float(arg)
-                if not peekOnly:
-                    if "min" in self.spec and value < self.spec["min"]:
-                        error_exit(
-                            f"Parameter {_name} must be at least {self.spec['min']} --but is {value}"
-                        )
-                    if "max" in self.spec and value > self.spec["max"]:
-                        error_exit(
-                            f"Parameter {_name} must be at most {self.spec['max']} -- but is {value}"
-                        )
+                if "min" in self.spec and value < self.spec["min"]:
+                    return _error(
+                        f"Must be at least {self.spec['min']} --but is {value}"
+                    )
+                if "max" in self.spec and value > self.spec["max"]:
+                    return _error(
+                        f"Must be at most {self.spec['max']} -- but is {value}"
+                    )
 
                 return value
             except ValueError:
-                if peekOnly:
-                    return None
-
-                error_exit(
-                    f"Parameter {_name} expects {simpleUtils.withAOrAn( _type.__name__)} value -- but is {arg}"
+                return _error(
+                    f"Parameter {_name} expects {PrettyText.withAOrAn( _type.__name__)} value -- but is {arg}"
                 )
-        elif _type == float:
+        elif _type is str:
+            if self.isEscaped():
+                return EscapeMgr.fromEscapedText(arg)
+            else:
+                return arg
+        elif _type is DataContents:
             try:
-                value = float(arg)
-                if not peekOnly:
-                    if "min" in self.spec and value < self.spec["min"]:
-                        error_exit(
-                            f"Parameter {_name} must be at least {self.spec['min']} --but is {value}"
-                        )
-                    if "max" in self.spec and value > self.spec["max"]:
-                        error_exit(
-                            f"Parameter {_name} must be at most {self.spec['max']} -- but is {value}"
-                        )
-
-                return value
-            except ValueError:
-                if peekOnly:
-                    return None
-
-                error_exit(f"Parameter {_name} expects a float value -- but is {arg}")
-        elif _type == str:
-
-            return arg
-        elif peekOnly:
-            return None
+                return DataContents(
+                    arg,
+                    formatIn=self.spec.get("format", "default"),
+                    optionalNameSuggestion=_name,
+                )
+            except Exception as e:
+                return _error(f"Provided with `{arg}` which gave error", e)
         else:
-            error_exit(f"Unsupported type for parameter {_name}: {str(_type)}")
+            return _error(f"Unsupported type: {str(_type)}")
 
     def mayBeDirect(self) -> bool:
         return (
@@ -476,15 +501,17 @@ class ParamSpec:
 
 
 def reviewParams(
-    args, options_in_: list, actionOwner=None, limitedExtraParams: int | None = None
+    args,
+    options_in_: list,
+    actionOwner=None,
+    limitedExtraParams: int | str | None = None,
+    appValue_escapeArguments: bool = False,
 ):
-    peekOnly = actionOwner is None
-    if not peekOnly:
-        appLog.isVerbose("--verbose" in args)
+    returnNoneInsteadOfThrowingError = actionOwner is None
     help_marker = "h"
     options_in: list[ParamSpec] = []
     for _spec in options_in_:
-        paramSpec = ParamSpec.ensureIs(_spec)
+        paramSpec = ParamSpec(_spec, appValue_escapeArguments)
         options_in.append(paramSpec)
 
         _shortName = paramSpec.shortNameWithHyphen()
@@ -506,7 +533,7 @@ def reviewParams(
             options_chosen[_name] = loadIntoSpec.load(
                 arg_cleaned,
                 options_chosen.get(_name, None),
-                peekOnly=peekOnly,
+                returnNoneInsteadOfThrowingError,
             )
             loadIntoSpec = None
         elif (arg_cleaned == "--") and not (force_non_options):
@@ -516,14 +543,12 @@ def reviewParams(
             # Process option
             if arg_cleaned in (("-" + help_marker), "--help"):
                 giveHelp = True
-                peekOnly = True
+                returnNoneInsteadOfThrowingError = True
             elif arg_cleaned == "--version":
                 if actionOwner is not None:
                     actionOwner.dumpVersion()
-                    doHalt("Version Info - Exiting")
+                    doHalt("Version Info - Exiting", suggestSilent=True)
                     sys.exit()
-            elif arg_cleaned == "--verbose":
-                appLog.isVerbose(True)
             else:
                 argMatched = False
                 for spec in options_in:
@@ -543,7 +568,7 @@ def reviewParams(
                         options_chosen[_name] = spec.load(
                             arg.split("=", 1)[1],
                             options_chosen.get(_name, None),
-                            peekOnly=peekOnly,
+                            returnNoneInsteadOfThrowingError,
                         )
                         argMatched = True
                         break
@@ -552,7 +577,7 @@ def reviewParams(
                         argMatched = True
                         break
 
-                if not (argMatched) and not (peekOnly):
+                if not (argMatched) and not (returnNoneInsteadOfThrowingError):
                     action_suffix = appInfo_get("APP_DEFINITION.post_exe", "")
                     if action_suffix is None or (str(action_suffix).strip() == ""):
                         action_suffix = ""
@@ -579,7 +604,9 @@ def reviewParams(
             )
             if permit_direct:
                 options_chosen[_name] = spec.load(
-                    arg, options_chosen.get(_name, None), peekOnly=peekOnly
+                    arg,
+                    options_chosen.get(_name, None),
+                    returnNoneInsteadOfThrowingError,
                 )  # Can be direct parameter
                 remaining_arg = None
                 break
@@ -588,9 +615,12 @@ def reviewParams(
             remaining_args.append(remaining_arg)
 
     if (remaining_args is not None) and (len(remaining_args) > 0):
-        options_chosen["--"] = remaining_args
-
-    verboseIsSetDirectly = options_chosen.get("verbose", False)
+        if appValue_escapeArguments:
+            options_chosen["--"] = [
+                EscapeMgr.fromEscapedText(x) for x in remaining_args
+            ]
+        else:
+            options_chosen["--"] = remaining_args
 
     ################################################
     # Load Defaults for missing _options
@@ -607,7 +637,7 @@ def reviewParams(
                 # but if it is not included, we set it to False
                 _used_defaults.append(_name)
                 options_chosen[_name] = False
-            elif not peekOnly:
+            elif not returnNoneInsteadOfThrowingError:
                 valueHelp = spec.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)
 
                 if not spec.get("mustBeDirect", False):
@@ -619,50 +649,50 @@ def reviewParams(
 
                 error_exit(f"Missing required parameter: {prefix}{valueHelp}")
     if len(_used_defaults) > 0:
-        if verboseIsSetDirectly:
-            appLog.print_verbose(f"Used defaults for: {', '.join(_used_defaults)}")
+        appLog.print_tediousDetail(f"Used defaults for: {', '.join(_used_defaults)}")
 
     ################################################
     #
     # Validate extra parameters etc
     #
-    appLog.isVerbose(options_chosen.get("verbose", None))
+    appLog.print_tediousDetail(f"argv: " + Utils.asJsonStr(args, indent=2))
+    appLog.print_tediousDetail(
+        f"AS LOADED: " + Utils.asJsonStr(options_chosen, indent=2)
+    )
 
-    if verboseIsSetDirectly:
-        appLog.print_verbose(f"argv: " + Utils.asJsonStr(args, indent=2))
-        appLog.print_verbose(f"AS LOADED: " + Utils.asJsonStr(options_chosen, indent=2))
-
-    if not (limitedExtraParams is None):
+    if not returnNoneInsteadOfThrowingError and not (limitedExtraParams is None):
         found_count = len(options_chosen.get("--", []))
-        if found_count != limitedExtraParams:
+        if isinstance(limitedExtraParams, str):
+            if found_count == 0:
+                error_exit(f"Expected {limitedExtraParams}")
+        elif found_count != limitedExtraParams:
             txt = (
                 "No additional parameters expected"
                 if (limitedExtraParams == 0)
-                else f"Expected {simpleUtils.pluralize(limitedExtraParams, 'additional parameter')}"
+                else f"Expected {PrettyText.pluralize(limitedExtraParams, 'additional parameter')}"
             )
-            if not (peekOnly):
-                error_exit(
-                    f"{txt}, but provided with {found_count}: {','.join(remaining_args)}"
-                )
+            if found_count > 0:
+                txt += f"  {found_count}: {','.join(remaining_args)}"
+            error_exit(txt)
 
-    if verboseIsSetDirectly:
-        appLog.print_verbose(f"AS USED: " + Utils.asJsonStr(options_chosen, indent=2))
-    if verboseIsSetDirectly:
-        appLog.print_verbose(f"Remaining Arguments: {remaining_args}")
+    appLog.print_tediousDetail(f"AS USED: " + Utils.asJsonStr(options_chosen, indent=2))
+    appLog.print_tediousDetail(f"Remaining Arguments: {remaining_args}")
 
     if actionOwner is not None and hasattr(actionOwner, "choices_made"):
         actionOwner.choices_made["params"] = options_chosen
         actionOwner.choices_made["default_parameters"] = _used_defaults
 
-        appLog.print_verbose(
+        appLog.print_tediousDetail(
             f"Choices made: {Utils.asJsonStr(actionOwner.choices_made, indent=2)}"
         )
-        appLog.print_verbose(f"OptionsAvail: {Utils.asJsonStr(options_in_, indent=2)}")
+        appLog.print_tediousDetail(
+            f"OptionsAvail: {Utils.asJsonStr(options_in_, indent=2)}"
+        )
 
     if giveHelp:
         if actionOwner is not None:
             actionOwner.giveHelp(sys.stdout)
-            doHalt("Help Info Provided - Exiting")
+            doHalt("Help Info Provided - Exiting", suggestSilent=True)
             sys.exit()
 
 
@@ -684,6 +714,37 @@ def reviewParams(
 # |env:x|    appDefinitionsIn["options"]=specListOut
 # |env:x|    return appDefinitionsIn
 
+g_reviewedParams = {}
+g_appDefinition = {}
+
+
+def getAllParams() -> dict[str, Any]:
+    global g_reviewedParams
+    return deepcopy(g_reviewedParams)
+
+
+def getDefinition():
+    global g_appDefinition
+    return deepcopy(g_appDefinition)
+
+
+def getValue(name: str, default: Any | None = None) -> Any | None:
+    global g_reviewedParams
+    if name in g_reviewedParams:
+        return g_reviewedParams[name]
+    else:
+        return default
+
+
+def getNonDefaultParams() -> dict[str, Any]:
+    global g_reviewedParams
+    _reviewParams = deepcopy(g_reviewedParams)
+    defaultsUsed = _reviewParams.pop("__defaults_used__", [])
+    for k in defaultsUsed:
+        _reviewParams.pop(k, None)
+
+    return _reviewParams
+
 
 class Define:
     def getCallbackAndParams(self, args) -> Tuple[Any, dict[str, Any]]:
@@ -702,23 +763,76 @@ class Define:
 
         return _actionFunction, params
 
-    def __init__(self, app_definition):
-        self.app_definition = (
-            app_definition  ##_fillInOptionsFromEnvVars(app_definition)
-        )
+    def _setupVerbosity(self):
+
+        if "options" not in self.app_definition:
+            self.app_definition["options"] = []
+
+        _verbositySpec = {
+            "name": "verbosity",
+            "lookup": ["quiet", "info", "verbose", "all"],
+            "default": "quiet",
+            "defaultEnvVar": "UKKO_VERBOSITY",
+        }
+
+        self.app_definition["options"].insert(0, _verbositySpec)
+        # Ensures we get the detailed logging during parameter review
+        verbosityArg = None
+        for x in sys.argv[1:]:
+            if x == "--":
+                break
+            if x.startswith("--verbosity="):
+                ParamSpec(_verbositySpec).load(
+                    self.app_definition["options"][0]["default"]
+                )
+                verbosityArg = x.split("=", 1)[1]
+                break
+
+        if verbosityArg is None:
+            verbosityArg = ParamSpec(_verbositySpec).defaultValue()
+        if verbosityArg is not None:
+            appLog.setVerbosity(verbosityArg, silentOnFailure=True)
+
+    def __init__(self, _app_definition: dict[str, Any]):
+        self.app_definition = _app_definition
+        self._setupVerbosity()
         self.app_definition["runningDir"] = os.getcwd()
         if "version" not in self.app_definition:
             self.app_definition["version"] = "0.0.0"
         if "description" not in self.app_definition:
             self.app_definition["description"] = "No description provided"
-        if "options" not in self.app_definition:
-            self.app_definition["options"] = []
 
         self.choices_made = {}
         self.orig_app_definition = deepcopy(self.app_definition)
         appInfo_set("APP_DEFINITION", deepcopy(self.app_definition))
 
+        config_fname = DictUtils.get(self.app_definition, "config/fname")
+        if config_fname is not None:
+            config_defaults = deepcopy(
+                DictUtils.get(self.app_definition, "config/defaults", {})
+            )
+
+            if not config_defaults:
+                config_defaults = {}
+
+            settings = DictUtils.getDict(self.app_definition, "settings", {})
+
+            for key, value in settings.items():
+                if "default" in value:
+                    DictUtils.set(config_defaults, ["settings", key], value["default"])
+                    DictUtils.get(settings, [key, "default"])
+
+            config_init(config_fname, config_defaults)
+
     def giveHelp(self, file_dest=sys.stdout):
+        for x in self.getHelp():
+            file_dest.write(x.rstrip() + "\n")
+        printVerbose_sysInfo()
+
+    def getHelp(self) -> list[str]:
+
+        lines_out: list[str] = []
+
         exeName = getExeName()
         exeNameDecorated = self.getExeName_decorated()
         # |Logging| try:
@@ -746,7 +860,9 @@ class Define:
         #   * mustBeDirect
         #   * hidden
         for _spec in self.app_definition["options"]:
-            paramSpec = ParamSpec.ensureIs(_spec)
+            paramSpec = ParamSpec(
+                _spec, self.app_definition.get("escapeArguments", False)
+            )
             _name = paramSpec.name()
 
             if paramSpec.get("hidden", False) or paramSpec.get("isChosen", False):
@@ -769,23 +885,23 @@ class Define:
                     param_info += f"[{_name}⁺] "
 
                 extra_msg = "Options marked with ⁺ may be passed directly, without the option name"
-        if extra_params is None:
-            param_info += "[param] .. [param]"
-        elif extra_params > 0:
-            param_info += "[param] " * (extra_params)
 
-        if len(param_info) != 0:
-            param_info = " [--] " + param_info
+        if isinstance(extra_params, str):
+            param_info += " -- " + extra_params
+        elif extra_params is None:
+            param_info += " [--] [param] .. [param]"
+        elif extra_params > 0:
+            param_info += " [--] [param] " * (extra_params)
 
         handled_help_and_version = False
         params_txt = f"[options] {param_info}".strip()
         verText = f"v{self.app_definition['version']}"
         if len(directPrefixes) == 0:
-            file_dest.write(
-                f"{exeNameDecorated:<32} {verText:<13} - {str(self.app_definition.get('description','')):<90}\n"
+            lines_out.append(
+                f"{exeNameDecorated:<32} {verText:<13} - {str(self.app_definition.get('description','')):<90}"
             )
-            file_dest.write("\n")
-            file_dest.write(f"Usage: {exeNameDecorated} {params_txt}\n")
+            lines_out.append("")
+            lines_out.append(f"Usage: {exeNameDecorated} {params_txt}")
         else:
             prefix = "Usage: "
             directPrefixes.append({"blankLine": True})
@@ -805,13 +921,7 @@ class Define:
                     "noDecoration": True,
                 }
             )
-            directPrefixes.append(
-                {
-                    "name": "--verbose",
-                    "description": "Enables verbose output for this app",
-                    "noDecoration": True,
-                }
-            )
+
             handled_help_and_version = True
 
             maxLen = 30
@@ -828,13 +938,13 @@ class Define:
                     if _len > maxLen:
                         maxLen = _len
             extrasLen = len(params_txt)
-            file_dest.write(
-                f"{' '*len(prefix)} {exeNameDecorated:<{maxLen}} {' '*extrasLen} | {str(self.app_definition.get('description','')):<90}\n"
+            lines_out.append(
+                f"{' '*len(prefix)} {exeNameDecorated:<{maxLen}} {' '*extrasLen} | {str(self.app_definition.get('description','')):<90}"
             )
-            file_dest.write("\n")
+            lines_out.append("")
             for _entry in directPrefixes:
                 if _entry.get("blankLine", False):
-                    file_dest.write("\n")
+                    lines_out.append("")
                 else:
                     _nameToUse = _entry.get("nameToUse", "")
                     _value = _entry.get("description", "")
@@ -849,79 +959,96 @@ class Define:
                     else:
                         suffix = " | " + _value
 
-                    file_dest.write(
-                        f"{prefix} {_nameToUse:<{maxLen}} {_params_out:<{extrasLen}}{suffix}\n"
+                    lines_out.append(
+                        f"{prefix} {_nameToUse:<{maxLen}} {_params_out:<{extrasLen}}{suffix}"
                     )
                     prefix = " " * len(prefix)
 
-        file_dest.write("\n")
+        lines_out.append("")
 
         outLines = []
+        if True:
+            help_marker = "h"
+            hasDefaults = False
+            for _spec in self.app_definition["options"]:
+                spec = ParamSpec(
+                    _spec, self.app_definition.get("escapeArguments", False)
+                )
+                cols = ["    ", ""]
+                if (
+                    spec.get("hidden", False)
+                    or spec.get("mustBeDirect", False)
+                    or spec.get("isChosen", False)
+                ):
+                    continue
+                _shortName = ParamSpec.shortNameWithHyphen(spec)
+                if _shortName is None:
+                    cols[0] += f" {'':<3}"
+                else:
+                    cols[0] += f"{_shortName:<3}"
+                    if _shortName == "-h":
+                        help_marker = "?"
 
-        help_marker = "h"
-        hasDefaults = False
-        for _spec in self.app_definition["options"]:
-            spec = ParamSpec.ensureIs(_spec)
-            cols = ["    ", ""]
-            if (
-                spec.get("hidden", False)
-                or spec.get("mustBeDirect", False)
-                or spec.get("isChosen", False)
-            ):
-                continue
-            _shortName = ParamSpec.shortNameWithHyphen(spec)
-            if _shortName is None:
-                cols[0] += f" {'':<3}"
-            else:
-                cols[0] += f"{_shortName:<3}"
-                if _shortName == "-h":
-                    help_marker = "?"
+                decorated_name = spec.name()
+                if spec.hasValue():
+                    decorated_name += "="
+                if "mayBeDirect" in spec:
+                    decorated_name += "⁺"
 
-            decorated_name = spec.name()
-            if spec.hasValue():
-                decorated_name += "="
-            if "mayBeDirect" in spec:
-                decorated_name += "⁺"
+                cols[0] += f" | --{decorated_name:<20}"
 
-            cols[0] += f" | --{decorated_name:<20}"
+                cols[1] = (
+                    f"{ParamSpec.defaultQuotedTxt(spec):<20}".replace(" ", "\xa0") + " "
+                )
 
-            cols[1] = f"{ParamSpec.defaultTxt(spec):<20}".replace(" ", "\xa0") + " "
+                txt_ = ParamSpec.getValueHelp(spec, ParamSpec.InfoStyle.TERSE_SUMMARY)
+                _list = spec.getSuggestions()
+                if _list:
+                    txt_ += f" Suggestion: {' -or- '.join(map(str, _list))}"
 
-            txt_ = ParamSpec.getValueHelp(spec, ParamSpec.InfoStyle.TERSE_SUMMARY)
-            _list = spec.getSuggestions()
-            if _list:
-                txt_ += f" Suggestion: {' -or- '.join(map(str, _list))}"
+                envVarName = spec.get("defaultEnvVar", None)
+                if envVarName is not None:
+                    _envNote = f"Env: ${envVarName}"
 
-            MAX_WIDTH_HERE = 72
-            if len(txt_) >= MAX_WIDTH_HERE:
+                    envValue = os.environ.get(envVarName, None)
+                    if envValue is not None:
+                        _envNote += f"='{envValue}'"
 
-                for prefix in ("One of [", " Suggestion: "):
-                    if txt_.startswith(prefix):
-                        cols[1] += prefix
-                        txt_ = txt_[len(prefix) :]
-                        break
+                        otherDefault = spec.defaultValue(withoutEnv=True)
+                        if (otherDefault != envValue) and otherDefault is not None:
+                            _envNote += f" overwrites {otherDefault}"
+                            _envNote = _envNote.removeprefix("Env: ")
+                    txt_ += f" ({_envNote})"
 
-                parts = textwrap.wrap(txt_, width=MAX_WIDTH_HERE)
-                last_part = parts.pop()
-                hasDefaults = True
-                for part in parts:
-                    outLines.append([cols[0], cols[1] + part])
-                    cols[0] = " " * len(cols[0])
-                    cols[1] = "\xa0" * len(cols[1])
+                MAX_WIDTH_HERE = 72
+                if len(txt_) >= MAX_WIDTH_HERE:
 
-                cols[1] += last_part
-            else:
-                cols[1] += txt_
-            cols[1] = cols[1].strip(" \t")
+                    for prefix in ("One of [", " Suggestion: "):
+                        if txt_.startswith(prefix):
+                            cols[1] += prefix
+                            txt_ = txt_[len(prefix) :]
+                            break
 
-            if cols[1] != "":
-                hasDefaults = True
-            outLines.append(cols)
+                    parts = textwrap.wrap(txt_, width=MAX_WIDTH_HERE)
+                    last_part = parts.pop()
+                    hasDefaults = True
+                    for part in parts:
+                        outLines.append([cols[0], cols[1] + part])
+                        cols[0] = " " * len(cols[0])
+                        cols[1] = "\xa0" * len(cols[1])
 
-        if not (handled_help_and_version):
-            outLines.append([f"    -{help_marker}  | --help", ""])
-            outLines.append(["        | --verbose", ""])
-            outLines.append(["        | --version", ""])
+                    cols[1] += last_part
+                else:
+                    cols[1] += txt_
+                cols[1] = cols[1].strip(" \t")
+
+                if cols[1] != "":
+                    hasDefaults = True
+                outLines.append(cols)
+
+            if not (handled_help_and_version):
+                outLines.append([f"    -{help_marker}  | --help", ""])
+                outLines.append(["        | --version", ""])
 
         if len(outLines) > 0:
             headerLine = ["Options:", "Default" if hasDefaults else ""]
@@ -930,19 +1057,20 @@ class Define:
             outLines.insert(0, headerLine)
             for cols in outLines:
                 _txt = str(cols[1]).strip(" \t")
-                file_dest.write(f"{cols[0]:<32}    {_txt}\n")
+                lines_out.append(f"{cols[0]:<32}    {_txt}".replace("\xa0", " "))
             if extra_msg != "":
-                file_dest.write(f"{extra_msg}\n")
+                lines_out.append(f"{extra_msg}")
 
         if self.app_definition.get("examples", None):
-            file_dest.write("\nExamples:\n")
+            lines_out.append("")
+            lines_out.append("Examples:")
             for s in self.app_definition["examples"]:
                 txt = exeName.join(s.split("<exeName>"))
                 txt = exeNameDecorated.join(txt.split("<exeName+action>"))
-                file_dest.write(f" • {txt}\n")
-        file_dest.write(f"\n")
+                lines_out.append(f" • {txt}")
+        lines_out.append("")
 
-        printVerbose_sysInfo()
+        return lines_out
 
     def getExeName_decorated(self, decorated=True):
         txt = exeInfo_getName()
@@ -1063,10 +1191,14 @@ class Define:
             self.app_definition["options"],
             self,
             self.app_definition.get("additional_parameters", 0),
+            self.app_definition.get("escapeArguments", False),
         )
 
         _params = deepcopy(self.choices_made["params"])
         _params["__defaults_used__"] = self.choices_made.get("default_parameters", [])
+
+        global g_reviewedParams
+        g_reviewedParams = _params
         return _params
 
     def option_usedDefault(self, name):
@@ -1125,13 +1257,32 @@ def isRunning() -> bool:
     return g_appIsRunning
 
 
-def doHalt(msg: str | None = None):
+def doHalt(msg: str | None = None, suggestSilent: bool = False):
     global g_appIsRunning
     if g_appIsRunning:
         g_appIsRunning = False
-        appLog.print_info(f"Halting {'' if msg is None else (' -- '+msg)}")
+        appLog.print_verbose(f"Halting {'' if msg is None else (' -- '+msg)}")
     else:
-        appLog.print_verbose(f"Confirm Halted {'' if msg is None else (' -- '+msg)}")
+        appLog.print_tediousDetail(
+            f"Confirm Halted {'' if msg is None else (' -- '+msg)}"
+        )
+
+
+def doExit(defaultExitCode: int | None = None) -> NoReturn:
+    doHalt()
+    if defaultExitCode is not None and defaultExitCode != 0:
+        exitCode = defaultExitCode
+    else:
+        exitCode = 1 if appLog.had_error() else 0
+    sys.exit(exitCode)
+
+
+def doRun(callable: Callable[[], None]):
+    try:
+        callable()
+        doExit()
+    except BaseException as e:
+        exitOnException(e)
 
 
 def printVerbose_sysInfo():
@@ -1155,10 +1306,34 @@ def printVerbose_sysInfo():
         appLog.print_verbose(f"Platform: {sys.platform}")
         appLog.print_verbose(f"Executable: {sys.executable}")
         appLog.print_verbose(f"Current working directory: {os.getcwd()}")
-        appLog.print_verbose(f"Modules:\n" + "\n".join(lines))
+        appLog.print_tediousDetail(f"Modules:\n" + "\n".join(lines))
+
+
+def getExceptionInfo(giveMinorInfoEvenIfNotVerbose: bool = False) -> list[str]:
+
+    traceLines = traceback.format_exception(sys.exception())
+
+    if appLog.isVerbose():
+        return traceLines
+    elif not (giveMinorInfoEvenIfNotVerbose):
+        return []
+    else:
+        review = []
+        for line in traceLines[-2:-1]:
+            review += line.split("\n")
+
+        results = []
+        for line in review:
+            if not (line.strip().startswith('File "')):
+                results.append(line)
+
+        results.append("Use '--verbosity=verbose' for more information")
+        return results
 
 
 def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
+
+    # |Logging| sys.stderr.write(f"\n⚠️  {type(e)}:{e} {e}\n")
     """
     Exit the program with an error message if an exception occurs.
     :param ex: The exception that occurred
@@ -1170,8 +1345,6 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
         action = str(e)
         if not isHandled:
             action = "Unhandled[" + action + "]"
-            if not appLog.isVerbose():
-                suggestion = "Use '--verbose' for more information"
         emsgSuffix = ""
     else:
         emsgSuffix = f" {e}"
@@ -1194,16 +1367,71 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
         sys.exit(e.code)
     else:
         if not isinstance(suggestion, str):
-
-            if not isHandled and appLog.isVerbose():
-                suggestion = traceback.format_exc()
-
+            suggestion = "\n".join(getExceptionInfo(not isHandled))
         error_exit(f"{action}{emsgSuffix}", withSuggestion=suggestion)
 
 
-def error_exit(msg: str, withSuggestion: bool | str = True) -> NoReturn:
+def returnJsonData(resultFull: Any, elementNameIfNotFull: str | None = None):
+    outputFormat = getValue("output-format", None)
+    if outputFormat is None:
+        isJson = getValue("json", None)
+        if isJson is not None:
+            outputFormat = "json" if isJson else "text"
+
+    if outputFormat is None:
+        appLog.print_warning(f"Unspecified 'output format' : defaulting to json")
+        outputFormat = "json"
+    else:
+        appLog.print_info(f"Output format: {outputFormat}")
+
+    if outputFormat == "json-full":
+        if elementNameIfNotFull:
+            resultFull["_elementName"] = elementNameIfNotFull
+        print(Utils.asJsonStr(resultFull, indent=2))
+    else:
+
+        resultPart = (
+            DictUtils.get(resultFull, elementNameIfNotFull, type(None))
+            if elementNameIfNotFull is not None
+            else resultFull
+        )
+
+        if resultPart is type(None):
+            appLog.print_error(f"Element '{elementNameIfNotFull}' not found")
+            resultPart = resultFull
+        else:
+            appLog.print_info(f"Output full: {Utils.asJsonStr(resultFull, indent=2)}")
+
+        if outputFormat == "json":
+            print(Utils.asJsonStr(resultPart, indent=2))
+        elif outputFormat == "text":
+            if isinstance(resultPart, list):
+                for x in resultPart:
+                    print(str(x))
+            elif isinstance(resultPart, dict):
+                print(Utils.asJsonStr(resultPart, indent=2))
+            else:
+                print(str(resultPart))
+        else:
+            appLog.print_error(f"Unknown output format: {outputFormat}")
+            print(Utils.asJsonStr(resultPart, indent=2))
+
+    exitCode = DictUtils.get(resultFull, "exitCode", None)
+    if exitCode is None:
+        exitCode = 0 if isinstance(resultFull, dict) else 0
+        success = DictUtils.get(resultFull, "success", None)
+        if success == False:
+            exitCode = 1
+    doExit(exitCode)
+
+
+def error_exit(
+    msg: str, exception: Exception | None = None, withSuggestion: bool | str = True
+) -> NoReturn:
     # print_verbose(f"error_exit: {msg} | withSuggestion={withSuggestion}")
 
+    if exception is not None:
+        msg += f" | Exception: {str(exception)}"
     if withSuggestion:
         if isinstance(withSuggestion, str):
             extraLines = withSuggestion
@@ -1230,7 +1458,7 @@ def doExitWithCode() -> NoReturn:
         doHalt("Exiting: Had Error")
         sys.exit(1)
     else:
-        doHalt("Exiting: No Error")
+        doHalt("Exiting: No Error", suggestSilent=True)
         sys.exit(0)
 
 
@@ -1430,7 +1658,7 @@ def deprecationWarning(message: str):
         msg = f"Deprecation Warning: {message}"
         stack_lines = []
         if not appLog.isVerbose():
-            msg += " (Use --verbose for more details)"
+            msg += " (Use --verbosity=verbose for more details)"
         else:
             caller_frame = inspect.stack().copy()[
                 2:
@@ -1447,3 +1675,180 @@ def deprecationWarning(message: str):
         appLog.print_warning(
             f"Deprecation Warning: {message} (Also failed to get caller info: {e})"
         )
+
+
+CONFIG_DEFAULTS = {}
+CONFIG_LOADED = {}
+CONFIG_USED = CONFIG_LOADED.copy()
+
+
+def config_loadFromFile(configPath: str):
+    global CONFIG_LOADED
+    try:
+        with open(configPath, "r", encoding="utf-8") as f:
+            CONFIG_LOADED = json.load(f)
+    except Exception as e:
+        print(f"⚠️  Warning: Unable to load config file '{configPath}': {e}")
+        CONFIG_LOADED = {}
+
+
+def _recursive_merge(dict1: dict, dict2: dict) -> dict:
+    result = dict1.copy()
+    for key, value in dict2.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _recursive_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+def config_init(config_fname: str | None, defaults: dict[str, Any] | None = None):
+    global CONFIG_LOADED
+    global CONFIG_USED
+    global CONFIG_DEFAULTS
+
+    if defaults is not None:
+        CONFIG_DEFAULTS = defaults
+    if config_fname is not None:
+        config_loadFromFile(config_fname)
+
+    CONFIG_USED = _recursive_merge(CONFIG_DEFAULTS, CONFIG_LOADED)
+
+
+def config_get(key: str | list[str] = "") -> Any:
+    global CONFIG_USED
+    global CONFIG_DEFAULTS
+
+    if key == "":
+        return CONFIG_USED
+
+    result = DictUtils.get(CONFIG_USED, key, None)
+    if result is None:
+        appLog.print_error(
+            f"Config key '{key}' not found - nor found in CONFIG_DEFAULTS"
+        )
+    return result
+
+
+def setting_get_default(key: str) -> Any:
+    global CONFIG_DEFAULTS
+
+    result = DictUtils.get(CONFIG_DEFAULTS, "settings/" + key, "!!NOT_FOUND!!")
+
+    if result == "!!NOT_FOUND!!":
+        if not key.startswith("!"):
+            appLog.print_error(f"Default setting for key '{key}' not found")
+        result = None
+
+    return result
+
+
+def setting_set_int(
+    key: str, value: str | int, minValue: int | None = None, maxValue: int | None = None
+):
+
+    if not key.startswith("!"):
+
+        defaultValue = setting_get_default(key)
+
+        if (defaultValue is not None) and (not isinstance(defaultValue, int)):
+            appLog.print_error(
+                f"Default setting for key '{key}' is {defaultValue}: Not an integer"
+            )
+
+        if not isinstance(value, int):
+            try:
+                value = int(value)
+            except Exception as e:
+                appLog.print_warning(
+                    f"Setting[{key}]={value} is not an integer - Using default {defaultValue}"
+                )
+                return
+        if (minValue is not None) and (value < minValue):
+            appLog.print_warning(
+                f"Setting[{key}] : Clipping {value} to minimum {minValue}"
+            )
+            value = minValue
+
+        if (maxValue is not None) and (value > maxValue):
+            appLog.print_warning(
+                f"Setting[{key}] : Clipping {value} to maximum {maxValue}"
+            )
+            value = maxValue
+
+    global CONFIG_USED
+    CONFIG_USED["settings"][key] = value
+
+
+def setting_set_bool(key: str, value: str | bool):
+
+    defaultValue = setting_get_default(key)
+
+    if (defaultValue is not None) and (not isinstance(defaultValue, bool)):
+        appLog.print_warning(
+            f"Default setting for key '{key}' is {defaultValue}: Not boolean"
+        )
+
+    if not isinstance(value, bool):
+        try:
+            value = bool(value)
+        except Exception as e:
+            appLog.print_warning(
+                f"Setting[{key}]={value} is not a boolean - Using default {defaultValue}"
+            )
+            return
+
+    global CONFIG_USED
+    CONFIG_USED["settings"][key] = value
+
+
+def setting_get(key: str) -> Any:
+    global CONFIG_USED
+    global CONFIG_DEFAULTS
+
+    configKey = "settings/" + key
+    result = DictUtils.get(CONFIG_USED, configKey, None)
+    if key.startswith("!"):
+        return result
+
+    if result is None:
+        appLog.print_error(f"Setting '{key}' not found - nor found in CONFIG_DEFAULTS")
+    else:
+
+        defaultValue = setting_get_default(key)
+        expectedType = type(defaultValue)
+        if not isinstance(result, expectedType):
+            appLog.print_warning(
+                f"Type mismatch for setting '{key}': expected {expectedType}, got {type(result)}"
+            )
+
+    return result
+
+
+def setting_get_bool(key: str, defaultOnUtterFailure: bool = False) -> Any:
+    value = setting_get(key)
+
+    type_default = type(defaultOnUtterFailure)
+    if value is None:
+        return defaultOnUtterFailure  # < Error already noted
+    elif isinstance(value, type_default):
+        return value
+    else:
+        appLog.print_error(f"Setting[{key}] = {value} : Expected {type_default}")
+        return defaultOnUtterFailure
+
+
+def setting_get_int(key: str, defaultOnUtterFailure: int = 0) -> Any:
+
+    value = setting_get(key)
+
+    type_default = type(defaultOnUtterFailure)
+    if value is None:
+        return defaultOnUtterFailure  # < Error already noted
+    elif isinstance(value, type_default):
+        return value
+    elif not key.startswith("!"):
+        appLog.print_error(f"Setting[{key}] = {value} : Expected {type_default}")
+        return defaultOnUtterFailure
+    else:
+        return defaultOnUtterFailure
