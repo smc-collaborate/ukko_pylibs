@@ -207,7 +207,11 @@ class Utils:
 
         if isinstance(data_b, bytes):
             try:
-                return data_b.decode("utf-8")
+                earlyPart = data_b[:100]
+                if not (0 in earlyPart) and not (
+                    0xFF in earlyPart
+                ):  # < Just a check to avoid trying to decode obviously non-text data - this is not perfect but should avoid annoyances when trapping raised exceptions
+                    return data_b.decode("utf-8")
             except Exception:
                 pass
             return data_b

@@ -3,7 +3,7 @@ ci:
   skip: [markdown-link-check]
 
 fail_fast: false
-exclude: (?x)(_generated/|^installer/hacks/|^tools/_hacks/)
+exclude: (?x)(_generated/|^installer/hacks/|^tools/_hacks/|^_external/)
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks

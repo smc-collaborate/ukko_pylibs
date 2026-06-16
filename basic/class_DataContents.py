@@ -18,9 +18,9 @@ from ukko_pylibs.basic.simpleUtils import Utils
 from ukko_pylibs.basic.simpleUtils import DictUtils
 from ukko_pylibs.basic.simpleUtils import PrettyText
 from ukko_pylibs.basic.simpleUtils import EscapeMgr
-
 import ukko_pylibs.basic.simpleUtils as simpleUtils
 from ukko_pylibs.basic.class_HandledException import HandledException
+from ukko_pylibs._external.parseProtoBuf import decodeProtobuf_binToDict
 
 
 #
@@ -127,7 +127,22 @@ class DataContents:
         return self.getFormat() in ["txt", "json"]
 
     def asTextLines(self) -> list[str]:
-        if isinstance(self.asFormatted, str):
+        try:
+            if hasattr(self.asFormatted, "asTextLines") and callable(
+                getattr(self.asFormatted, "asTextLines")
+            ):
+                return self.asFormatted.asTextLines()
+        except Exception:
+            pass
+
+        if self.format == "protobuf":
+            try:
+                decoded_message = decodeProtobuf_binToDict(self.asBytes())
+                return Utils.asJsonStr(decoded_message, indent=2).splitlines()
+            except Exception as e:
+                self.warning = f"Unable to convert protobuf to tags: {e}"
+                return [f"[protobuf:{type(self.asFormatted)}] {str(self.asFormatted)}"]
+        elif isinstance(self.asFormatted, str):
             return self.asFormatted.splitlines()
         elif isinstance(self.asFormatted, list):
             out = []
@@ -232,6 +247,12 @@ class DataContents:
             return "json"
         elif fname_suffix.endswith(".bin"):
             return "bin"
+        elif (
+            fname_suffix.endswith("+")
+            or fname_suffix.endswith(".proto")
+            or fname_suffix.endswith(".b")
+        ):
+            return "protobuf"
         else:
             return "default"
 
