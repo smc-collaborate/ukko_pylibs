@@ -825,6 +825,14 @@ class Define:
             config_init(config_fname, config_defaults)
 
     def giveHelp(self, file_dest=sys.stdout):
+        for x in self.getHelp():
+            file_dest.write(x.rstrip() + "\n")
+        printVerbose_sysInfo()
+
+    def getHelp(self) -> list[str]:
+
+        lines_out: list[str] = []
+
         exeName = getExeName()
         exeNameDecorated = self.getExeName_decorated()
         # |Logging| try:
@@ -889,11 +897,11 @@ class Define:
         params_txt = f"[options] {param_info}".strip()
         verText = f"v{self.app_definition['version']}"
         if len(directPrefixes) == 0:
-            file_dest.write(
-                f"{exeNameDecorated:<32} {verText:<13} - {str(self.app_definition.get('description','')):<90}\n"
+            lines_out.append(
+                f"{exeNameDecorated:<32} {verText:<13} - {str(self.app_definition.get('description','')):<90}"
             )
-            file_dest.write("\n")
-            file_dest.write(f"Usage: {exeNameDecorated} {params_txt}\n")
+            lines_out.append("")
+            lines_out.append(f"Usage: {exeNameDecorated} {params_txt}")
         else:
             prefix = "Usage: "
             directPrefixes.append({"blankLine": True})
@@ -930,13 +938,13 @@ class Define:
                     if _len > maxLen:
                         maxLen = _len
             extrasLen = len(params_txt)
-            file_dest.write(
-                f"{' '*len(prefix)} {exeNameDecorated:<{maxLen}} {' '*extrasLen} | {str(self.app_definition.get('description','')):<90}\n"
+            lines_out.append(
+                f"{' '*len(prefix)} {exeNameDecorated:<{maxLen}} {' '*extrasLen} | {str(self.app_definition.get('description','')):<90}"
             )
-            file_dest.write("\n")
+            lines_out.append("")
             for _entry in directPrefixes:
                 if _entry.get("blankLine", False):
-                    file_dest.write("\n")
+                    lines_out.append("")
                 else:
                     _nameToUse = _entry.get("nameToUse", "")
                     _value = _entry.get("description", "")
@@ -951,94 +959,96 @@ class Define:
                     else:
                         suffix = " | " + _value
 
-                    file_dest.write(
-                        f"{prefix} {_nameToUse:<{maxLen}} {_params_out:<{extrasLen}}{suffix}\n"
+                    lines_out.append(
+                        f"{prefix} {_nameToUse:<{maxLen}} {_params_out:<{extrasLen}}{suffix}"
                     )
                     prefix = " " * len(prefix)
 
-        file_dest.write("\n")
+        lines_out.append("")
 
         outLines = []
+        if True:
+            help_marker = "h"
+            hasDefaults = False
+            for _spec in self.app_definition["options"]:
+                spec = ParamSpec(
+                    _spec, self.app_definition.get("escapeArguments", False)
+                )
+                cols = ["    ", ""]
+                if (
+                    spec.get("hidden", False)
+                    or spec.get("mustBeDirect", False)
+                    or spec.get("isChosen", False)
+                ):
+                    continue
+                _shortName = ParamSpec.shortNameWithHyphen(spec)
+                if _shortName is None:
+                    cols[0] += f" {'':<3}"
+                else:
+                    cols[0] += f"{_shortName:<3}"
+                    if _shortName == "-h":
+                        help_marker = "?"
 
-        help_marker = "h"
-        hasDefaults = False
-        for _spec in self.app_definition["options"]:
-            spec = ParamSpec(_spec, self.app_definition.get("escapeArguments", False))
-            cols = ["    ", ""]
-            if (
-                spec.get("hidden", False)
-                or spec.get("mustBeDirect", False)
-                or spec.get("isChosen", False)
-            ):
-                continue
-            _shortName = ParamSpec.shortNameWithHyphen(spec)
-            if _shortName is None:
-                cols[0] += f" {'':<3}"
-            else:
-                cols[0] += f"{_shortName:<3}"
-                if _shortName == "-h":
-                    help_marker = "?"
+                decorated_name = spec.name()
+                if spec.hasValue():
+                    decorated_name += "="
+                if "mayBeDirect" in spec:
+                    decorated_name += "⁺"
 
-            decorated_name = spec.name()
-            if spec.hasValue():
-                decorated_name += "="
-            if "mayBeDirect" in spec:
-                decorated_name += "⁺"
+                cols[0] += f" | --{decorated_name:<20}"
 
-            cols[0] += f" | --{decorated_name:<20}"
+                cols[1] = (
+                    f"{ParamSpec.defaultQuotedTxt(spec):<20}".replace(" ", "\xa0") + " "
+                )
 
-            cols[1] = (
-                f"{ParamSpec.defaultQuotedTxt(spec):<20}".replace(" ", "\xa0") + " "
-            )
+                txt_ = ParamSpec.getValueHelp(spec, ParamSpec.InfoStyle.TERSE_SUMMARY)
+                _list = spec.getSuggestions()
+                if _list:
+                    txt_ += f" Suggestion: {' -or- '.join(map(str, _list))}"
 
-            txt_ = ParamSpec.getValueHelp(spec, ParamSpec.InfoStyle.TERSE_SUMMARY)
-            _list = spec.getSuggestions()
-            if _list:
-                txt_ += f" Suggestion: {' -or- '.join(map(str, _list))}"
+                envVarName = spec.get("defaultEnvVar", None)
+                if envVarName is not None:
+                    _envNote = f"Env: ${envVarName}"
 
-            envVarName = spec.get("defaultEnvVar", None)
-            if envVarName is not None:
-                _envNote = f"Env: ${envVarName}"
+                    envValue = os.environ.get(envVarName, None)
+                    if envValue is not None:
+                        _envNote += f"='{envValue}'"
 
-                envValue = os.environ.get(envVarName, None)
-                if envValue is not None:
-                    _envNote += f"='{envValue}'"
+                        otherDefault = spec.defaultValue(withoutEnv=True)
+                        if (otherDefault != envValue) and otherDefault is not None:
+                            _envNote += f" overwrites {otherDefault}"
+                            _envNote = _envNote.removeprefix("Env: ")
+                    txt_ += f" ({_envNote})"
 
-                    otherDefault = spec.defaultValue(withoutEnv=True)
-                    if (otherDefault != envValue) and otherDefault is not None:
-                        _envNote += f" overwrites {otherDefault}"
-                        _envNote = _envNote.removeprefix("Env: ")
-                txt_ += f" ({_envNote})"
+                MAX_WIDTH_HERE = 72
+                if len(txt_) >= MAX_WIDTH_HERE:
 
-            MAX_WIDTH_HERE = 72
-            if len(txt_) >= MAX_WIDTH_HERE:
+                    for prefix in ("One of [", " Suggestion: "):
+                        if txt_.startswith(prefix):
+                            cols[1] += prefix
+                            txt_ = txt_[len(prefix) :]
+                            break
 
-                for prefix in ("One of [", " Suggestion: "):
-                    if txt_.startswith(prefix):
-                        cols[1] += prefix
-                        txt_ = txt_[len(prefix) :]
-                        break
+                    parts = textwrap.wrap(txt_, width=MAX_WIDTH_HERE)
+                    last_part = parts.pop()
+                    hasDefaults = True
+                    for part in parts:
+                        outLines.append([cols[0], cols[1] + part])
+                        cols[0] = " " * len(cols[0])
+                        cols[1] = "\xa0" * len(cols[1])
 
-                parts = textwrap.wrap(txt_, width=MAX_WIDTH_HERE)
-                last_part = parts.pop()
-                hasDefaults = True
-                for part in parts:
-                    outLines.append([cols[0], cols[1] + part])
-                    cols[0] = " " * len(cols[0])
-                    cols[1] = "\xa0" * len(cols[1])
+                    cols[1] += last_part
+                else:
+                    cols[1] += txt_
+                cols[1] = cols[1].strip(" \t")
 
-                cols[1] += last_part
-            else:
-                cols[1] += txt_
-            cols[1] = cols[1].strip(" \t")
+                if cols[1] != "":
+                    hasDefaults = True
+                outLines.append(cols)
 
-            if cols[1] != "":
-                hasDefaults = True
-            outLines.append(cols)
-
-        if not (handled_help_and_version):
-            outLines.append([f"    -{help_marker}  | --help", ""])
-            outLines.append(["        | --version", ""])
+            if not (handled_help_and_version):
+                outLines.append([f"    -{help_marker}  | --help", ""])
+                outLines.append(["        | --version", ""])
 
         if len(outLines) > 0:
             headerLine = ["Options:", "Default" if hasDefaults else ""]
@@ -1047,19 +1057,20 @@ class Define:
             outLines.insert(0, headerLine)
             for cols in outLines:
                 _txt = str(cols[1]).strip(" \t")
-                file_dest.write(f"{cols[0]:<32}    {_txt}\n".replace("\xa0", " "))
+                lines_out.append(f"{cols[0]:<32}    {_txt}".replace("\xa0", " "))
             if extra_msg != "":
-                file_dest.write(f"{extra_msg}\n")
+                lines_out.append(f"{extra_msg}")
 
         if self.app_definition.get("examples", None):
-            file_dest.write("\nExamples:\n")
+            lines_out.append("")
+            lines_out.append("Examples:")
             for s in self.app_definition["examples"]:
                 txt = exeName.join(s.split("<exeName>"))
                 txt = exeNameDecorated.join(txt.split("<exeName+action>"))
-                file_dest.write(f" • {txt}\n")
-        file_dest.write(f"\n")
+                lines_out.append(f" • {txt}")
+        lines_out.append("")
 
-        printVerbose_sysInfo()
+        return lines_out
 
     def getExeName_decorated(self, decorated=True):
         txt = exeInfo_getName()
