@@ -118,15 +118,15 @@ def exeInfo_isInstalled():
 def logger_traditional_set(loggLevel: int):
     import logging
 
-    if loggLevel == SimpleLogger.VERBOSITY_ERRORS_ONLY:
+    if loggLevel == SimpleLogger.MsgKind_ERROR:
         logging.getLogger().setLevel(logging.ERROR)
-    elif loggLevel == SimpleLogger.VERBOSITY_WARNINGS:
+    elif loggLevel == SimpleLogger.MsgKind_WARNING:
         logging.getLogger().setLevel(logging.WARNING)
-    elif loggLevel == SimpleLogger.VERBOSITY_INFO:
+    elif loggLevel == SimpleLogger.MsgKind_INFO:
         logging.getLogger().setLevel(logging.INFO)
-    elif loggLevel == SimpleLogger.VERBOSITY_INFO_VERBOSE:
+    elif loggLevel == SimpleLogger.MsgKind_DETAIL:
         logging.getLogger().setLevel(logging.DEBUG)
-    elif loggLevel == SimpleLogger.VERBOSITY_TEDIOUS_DETAIL:
+    elif loggLevel == SimpleLogger.MsgKind_TEDIOUS:
         logging.getLogger().setLevel(logging.DEBUG - 1)
 
 
@@ -768,10 +768,12 @@ class Define:
         if "options" not in self.app_definition:
             self.app_definition["options"] = []
 
+        entries, default = appLog.get_thresholds()
+
         _verbositySpec = {
             "name": "verbosity",
-            "lookup": ["quiet", "info", "verbose", "all"],
-            "default": "quiet",
+            "lookup": entries,
+            "default": default,
             "defaultEnvVar": "UKKO_VERBOSITY",
         }
 
@@ -1327,7 +1329,7 @@ def getExceptionInfo(giveMinorInfoEvenIfNotVerbose: bool = False) -> list[str]:
             if not (line.strip().startswith('File "')):
                 results.append(line)
 
-        results.append("Use '--verbosity=verbose' for more information")
+        results.append("Use '--verbosity=detailed' for more information")
         return results
 
 
@@ -1658,7 +1660,7 @@ def deprecationWarning(message: str):
         msg = f"Deprecation Warning: {message}"
         stack_lines = []
         if not appLog.isVerbose():
-            msg += " (Use --verbosity=verbose for more details)"
+            msg += " (Use --verbosity=detailed for details)"
         else:
             caller_frame = inspect.stack().copy()[
                 2:

@@ -4,7 +4,6 @@ from collections import OrderedDict
 import hashlib
 import inspect
 import json
-from posixpath import realpath
 import re
 import sys
 import time
@@ -156,9 +155,9 @@ class Utils:
             options.append(os.path.abspath(path))
         elif kind == "abs:friendly":
             options.append(Utils.pathConvert(path, "abs"))
-            options.append(Utils.pathConvert(realpath(path), "abs"))
+            options.append(Utils.pathConvert(os.path.realpath(path), "abs"))
             options.append(Utils.pathConvert(path, "abs:~"))
-            options.append(Utils.pathConvert(realpath(path), "abs:~"))
+            options.append(Utils.pathConvert(os.path.realpath(path), "abs:~"))
         elif kind == "abs:~":
             homedir = os.path.expanduser("~")
 
@@ -173,7 +172,7 @@ class Utils:
 
             if cwdOnStartup:
                 if kind.endswith(":real"):
-                    cwdOnStartup = realpath(cwdOnStartup)
+                    cwdOnStartup = os.path.realpath(cwdOnStartup)
                 extra += f"[cwdOnStartup:{cwdOnStartup}]"
                 path = os.path.relpath(path, cwdOnStartup)
             else:
@@ -183,9 +182,9 @@ class Utils:
 
             options.append(Utils.pathConvert(path, "abs:friendly"))
             options.append(Utils.pathConvert(path, "rel"))
-            options.append(Utils.pathConvert(realpath(path), "abs:friendly"))
-            options.append(Utils.pathConvert(realpath(path), "rel:real"))
-            options.append(Utils.pathConvert(path, "rel:a"))
+            options.append(Utils.pathConvert(os.path.realpath(path), "abs:friendly"))
+            options.append(Utils.pathConvert(os.path.realpath(path), "rel:real"))
+            options.append(path)
         else:
             options.append(path)
 
