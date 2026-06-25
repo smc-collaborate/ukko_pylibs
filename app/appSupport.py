@@ -311,22 +311,6 @@ class ParamSpec:
         else:
             return str(_default)
 
-        # |env:x|
-        # |env:x|        envVar , envValue, hint= spec._getEnvVarInfo()
-        # |env:x|
-        # |env:x|
-        # |env:x|        _envVarDefault = spec.get("envVarDefault", None)
-        # |env:x|        if _envVarDefault is not None:
-        # |env:x|            txt = f"{txt:<-20} (If ${_envVarDefault} is set, it would be used as the default value for this option)"
-        # |env:x|        else:
-        # |env:x|            txt += f"{txt:<-20} (ie: ${_envVarDefault})"
-        # |env:x|
-
-        _lookup = self.getLookup()
-        if _lookup is not None and not (txt in _lookup):
-            txt = "❌ " + txt
-        return txt
-
     def isUsable(self) -> bool:
         if self.spec.get("skip", False):
             return False
