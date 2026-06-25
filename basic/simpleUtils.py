@@ -656,6 +656,35 @@ class PrettyText:
                 width += 1
         return width
 
+    @staticmethod
+    def withSubstitutions(
+        src: str, prefix: str, substitutions: dict[str, Any], suffix: str
+    ) -> str:
+        """Replaces all occurrences of prefix+key+suffix in src with the corresponding value from substitutions"""
+        if prefix == "":
+            raise ValueError("Prefix cannot be empty")
+
+        _parts = src.split(prefix)
+        if len(_parts) == 1:
+            return src
+        txtOut = _parts[0]
+        for txt in _parts[1:]:
+            _n = txt.find(suffix)
+            if _n < 0:
+                print_warning(
+                    f"PrettyText.withSubstitutions({prefix}…{suffix}): Found prefix '{prefix}' without matching suffix '{suffix}'"
+                )
+            else:
+                key = txt[0:_n]
+                if key in substitutions:
+                    txt = str(substitutions[key]) + txt[_n + len(suffix) :]
+                else:
+                    print_warning(
+                        f"PrettyText.withSubstitutions({prefix}{key}{suffix}): No substitution found for key '{key}'"
+                    )
+            txtOut += txt
+        return txtOut
+
 
 class DictUtils:
     @staticmethod
