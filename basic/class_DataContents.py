@@ -1,3 +1,4 @@
+from copy import deepcopy
 import json
 import json
 import os
@@ -36,6 +37,7 @@ class DataContents:
         formatIn: str = "default",
         optionalNameSuggestion: str | None = None,
         srcDirect: str | None = None,
+        optionalSubstitutions: dict[str, Any] | None = None,
     ):
         self.optionalName = optionalNameSuggestion or ""
         self.nameSuggestedPrefix = (
@@ -43,6 +45,7 @@ class DataContents:
         )
         self._srcDirect = srcDirect
         self.warning: str | None = None
+
         if isinstance(value, DataContents):
             self.asProvided: Any = value.asProvided
             self.asData: Any = value.asData
@@ -50,13 +53,26 @@ class DataContents:
             self.fileIsTempCreated: bool | None = value.fileIsTempCreated
             self.interpretAs: str = value.interpretAs
             self.asObj: Any | None = value.asObj
-
+            self.optionalSubstitutions: dict[str, Any] | None = deepcopy(
+                value.optionalSubstitutions
+            )
+            if optionalSubstitutions:
+                if self.optionalSubstitutions is None:
+                    self.optionalSubstitutions = {}
+                self.optionalSubstitutions.update(deepcopy(optionalSubstitutions))
             if formatIn == "default":
-                self.format = value.format
+                self.formatting = value.formatting
                 self.asFormatted: Any = value.asFormatted
+
+                if (
+                    self.formatting != value.formatting
+                    or self.optionalSubstitutions != value.optionalSubstitutions
+                ):
+                    self.asFormatted = self._doFormatContents()
             else:
-                self.format = formatIn
+                self.formatting = {"format": formatIn}
                 self.asFormatted: Any = self._doFormatContents()
+
         else:
             self.asProvided: Any = value
             self.asData: Any = (
@@ -66,7 +82,10 @@ class DataContents:
             self.fileIsTempCreated: bool | None = None
             self.interpretAs: str = ""
             self.asObj: Any | None = None
-            self.format = formatIn
+            self.optionalSubstitutions: dict[str, Any] | None = deepcopy(
+                optionalSubstitutions
+            )
+            self.formatting = {"format": formatIn}
             self._doLoadExtendedData()  # < Can modify .interpretAs & .format
             self.asFormatted: Any = self._doFormatContents()
 
@@ -92,6 +111,17 @@ class DataContents:
 
         return resultTxt
 
+    def getFormat(self, default: str = "default") -> str:
+        return self.formatting.get("format", default)
+
+    def getFormattingInfo(self) -> str:
+        txt = self.getFormat()
+        _extras = {k: v for k, v in self.formatting.items() if k != "format"}
+        if _extras:
+            txt += f"[{str(_extras).removeprefix('{').removesuffix('}')}]"
+
+        return txt
+
     def asDict(self) -> dict[str, Any]:
         out = {
             "warning": self.warning,
@@ -100,7 +130,8 @@ class DataContents:
             "asObj": self.asObj,
             "asData": self.asData,
             "interpretAs": self.interpretAs,
-            "format": self.format,
+            "format": self.getFormat(),
+            "formatExtras": {k: v for k, v in self.formatting.items() if k != "format"},
             "fname": self.fname,
         }
 
@@ -110,6 +141,7 @@ class DataContents:
                 "warning": None,
                 "interpretAs": "",
                 "format": "default",
+                "formatExtras": {},
                 "fname": "",
                 "fileIsTempCreated": None,
                 "asObj": None,
@@ -119,9 +151,6 @@ class DataContents:
         )
 
         return cleaned
-
-    def getFormat(self, default: str = "default") -> str:
-        return self.format if self.format != "default" else default
 
     def isTextFormat(self):
         return self.getFormat() in ["txt", "json"]
@@ -135,7 +164,7 @@ class DataContents:
         except Exception:
             pass
 
-        if self.format == "protobuf":
+        if self.getFormat() == "protobuf":
             try:
                 decoded_message = decodeProtobuf_binToDict(self.asBytes())
                 return Utils.asJsonStr(decoded_message, indent=2).splitlines()
@@ -220,12 +249,14 @@ class DataContents:
         else:
             summaryTxt = self.fname
 
-        return self.format + ": " + summaryTxt
+        return self.getFormat() + ": " + summaryTxt
 
-    def _doFormatContents(self):
+    def _doFormatContents(
+        self,
+    ) -> list[str]:
 
         outData = self.asData
-        if self.format == "json":
+        if self.getFormat() == "json":
             try:
                 outData = json.dumps(
                     self.asObj,
@@ -237,31 +268,54 @@ class DataContents:
                 )
             except Exception as e:
                 self.warning = f"Unable to convert to JSON: {e}"
-        return str(outData).split("\n")
 
-    def getSuggestedFormat(self) -> str:
+        if self.formatting.get("permitSubstitutions", False) and (
+            self.optionalSubstitutions is not None
+        ):
+            outData = PrettyText.withSubstitutions(
+                outData, "$<", self.optionalSubstitutions, ">"
+            )
+
+        _lines = str(outData).split("\n")
+
+        return _lines
+
+    def getSuggestedFormatting(self) -> dict[str, Any]:
+
         fname_suffix = self.fname.lower().removesuffix(".ref")
+
+        _formatExtras = {}
+        if fname_suffix.endswith(".subst"):
+            fname_suffix = fname_suffix.removesuffix(".subst")
+            _formatExtras["permitSubstitutions"] = True
+
         if fname_suffix.endswith(".md") or fname_suffix.endswith(".txt"):
-            return "txt"
+            _formatBase = "txt"
         elif fname_suffix.endswith(".json"):
-            return "json"
+            _formatBase = "json"
         elif fname_suffix.endswith(".bin"):
-            return "bin"
+            _formatBase = "bin"
         elif (
             fname_suffix.endswith("+")
             or fname_suffix.endswith(".proto")
             or fname_suffix.endswith(".b")
         ):
-            return "protobuf"
+            _formatBase = "protobuf"
         else:
-            return "default"
+            _formatBase = "default"
+
+        _result = {"format": _formatBase}
+
+        for k, v in _formatExtras.items():
+            _result[k] = v
+        return _result
 
     def _loadFromFile(self, fname: str, caption: str) -> Any:
         self.fname = fname
         self.fileIsTempCreated = False
 
-        if self.format == "default":
-            self.format = self.getSuggestedFormat()
+        if self.getFormat() == "default":
+            self.formatting = self.getSuggestedFormatting()
         try:
             with open(fname, "r+b") as f:
                 self.asData = f.read()
@@ -322,41 +376,42 @@ class DataContents:
     def _doLoadExtendedData(
         self,
     ):
-        """Can also update .format & .interpretAs based on the content of asProvided (e.g. if it starts with 'hex:')"""
+        """Can also update .formatting & .interpretAs based on the content of asProvided (e.g. if it starts with 'hex:')"""
         _txtToReview = None
 
+        _format = self.getFormat()
         caption = PrettyText.asClipped(self.asProvided, 20)
         try:
             _prefix, _fname = self.getProvidedFilenamePlus()
             if _fname:
                 self._loadFromFile(_fname, caption)
-
-            if (isinstance(self.asData, bytes)) and self.format in [
+            if (isinstance(self.asData, bytes)) and _format in [
                 "default",
                 "txt",
                 "json",
             ]:
                 _txtToReview = Utils.asUtf8orBytes(self.asData)
+
                 if not isinstance(_txtToReview, str):
                     return
 
             elif isinstance(self.asData, str):
                 _txtToReview = self.asData
-                if self.format == "default":
-                    self.format = "txt"
+                if _format == "default":
+                    self.formatting["format"] = "txt"
 
             if _txtToReview is None:
                 return
 
             self.asData = _txtToReview
-            if self.format == "default":
-                self.format = "txt"
-            elif self.format == "json":
+            if _format == "default":
+                self.formatting["format"] = "txt"
+            elif _format == "json":
                 try:
                     self.asObj = json.loads(_txtToReview)
                 except Exception as e:
                     self.warning = f"Unable to parse JSON: {e}"
-                    self.format = "json-invalid"
+                    self.formatting["format"] = "json-invalid"
 
             caption = PrettyText.asClipped(_txtToReview, 20)
 
@@ -364,7 +419,7 @@ class DataContents:
                 hexStr = _txtToReview.removeprefix("hex:")
                 try:
                     self.asData = bytes.fromhex(hexStr)
-                    self.format = "bin"
+                    self.formatting["format"] = "bin"
                     self.interpretAs = "hex"
                 except Exception as e:
                     self.warning = f"Unable to parse as hex data: {e}"
