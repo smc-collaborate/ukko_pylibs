@@ -617,7 +617,7 @@ def reviewParams(
                 _used_defaults.append(_name)
                 options_chosen[_name] = spec.defaultValue()
             elif spec.type() is type(None):
-                # Special case - the existance of it is the value - so if it is included we set it to True (eg: --verbose)
+                # Special case - the existance of it is the value - so if it is included we set it to True (eg: --verbosity=details)
                 # but if it is not included, we set it to False
                 _used_defaults.append(_name)
                 options_chosen[_name] = False
@@ -1313,7 +1313,7 @@ def getExceptionInfo(giveMinorInfoEvenIfNotVerbose: bool = False) -> list[str]:
             if not (line.strip().startswith('File "')):
                 results.append(line)
 
-        results.append("Use '--verbosity=detailed' for more information")
+        results.append("Use '--verbosity=details' for more information")
         return results
 
 
@@ -1644,7 +1644,7 @@ def deprecationWarning(message: str):
         msg = f"Deprecation Warning: {message}"
         stack_lines = []
         if not appLog.isVerbose():
-            msg += " (Use --verbosity=detailed for details)"
+            msg += " (Use --verbosity=details for more information)"
         else:
             caller_frame = inspect.stack().copy()[
                 2:

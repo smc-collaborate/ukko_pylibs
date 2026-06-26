@@ -303,7 +303,7 @@ class SimpleLogger:
         if alwaysTraceback or self.isVerbose():
             txt += "\nTraceback:\n" + traceback.format_exc()
         else:
-            txt += "\n -- Use '--verbosity=detailed' for more information"
+            txt += "\n -- Use '--verbosity=details' for more information"
 
         if isError:
             self.print_error(txt, isFatal=False)
