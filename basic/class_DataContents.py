@@ -273,7 +273,7 @@ class DataContents:
             self.optionalSubstitutions is not None
         ):
             outData = PrettyText.withSubstitutions(
-                outData, "$<", self.optionalSubstitutions, ">"
+                str(outData), "$[", self.optionalSubstitutions, "]"
             )
 
         _lines = str(outData).split("\n")
