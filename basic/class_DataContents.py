@@ -379,12 +379,12 @@ class DataContents:
         """Can also update .formatting & .interpretAs based on the content of asProvided (e.g. if it starts with 'hex:')"""
         _txtToReview = None
 
-        _format = self.getFormat()
         caption = PrettyText.asClipped(self.asProvided, 20)
         try:
             _prefix, _fname = self.getProvidedFilenamePlus()
             if _fname:
                 self._loadFromFile(_fname, caption)
+            _format = self.getFormat()
             if (isinstance(self.asData, bytes)) and _format in [
                 "default",
                 "txt",
@@ -399,6 +399,7 @@ class DataContents:
                 _txtToReview = self.asData
                 if _format == "default":
                     self.formatting["format"] = "txt"
+                _format = self.getFormat()  # Changed above
 
             if _txtToReview is None:
                 return
