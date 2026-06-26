@@ -1279,7 +1279,9 @@ def printVerbose_sysInfo():
 
 def getExceptionInfo(giveMinorInfoEvenIfNotVerbose: bool = False) -> list[str]:
 
-    traceLines = traceback.format_exception(sys.exception())
+    traceLines = traceback.format_exception(
+        sys.exc_info()[1]
+    )  # < This is sys.exception(), which was only introduced in 3.11, so we use sys.exc_info() for compatibility with earlier versions
 
     if appLog.isVerbose():
         return traceLines
