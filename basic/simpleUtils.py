@@ -660,7 +660,7 @@ class PrettyText:
     def withSubstitutions(
         src: str, prefix: str, substitutions: dict[str, Any], suffix: str
     ) -> str:
-        """Replaces all occurrences of prefix+key+suffix in src with the corresponding value from substitutions"""
+        """Replaces all occurrences of prefix+key{:xxx}+suffix in src with the corresponding value from substitutions"""
         if prefix == "":
             raise ValueError("Prefix cannot be empty")
 
@@ -670,19 +670,33 @@ class PrettyText:
         txtOut = _parts[0]
         for txt in _parts[1:]:
             _n = txt.find(suffix)
+            substText: str | None = None
             if _n < 0:
                 print_warning(
                     f"PrettyText.withSubstitutions({prefix}…{suffix}): Found prefix '{prefix}' without matching suffix '{suffix}'"
                 )
             else:
-                key = txt[0:_n]
-                if key in substitutions:
-                    txt = str(substitutions[key]) + txt[_n + len(suffix) :]
-                else:
+                keyAndFormatting = txt[0:_n].split(":", 1)
+                key = keyAndFormatting[0]
+
+                if not (key in substitutions):
                     print_warning(
-                        f"PrettyText.withSubstitutions({prefix}{key}{suffix}): No substitution found for key '{key}'"
+                        f"PrettyText.withSubstitutions({prefix}{':'.join(keyAndFormatting)}{suffix}): No substitution found for key '{key}'"
                     )
-            txtOut += txt
+                elif len(keyAndFormatting) > 1:
+                    formatSpec = keyAndFormatting[1]
+                    try:
+                        substText = format(substitutions[key], formatSpec)
+                    except Exception as e:
+                        print_warning(
+                            f"PrettyText.withSubstitutions({prefix}{':'.join(keyAndFormatting)}{suffix}): Error formatting value '{substitutions[key]}' with format spec '{formatSpec}': {e}"
+                        )
+                else:
+                    substText = str(substitutions[key])
+            if substText is not None:
+                txtOut += substText + txt[_n + len(suffix) :]
+            else:
+                txtOut += txt
         return txtOut
 
 
