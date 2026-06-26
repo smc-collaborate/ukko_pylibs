@@ -680,24 +680,6 @@ def reviewParams(
             sys.exit()
 
 
-# |env:x|
-# |env:x|def _fillInOptionsFromEnvVars(appDefinitionsIn: dict[str, Any]):
-# |env:x|    specListIn=appDefinitionsIn.get("options",[])
-# |env:x|    specListOut=[]
-# |env:x|    for spec in specListIn:
-# |env:x|        envVar , envValue, hint= _getEnvVarInfo(spec)
-# |env:x|        if envVar is not None:
-# |env:x|            print(f"!!! {spec} - {envVar}")
-# |env:x|
-# |env:x|            spec['hint']=hint
-# |env:x|            if not envValue is None:
-# |env:x|                spec['default']=envValue
-# |env:x|
-# |env:x|            print(f"specOut: {spec}")
-# |env:x|        specListOut.append(spec)
-# |env:x|    appDefinitionsIn["options"]=specListOut
-# |env:x|    return appDefinitionsIn
-
 g_reviewedParams = {}
 g_appDefinition = {}
 

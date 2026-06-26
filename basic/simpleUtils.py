@@ -696,7 +696,7 @@ class PrettyText:
             if substText is not None:
                 txtOut += substText + txt[_n + len(suffix) :]
             else:
-                txtOut += txt
+                txtOut += prefix + txt
         return txtOut
 
 
