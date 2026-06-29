@@ -1,4 +1,4 @@
-# `ukko_pylibs` : Shared Python Libraries  [Branch: `v0.1.1+wip`]
+# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.1.2`]
 
 ## Development Notes ##
 
