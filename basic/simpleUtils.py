@@ -4,7 +4,6 @@ from collections import OrderedDict
 import hashlib
 import inspect
 import json
-from posixpath import realpath
 import re
 import sys
 import time
@@ -156,9 +155,9 @@ class Utils:
             options.append(os.path.abspath(path))
         elif kind == "abs:friendly":
             options.append(Utils.pathConvert(path, "abs"))
-            options.append(Utils.pathConvert(realpath(path), "abs"))
+            options.append(Utils.pathConvert(os.path.realpath(path), "abs"))
             options.append(Utils.pathConvert(path, "abs:~"))
-            options.append(Utils.pathConvert(realpath(path), "abs:~"))
+            options.append(Utils.pathConvert(os.path.realpath(path), "abs:~"))
         elif kind == "abs:~":
             homedir = os.path.expanduser("~")
 
@@ -173,7 +172,7 @@ class Utils:
 
             if cwdOnStartup:
                 if kind.endswith(":real"):
-                    cwdOnStartup = realpath(cwdOnStartup)
+                    cwdOnStartup = os.path.realpath(cwdOnStartup)
                 extra += f"[cwdOnStartup:{cwdOnStartup}]"
                 path = os.path.relpath(path, cwdOnStartup)
             else:
@@ -183,9 +182,9 @@ class Utils:
 
             options.append(Utils.pathConvert(path, "abs:friendly"))
             options.append(Utils.pathConvert(path, "rel"))
-            options.append(Utils.pathConvert(realpath(path), "abs:friendly"))
-            options.append(Utils.pathConvert(realpath(path), "rel:real"))
-            options.append(Utils.pathConvert(path, "rel:a"))
+            options.append(Utils.pathConvert(os.path.realpath(path), "abs:friendly"))
+            options.append(Utils.pathConvert(os.path.realpath(path), "rel:real"))
+            options.append(path)
         else:
             options.append(path)
 
@@ -656,6 +655,49 @@ class PrettyText:
             else:
                 width += 1
         return width
+
+    @staticmethod
+    def withSubstitutions(
+        src: str, prefix: str, substitutions: dict[str, Any], suffix: str
+    ) -> str:
+        """Replaces all occurrences of prefix+key{:xxx}+suffix in src with the corresponding value from substitutions"""
+        if prefix == "":
+            raise ValueError("Prefix cannot be empty")
+
+        _parts = src.split(prefix)
+        if len(_parts) == 1:
+            return src
+        txtOut = _parts[0]
+        for txt in _parts[1:]:
+            _n = txt.find(suffix)
+            substText: str | None = None
+            if _n < 0:
+                print_warning(
+                    f"PrettyText.withSubstitutions({prefix}…{suffix}): Found prefix '{prefix}' without matching suffix '{suffix}'"
+                )
+            else:
+                keyAndFormatting = txt[0:_n].split(":", 1)
+                key = keyAndFormatting[0]
+
+                if not (key in substitutions):
+                    print_warning(
+                        f"PrettyText.withSubstitutions({prefix}{':'.join(keyAndFormatting)}{suffix}): No substitution found for key '{key}'"
+                    )
+                elif len(keyAndFormatting) > 1:
+                    formatSpec = keyAndFormatting[1]
+                    try:
+                        substText = format(substitutions[key], formatSpec)
+                    except Exception as e:
+                        print_warning(
+                            f"PrettyText.withSubstitutions({prefix}{':'.join(keyAndFormatting)}{suffix}): Error formatting value '{substitutions[key]}' with format spec '{formatSpec}': {e}"
+                        )
+                else:
+                    substText = str(substitutions[key])
+            if substText is not None:
+                txtOut += substText + txt[_n + len(suffix) :]
+            else:
+                txtOut += prefix + txt
+        return txtOut
 
 
 class DictUtils:

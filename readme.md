@@ -1,4 +1,4 @@
-# `ukko_pylibs` : Shared Python Libraries  [Tag: `v0.1.1`]
+# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.1.2`]
 
 ## Development Notes ##
 

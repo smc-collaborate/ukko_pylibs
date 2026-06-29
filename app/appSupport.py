@@ -118,15 +118,15 @@ def exeInfo_isInstalled():
 def logger_traditional_set(loggLevel: int):
     import logging
 
-    if loggLevel == SimpleLogger.VERBOSITY_ERRORS_ONLY:
+    if loggLevel == SimpleLogger.MsgKind_ERROR:
         logging.getLogger().setLevel(logging.ERROR)
-    elif loggLevel == SimpleLogger.VERBOSITY_WARNINGS:
+    elif loggLevel == SimpleLogger.MsgKind_WARNING:
         logging.getLogger().setLevel(logging.WARNING)
-    elif loggLevel == SimpleLogger.VERBOSITY_INFO:
+    elif loggLevel == SimpleLogger.MsgKind_INFO:
         logging.getLogger().setLevel(logging.INFO)
-    elif loggLevel == SimpleLogger.VERBOSITY_INFO_VERBOSE:
+    elif loggLevel == SimpleLogger.MsgKind_DETAIL:
         logging.getLogger().setLevel(logging.DEBUG)
-    elif loggLevel == SimpleLogger.VERBOSITY_TEDIOUS_DETAIL:
+    elif loggLevel == SimpleLogger.MsgKind_TEDIOUS:
         logging.getLogger().setLevel(logging.DEBUG - 1)
 
 
@@ -310,22 +310,6 @@ class ParamSpec:
             return None
         else:
             return str(_default)
-
-        # |env:x|
-        # |env:x|        envVar , envValue, hint= spec._getEnvVarInfo()
-        # |env:x|
-        # |env:x|
-        # |env:x|        _envVarDefault = spec.get("envVarDefault", None)
-        # |env:x|        if _envVarDefault is not None:
-        # |env:x|            txt = f"{txt:<-20} (If ${_envVarDefault} is set, it would be used as the default value for this option)"
-        # |env:x|        else:
-        # |env:x|            txt += f"{txt:<-20} (ie: ${_envVarDefault})"
-        # |env:x|
-
-        _lookup = self.getLookup()
-        if _lookup is not None and not (txt in _lookup):
-            txt = "❌ " + txt
-        return txt
 
     def isUsable(self) -> bool:
         if self.spec.get("skip", False):
@@ -633,7 +617,7 @@ def reviewParams(
                 _used_defaults.append(_name)
                 options_chosen[_name] = spec.defaultValue()
             elif spec.type() is type(None):
-                # Special case - the existance of it is the value - so if it is included we set it to True (eg: --verbose)
+                # Special case - the existance of it is the value - so if it is included we set it to True (eg: --verbosity=details)
                 # but if it is not included, we set it to False
                 _used_defaults.append(_name)
                 options_chosen[_name] = False
@@ -696,24 +680,6 @@ def reviewParams(
             sys.exit()
 
 
-# |env:x|
-# |env:x|def _fillInOptionsFromEnvVars(appDefinitionsIn: dict[str, Any]):
-# |env:x|    specListIn=appDefinitionsIn.get("options",[])
-# |env:x|    specListOut=[]
-# |env:x|    for spec in specListIn:
-# |env:x|        envVar , envValue, hint= _getEnvVarInfo(spec)
-# |env:x|        if envVar is not None:
-# |env:x|            print(f"!!! {spec} - {envVar}")
-# |env:x|
-# |env:x|            spec['hint']=hint
-# |env:x|            if not envValue is None:
-# |env:x|                spec['default']=envValue
-# |env:x|
-# |env:x|            print(f"specOut: {spec}")
-# |env:x|        specListOut.append(spec)
-# |env:x|    appDefinitionsIn["options"]=specListOut
-# |env:x|    return appDefinitionsIn
-
 g_reviewedParams = {}
 g_appDefinition = {}
 
@@ -768,10 +734,12 @@ class Define:
         if "options" not in self.app_definition:
             self.app_definition["options"] = []
 
+        entries, default = appLog.get_thresholds()
+
         _verbositySpec = {
             "name": "verbosity",
-            "lookup": ["quiet", "info", "verbose", "all"],
-            "default": "quiet",
+            "lookup": entries,
+            "default": default,
             "defaultEnvVar": "UKKO_VERBOSITY",
         }
 
@@ -1311,7 +1279,9 @@ def printVerbose_sysInfo():
 
 def getExceptionInfo(giveMinorInfoEvenIfNotVerbose: bool = False) -> list[str]:
 
-    traceLines = traceback.format_exception(sys.exception())
+    traceLines = traceback.format_exception(
+        sys.exc_info()[1]
+    )  # < This is sys.exception(), which was only introduced in 3.11, so we use sys.exc_info() for compatibility with earlier versions
 
     if appLog.isVerbose():
         return traceLines
@@ -1327,7 +1297,7 @@ def getExceptionInfo(giveMinorInfoEvenIfNotVerbose: bool = False) -> list[str]:
             if not (line.strip().startswith('File "')):
                 results.append(line)
 
-        results.append("Use '--verbosity=verbose' for more information")
+        results.append("Use '--verbosity=details' for more information")
         return results
 
 
@@ -1658,7 +1628,7 @@ def deprecationWarning(message: str):
         msg = f"Deprecation Warning: {message}"
         stack_lines = []
         if not appLog.isVerbose():
-            msg += " (Use --verbosity=verbose for more details)"
+            msg += " (Use --verbosity=details for more information)"
         else:
             caller_frame = inspect.stack().copy()[
                 2:

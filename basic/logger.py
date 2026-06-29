@@ -1,3 +1,4 @@
+from enum import Enum
 import errno
 import json
 import sys
@@ -20,47 +21,85 @@ from ukko_pylibs.basic.simpleUtils import PrettyText
 #
 ################################################################################
 
+msgKinds: dict[int, "MsgKind"] = {}
+
+
+class MsgKind:
+    def __init__(
+        self,
+        value: int,
+        name: str,
+        icon: str,
+        thresholdName: str,
+        isDefaultLevel: bool = False,
+    ):
+        self.value = value
+        self.name = name
+        self.icon = icon
+        self.thresholdName = thresholdName
+        self.isDefaultLevel = isDefaultLevel
+        msgKinds[value] = self
+
+    @staticmethod
+    def add(
+        value: int,
+        name: str,
+        icon: str,
+        thresholdName: str,
+        isDefaultLevel: bool = False,
+    ) -> "MsgKind":
+        if value in msgKinds:
+            raise ValueError(f"MsgKind with value {value} already exists")
+        return MsgKind(value, name, icon, thresholdName, isDefaultLevel)
+
 
 class SimpleLogger:
 
-    VERBOSITY_ERRORS_ONLY = 0
-    VERBOSITY_WARNINGS = 1
-    VERBOSITY_INFO = 2
-    VERBOSITY_INFO_VERBOSE = 3
-    VERBOSITY_TEDIOUS_DETAIL = 4
-    VERBOSITY_MAX = 4
+    MsgKind_ERROR = 0
+    MsgKind_WARNING = 1
+    MsgKind_INFO = 2
+    MsgKind_DETAIL = 3
+    MsgKind_TEDIOUS = 4
 
-    def _getLevelIconAndPrefix(self, level: int) -> Tuple[str, str]:
-        if level == self.VERBOSITY_ERRORS_ONLY:
-            return "❌", "Error"
-        elif level == self.VERBOSITY_WARNINGS:
-            return "⚠️", "Warning"
-        elif level == self.VERBOSITY_INFO:
-            return "ℹ️", "Info"
-        elif level == self.VERBOSITY_INFO_VERBOSE:
-            return "Ⓜ️", "Verbose"
-        elif level == self.VERBOSITY_TEDIOUS_DETAIL:
-            return "🔍", "Detailed"
+    @staticmethod
+    def get_thresholds() -> Tuple[list[str], str]:
+        defaultThreshold = ""
+        thresholdList = list[str]()
+        for k, v in msgKinds.items():
+            if v.isDefaultLevel:
+                defaultThreshold = v.thresholdName
+            if v.thresholdName:
+                thresholdList.append(v.thresholdName)
+
+        return thresholdList, defaultThreshold
+
+    def _getLevelIconAndPrefix(self, value: int) -> Tuple[str, str, str]:
+        if value in msgKinds:
+            return (
+                msgKinds[value].icon,
+                msgKinds[value].name,
+                msgKinds[value].thresholdName,
+            )
         else:
-            return "❓", f"[Level {level}]"
+            return "❓", f"[Level {value}]", ""
 
-    def amPrinting(self, level: int) -> bool:
-        return level <= self.printThreshold
+    ###############################
+    # Thresholds and Verbosity Levels
+    #
+    # self.printThreshold.  Only messages with a level <= printThreshold will be printed.
+    #
 
-    def amPrintingErrorsOnly(self) -> bool:
-        return self.amPrinting(self.VERBOSITY_ERRORS_ONLY)
+    def amPrinting(self, msgKindLevel: int) -> bool:
+        return msgKindLevel <= self.printThreshold
 
-    def amPrintingWarnings(self) -> bool:
-        return self.amPrinting(self.VERBOSITY_WARNINGS)
-
-    def amPrintingInfo(self) -> bool:
-        return self.amPrinting(self.VERBOSITY_INFO)
+    #
+    ############################################################
 
     def amPrintingVerbose(self) -> bool:
-        return self.amPrinting(self.VERBOSITY_INFO_VERBOSE)
+        return self.amPrinting(SimpleLogger.MsgKind_DETAIL)
 
     def amPrintingTediousDetail(self) -> bool:
-        return self.amPrinting(self.VERBOSITY_TEDIOUS_DETAIL)
+        return self.amPrinting(SimpleLogger.MsgKind_TEDIOUS)
 
     def print_progress(self, message: str | None = None) -> bool:
         if self.amPrintingVerbose():
@@ -86,7 +125,7 @@ class SimpleLogger:
         if message is None or not self.amPrinting(level):
             return False
 
-        iconPrefix, txtPrefix = self._getLevelIconAndPrefix(level)
+        iconPrefix, txtPrefix, _ = self._getLevelIconAndPrefix(level)
 
         self.kindCounts[txtPrefix] = self.kindCounts.get(txtPrefix, 0) + 1
 
@@ -130,7 +169,7 @@ class SimpleLogger:
         self.lastErrorMsg: str | None = None
         self.onVerbosityThresholdChange = onVerbosityThresholdChange
         self.kindCounts = {}
-        self.printThreshold = self.VERBOSITY_WARNINGS
+        self.printThreshold = self.MsgKind_WARNING
 
         # |x|sys.stderr.write(f"⚠️  self.printThreshold ={self.printThreshold}\n")
 
@@ -140,18 +179,16 @@ class SimpleLogger:
         oldThreshold = self.printThreshold
         # |x| sys.stderr.write(f"⚠️  setVerbosity({json.dumps(setValue)}): From {oldThreshold}\n")
         if isinstance(setValue, bool):
-            self.printThreshold = (
-                self.VERBOSITY_INFO_VERBOSE if setValue else self.VERBOSITY_INFO
-            )
+            self.printThreshold = self.MsgKind_DETAIL if setValue else self.MsgKind_INFO
         elif isinstance(setValue, str):
             if setValue == "quiet":
-                self.printThreshold = self.VERBOSITY_WARNINGS
+                self.printThreshold = self.MsgKind_WARNING
             elif setValue == "info":
-                self.printThreshold = self.VERBOSITY_INFO
-            elif setValue == "verbose":
-                self.printThreshold = self.VERBOSITY_INFO_VERBOSE
+                self.printThreshold = self.MsgKind_INFO
+            elif setValue == "details":
+                self.printThreshold = self.MsgKind_DETAIL
             elif setValue == "all":
-                self.printThreshold = self.VERBOSITY_TEDIOUS_DETAIL
+                self.printThreshold = self.MsgKind_TEDIOUS
             elif not silentOnFailure:
                 sys.stderr.write(
                     f"⚠️  setVerbosity({json.dumps(setValue)}): Invalid value\n"
@@ -167,26 +204,24 @@ class SimpleLogger:
         return self.printThreshold
 
     def isVerbose(self):
-        return self.printThreshold >= self.VERBOSITY_INFO_VERBOSE
+        return self.printThreshold >= self.MsgKind_DETAIL
 
     ##########
     #
     def print_infoOrVerbose(self, message: Any | None, isInfo: bool = True):
-        self.doPrintEntry(
-            self.VERBOSITY_INFO if isInfo else self.VERBOSITY_INFO_VERBOSE, message
-        )
+        self.doPrintEntry(self.MsgKind_INFO if isInfo else self.MsgKind_DETAIL, message)
 
     def print_info(self, message: Any | None) -> bool:
-        return self.doPrintEntry(self.VERBOSITY_INFO, message)
+        return self.doPrintEntry(self.MsgKind_INFO, message)
 
     def print_warning(self, message: Any | None) -> bool:
-        return self.doPrintEntry(self.VERBOSITY_WARNINGS, message)
+        return self.doPrintEntry(self.MsgKind_WARNING, message)
 
     def print_verbose(self, message: Any | None) -> bool:
-        return self.doPrintEntry(self.VERBOSITY_INFO_VERBOSE, message)
+        return self.doPrintEntry(self.MsgKind_DETAIL, message)
 
     def print_tediousDetail(self, message: Any | None) -> bool:
-        return self.doPrintEntry(self.VERBOSITY_TEDIOUS_DETAIL, message)
+        return self.doPrintEntry(self.MsgKind_TEDIOUS, message)
 
     def print_error(
         self,
@@ -224,7 +259,7 @@ class SimpleLogger:
             prefix = ""
 
         isPrinted = self.doPrintEntry(
-            self.VERBOSITY_ERRORS_ONLY, msg, noPrefix=noPrefix, dest=dest
+            self.MsgKind_ERROR, msg, noPrefix=noPrefix, dest=dest
         )
 
         if isFatal:
@@ -268,7 +303,7 @@ class SimpleLogger:
         if alwaysTraceback or self.isVerbose():
             txt += "\nTraceback:\n" + traceback.format_exc()
         else:
-            txt += "\n -- Use '--verbosity=verbose' for more information"
+            txt += "\n -- Use '--verbosity=details' for more information"
 
         if isError:
             self.print_error(txt, isFatal=False)
@@ -295,3 +330,10 @@ class SimpleLogger:
 
     def had_error(self) -> bool:
         return self.lastErrorMsg is not None
+
+
+MsgKind.add(SimpleLogger.MsgKind_ERROR, "Error", "❌", "quiet", isDefaultLevel=True)
+MsgKind.add(SimpleLogger.MsgKind_WARNING, "Warning", "⚠️", "")
+MsgKind.add(SimpleLogger.MsgKind_INFO, "Info", "ℹ️", "info")
+MsgKind.add(SimpleLogger.MsgKind_DETAIL, "Detail", "Ⓜ️", "details")
+MsgKind.add(SimpleLogger.MsgKind_TEDIOUS, "Tedious", "🔍", "all")
