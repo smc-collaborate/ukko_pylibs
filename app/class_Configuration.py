@@ -17,6 +17,8 @@ if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 from ukko_pylibs.basic.simpleUtils import DictUtils, Utils
+from ukko_pylibs.basic.logger import SimpleLogger
+from ukko_pylibs.app.class_ParamSpec import ParamSpec
 
 #
 ################################################################################
@@ -34,10 +36,13 @@ def _recursive_merge(dict1: dict, dict2: dict) -> dict:
 
 class Configuration:
 
-    def __init__(self, configDict: dict[str, Any]):
-        from ukko_pylibs.app.appSupport import appLog
+    def __init__(self, logger: SimpleLogger, configDict: dict[str, Any] | None = None):
 
-        self.__logger = appLog
+        self.__logger = logger
+        self._reload(configDict)
+
+    def _reload(self, configDict: dict[str, Any] | None = None):
+        self.__logger.print_verbose(f"Reloading configuration from {configDict}")
         self._defaults = deepcopy(DictUtils.getDict(configDict, "config/defaults"))
         self._settingsSpec = DictUtils.getDict(configDict, "settings")
         for key, value in self._settingsSpec.items():
@@ -50,6 +55,10 @@ class Configuration:
         config_fname = DictUtils.get(configDict, "config/fname")
         self.notes: list[str] = []
         if config_fname is not None:
+            self.__logger.print_verbose(
+                f"Loading configuration from file {config_fname}"
+            )
+
             try:
                 with open(config_fname, "r", encoding="utf-8") as f:
                     _loadedFromFile = json.load(f)
@@ -98,31 +107,32 @@ class Configuration:
         return result
 
     def setting_applyIfMatches(
-        self, name_valueTuple: tuple[str, str], avoidThrowingError: bool = False
+        self,
+        name_valueTuple: tuple[str, str] | list[str],
+        avoidThrowingError: bool = False,
     ) -> bool:
-        argName, argValue = name_valueTuple
+        argName, argValue = name_valueTuple[0], name_valueTuple[1]
 
         setting_params = DictUtils.getDict(self._settingsSpec, argName)
         if not setting_params:
             return False
-        kind = setting_params.get("kind", "int")
-        if kind == "int":
-            self.setting_set_int(
-                setting_params.get("setting_name", argName),
-                argValue,
-                setting_params.get("min", None),
-                setting_params.get("max", None),
-            )
-            self.notes.append(f"Updated Setting '{argName}' from parameter List")
-        elif kind == "bool":
-            self.setting_set_bool(setting_params.get("setting_name", argName), argValue)
-            self.notes.append(f"Updated Setting '{argName}' from parameter List")
-        elif avoidThrowingError:
-            self.log_warning(f"Unknown setting kind '{kind}' for setting '{argName}'")
-        else:
-            raise Exception(f"Unknown setting kind '{kind}' for setting '{argName}'")
+        spec = ParamSpec(setting_params)
 
-        return True
+        _value = spec.convertArg(argValue, returnNoneInsteadOfThrowingError=True)
+
+        if _value is None:
+            _errmsg = f"Unable to convert value {json.dumps(argValue)} for setting '{argName}'"
+            self.log_warning(_errmsg)
+            if not avoidThrowingError:
+                raise Exception(_errmsg)
+            return False
+        else:
+            self._setting_value_direct(argName, _value)
+
+            return True
+
+    def _setting_value_direct(self, key: str, value: Any):
+        self.CONFIG_USED["settings"][key] = value
 
     def setting_set_int(
         self,
@@ -136,7 +146,7 @@ class Configuration:
 
             if (defaultValue is not None) and (not isinstance(defaultValue, int)):
                 self.log_error(
-                    f"Default setting for key '{key}' is {defaultValue}: Not an integer"
+                    f"Default setting for key '{key}' is {json.dumps(defaultValue)}: Not an integer"
                 )
 
             if not isinstance(value, int):
@@ -159,7 +169,7 @@ class Configuration:
                 )
                 value = maxValue
 
-        self.CONFIG_USED["settings"][key] = value
+        self._setting_value_direct(key, value)
 
     def setting_set_bool(self, key: str, value: str | bool):
 
@@ -201,7 +211,7 @@ class Configuration:
 
         return result
 
-    def get_bool(self, key: str, defaultOnUtterFailure: bool = False) -> Any:
+    def setting_get_bool(self, key: str, defaultOnUtterFailure: bool = False) -> Any:
         value = self.setting_get(key)
 
         type_default = type(defaultOnUtterFailure)
@@ -213,7 +223,7 @@ class Configuration:
             self.log_error(f"Setting[{key}] = {value} : Expected {type_default}")
             return defaultOnUtterFailure
 
-    def get_int(self, key: str, defaultOnUtterFailure: int = 0) -> Any:
+    def setting_get_int(self, key: str, defaultOnUtterFailure: int = 0) -> Any:
 
         value = self.setting_get(key)
 

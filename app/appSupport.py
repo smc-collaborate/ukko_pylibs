@@ -136,6 +136,8 @@ def logger_traditional_set(loggLevel: int):
 
 appLog = SimpleLogger(getExeName(), onVerbosityThresholdChange=logger_traditional_set)
 
+appConfig = Configuration(logger=appLog)
+
 
 def isVerbose() -> bool:
     return appLog.isVerbose()
@@ -168,10 +170,9 @@ def reviewParams(
     arg_cleaned = ""
     giveHelp = False
 
-    configOptions: Configuration | None = (
-        actionOwner.configOptions if actionOwner is not None else None
-    )
-    if configOptions is not None and not configOptions.hasContents():
+    if appConfig.hasContents():
+        configOptions = appConfig
+    else:
         configOptions = None
 
     for _arg in args:
@@ -308,13 +309,13 @@ def reviewParams(
                 options_chosen[_name] = False
             elif not returnNoneInsteadOfThrowingError:
                 valueHelp = spec.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)
+                prefix = ""
+
+                if valueHelp == "":
+                    prefix = spec.getParamFormat()
 
                 if not spec.get("mustBeDirect", False):
-                    prefix = "--" + _name + " "
-                elif valueHelp == "":
-                    prefix = _name
-                else:
-                    prefix = ""
+                    prefix = ("-- " + prefix).strip()
 
                 error_exit(f"Missing required parameter: {prefix}{valueHelp}")
     if len(_used_defaults) > 0:
@@ -457,9 +458,8 @@ class Define:
         if "description" not in self.app_definition:
             self.app_definition["description"] = "No description provided"
 
-        self.configOptions = Configuration(self.app_definition)
-
-        if self.configOptions.hasContents():
+        appConfig._reload(self.app_definition)
+        if appConfig.hasContents():
             self.app_definition["options"].append(
                 {
                     "name": "config-view",
@@ -514,6 +514,8 @@ class Define:
             )
             _name = paramSpec.name()
 
+            _formattedName = paramSpec.get("paramFormat", _name)
+
             if paramSpec.get("hidden", False) or paramSpec.get("isChosen", False):
                 continue
             if paramSpec.get("mustBeDirect", False):
@@ -523,15 +525,15 @@ class Define:
                 elif paramSpec.type() is list or paramSpec.get(
                     "supportMultiple", False
                 ):
-                    param_info += f"[{_name}...] "
+                    param_info += f"[{_formattedName} ...] "
                 else:
-                    param_info += f"[{_name}] "
+                    param_info += f"[{_formattedName}] "
 
             elif paramSpec.get("mayBeDirect", False):
                 if paramSpec.type() is list:
-                    param_info += f"[{_name}⁺...] "
+                    param_info += f"[{_formattedName}⁺ ...] "
                 else:
-                    param_info += f"[{_name}⁺] "
+                    param_info += f"[{_formattedName}⁺] "
 
                 extra_msg = "Options marked with ⁺ may be passed directly, without the option name"
 
@@ -730,7 +732,6 @@ class Define:
             elif arg == "--":
                 addAll = True
         nonOptionArgsIndex = 0
-
         for x in options_in:
             _customisations = x.get("customising", None)
             is_customising_entry = (_customisations is not None) and (
