@@ -383,7 +383,22 @@ class ParamSpec:
             result = "Extended support, including 'file:file.bin', 'hex:12ab' & 'base64:MQ==' "
         elif self.isEscaped():
             result = "Supports escape characters (such as \\n, \\t)"
+
+        if style == ParamSpec.InfoStyle.EXPECTED_SENTENCE:
+            example = str(self.spec.get("example", ""))
+            if example != "":
+                result += f"{self.getParamFormat()} (eg: {example})"
+
+            result = result.strip()
         return result
+
+    def getParamFormat(self) -> str:
+        if "paramFormat" in self.spec:
+            return self.spec["paramFormat"]
+        elif "name" in self.spec:
+            return self.spec["name"]
+        else:
+            return ""
 
     def load(
         self,
