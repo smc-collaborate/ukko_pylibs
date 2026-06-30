@@ -9,7 +9,6 @@ import inspect
 import json
 import os
 import sys
-import textwrap
 import traceback
 from typing import Any, Callable, NoReturn, Tuple
 
@@ -30,7 +29,12 @@ from ukko_pylibs.basic.simpleUtils import EscapeMgr
 from ukko_pylibs.basic.logger import SimpleLogger
 from ukko_pylibs.basic.class_HandledException import HandledException
 
-from ukko_pylibs.basic.class_DataContents import DataContents
+from ukko_pylibs.app.class_Configuration import Configuration
+from ukko_pylibs.app.class_ParamSpec import (
+    ParamSpec,
+    ValueHelpSummary,
+    ValueHelpSummaries,
+)
 
 #
 ################################################################################
@@ -137,353 +141,6 @@ def isVerbose() -> bool:
     return appLog.isVerbose()
 
 
-class ParamSpec:
-
-    #
-    # Fields include:
-    #   * mayBeDirect - if the parameter can be passed directly as a value
-    #   * default     - the default value for the parameter
-    #   * type        - the type of the parameter (int, str, bool)
-    #   * lookup      - a dictionary of values for the parameter  (Or a list of permitted values)
-    #   * min         - the minimum value for the parameter
-    #   * max         - the maximum value for the parameter
-    #   * shortName   - a short name for the parameter (single character)
-    #   * name        - the name of the parameter
-    #   * supportMultiple
-    #   * supportEscaping
-    #   * mustBeDirect
-    #   * hidden
-
-    def __init__(self, spec: dict[str, Any], defaultSupportEscaping: bool = False):
-        self.defaultSupportEscaping = defaultSupportEscaping
-        self.spec = spec
-        self._isEscaped = self._calcIsEscaped(defaultSupportEscaping)
-
-    def isEscaped(self) -> bool:
-        return self._isEscaped
-
-    def _calcIsEscaped(self, defaultSupportEscaping: bool) -> bool:
-        if not self.type() is str:
-            return False
-
-        if not defaultSupportEscaping:
-            return self.spec.get("supportEscaping", False)
-        else:
-            if not self.spec.get("supportEscaping", True):
-                return False
-
-            _lookup = self.getLookup()
-            if _lookup is None:
-                return True
-
-            for x in _lookup if isinstance(_lookup, list) else _lookup.keys():
-                if "/" in json.dumps(str(x)):
-                    return True
-
-            return False
-
-    def getDescriptions(self) -> dict[str, Any]:
-        return self.spec.get("descriptions", {})
-
-    def getSuggestions(self) -> list[str]:
-        return self.spec.get("suggestions", [])
-
-    def __getitem__(self, key):
-        return self.get(key)
-
-    def get(self, key, default=None):
-        return self.spec.get(key, default)
-
-    def asDict(self):
-        return self.spec
-
-    def name(self) -> str:
-        return str(self.spec.get("name", ""))
-
-    def __contains__(self, item):
-        # Define what it means for an item to be "in" the container
-        return item in self.spec
-
-    def getLookup(self):
-        if "lookup" in self.spec:
-            return self.spec["lookup"]
-        elif "permitted" in self.spec:
-            appLog.print_warning(
-                "Internal note: Spec uses 'permitted' instead of 'lookup' - please update to use 'lookup'"
-            )
-            return self.spec["permitted"]
-        else:
-            return None
-
-    def defaultValue(self, withoutEnv: bool = False):
-        if self.spec is None:
-            return None
-
-        if not withoutEnv:
-            envVarName = self.spec.get("defaultEnvVar", None)
-
-            if envVarName is not None:
-                envVarValue = os.environ.get(envVarName, None)
-                if envVarValue is not None:
-                    value = self.convertArg(
-                        envVarValue, returnNoneInsteadOfThrowingError=True
-                    )
-                    if value is None:
-                        appLog.print_warning(
-                            f"Param[{self.name()}]: Environment variable ${envVarName}={json.dumps(envVarValue)} not suitable.  Ignored"
-                        )
-                    else:
-                        if not self.spec.get("_notedEnvVarDefault", None):
-                            self.spec["_notedEnvVarDefault"] = appLog.print_verbose(
-                                f"Param[{self.name()}]: Environment variable ${envVarName}={json.dumps(envVarValue)} used for default"
-                            )
-                        return value
-
-        if not ("default" in self.spec):
-            return None
-        else:
-            value = self.spec["default"]
-            _lookup = self.getLookup()
-            if _lookup is not None and isinstance(_lookup, dict) and (value in _lookup):
-                value = _lookup[value]
-            return value
-
-    def type(self):
-        if "type" in self.spec:
-            result = self.spec["type"]
-            if not isinstance(result, str):
-                return self.spec["type"]
-            elif result == "int":
-                return int
-            elif result == "bool":
-                return bool
-            elif result == "str":
-                return str
-            else:
-                appLog.print_warning(
-                    f"Failed to get type for  {self.spec['name']}={self.spec['type']}"
-                )
-                return None
-
-        typeOfDefault = type(self.defaultValue())
-        if (typeOfDefault is not None) and (typeOfDefault is not type(None)):
-            return typeOfDefault
-
-        _lookup = self.getLookup()
-        if _lookup is not None:
-            if isinstance(_lookup, dict):
-                _lookup = _lookup.values()
-            if len(_lookup) > 0:
-                first_value = next(iter(_lookup))
-                if first_value is None:
-                    first_value = {}
-                return type(first_value)
-
-        return type(None)
-
-    def hasBoolValueForPresence(self):
-        return not self.hasValue()
-
-    def hasValue(self):
-        return self.type() is not type(None)
-
-    def defaultQuotedTxt(self):
-        txt = self._defaultTxt()
-        if txt is None:
-            txt = ""
-        elif (self.type() is DataContents) and txt == "":
-            txt = ""
-        elif txt == "":
-            txt = "''"
-        return f"{txt}"
-
-    def _defaultTxt(self) -> str | None:
-        if not ("default" in self.spec):
-            if ("type" in self.spec) or ("lookup" in self.spec):
-                return "••Required••"
-            else:
-                return ""
-        _default = self.defaultValue()
-        if (type(_default) is list) and (len(_default) > 0):
-            _default = _default[0]
-        if _default is None:
-            return None
-        else:
-            return str(_default)
-
-    def isUsable(self) -> bool:
-        if self.spec.get("skip", False):
-            return False
-        return True
-
-    def shortNameWithHyphen(self) -> str:
-        if not self.isUsable():
-            return ""
-        elif "shortName" in self.spec:
-            return "-" + self.spec["shortName"]
-        elif "name" in self.spec and (len(self.spec["name"]) > 0):
-            return "-" + self.spec["name"][0]
-        else:
-            return ""
-
-    def longNameWithHyphens(self) -> str:
-        if not self.isUsable():
-            return ""
-        elif "name" in self.spec and (len(self.spec["name"]) > 0):
-            return "--" + self.spec["name"]
-        else:
-            return ""
-
-    def matches(self, option: str):
-        _shortName = self.shortNameWithHyphen()
-        if option == _shortName:
-            return True
-        if ("name" in self.spec) and (option == "--" + self.spec["name"]):
-            return True
-        return False
-
-    from enum import Enum
-
-    class InfoStyle(Enum):
-        EXPECTED_SENTENCE = 1
-        TERSE_SUMMARY = 2
-
-    def getValueHelp(self, style: InfoStyle) -> str:
-        result = ""
-        _lookup = self.getLookup()
-        if _lookup is not None:
-            if isinstance(_lookup, dict):
-                result = ", ".join(_lookup.keys())
-            else:
-                result = ", ".join(map(str, _lookup))
-            if style == ParamSpec.InfoStyle.TERSE_SUMMARY:
-                result = f"One of [{result}]"
-            elif style == ParamSpec.InfoStyle.EXPECTED_SENTENCE:
-                result = f"Expected one of [{result}]"
-        elif ("min" in self.spec) or ("max" in self.spec):
-            result = f"range: {self.spec.get('min','')} .. {self.spec.get('max','')}"
-            if style == ParamSpec.InfoStyle.EXPECTED_SENTENCE:
-                result = f"Expected a number in the range of {result}"
-            elif style == ParamSpec.InfoStyle.TERSE_SUMMARY:
-                result = f"Range: {result}"
-        elif self.type() is DataContents:
-            result = "Extended support, including 'file:file.bin', 'hex:12ab' & 'base64:MQ==' "
-        elif self.isEscaped():
-            result = "Supports escape characters (such as \\n, \\t)"
-        return result
-
-    def load(
-        self, arg, currentValue=None, returnNoneInsteadOfThrowingError: bool = False
-    ):
-
-        value = self.convertArg(
-            arg, returnNoneInsteadOfThrowingError=returnNoneInsteadOfThrowingError
-        )
-
-        if not (self.spec.get("supportMultiple", False)):
-            return value
-
-        if currentValue is None:
-            valueList = []
-        elif not isinstance(currentValue, list):
-            valueList = [currentValue]
-        else:
-            valueList = list(currentValue)
-
-        valueList.append(value)
-
-        return valueList
-
-    def convertArg(self, arg, returnNoneInsteadOfThrowingError: bool = False) -> Any:
-
-        def _error(msg: str, e: Exception | None = None):
-            if returnNoneInsteadOfThrowingError:
-                return None
-            else:
-                error_exit(f"Parameter {_name}: {msg}", e, withSuggestion=True)
-
-        _name = self.spec.get("name", "<Unnamed>")
-        _lookup = self.getLookup()
-        if _lookup is not None:
-            if isinstance(_lookup, dict):
-                if arg in _lookup:
-                    return _lookup[arg]
-                else:
-                    return _error(
-                        f"{self.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)} -- but is {arg}"
-                    )
-            elif arg in _lookup:
-                return arg
-            else:
-                #
-                # Also support 'count=13' for 'count=<integer>'
-                parts = arg.split("=", 1)
-                if len(parts) == 2:
-                    for humanFormatted in _lookup:
-                        if humanFormatted.startswith(parts[0] + "=<"):
-                            return arg
-            return _error(
-                f"{self.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)} -- but is {arg}"
-            )
-
-        _type = self.type()
-
-        if _type is type(None):
-            if arg is None:
-                return True  # Just return True for 'Yes - it is included'
-            else:
-                return _error(f"No type defined, cannot parse value: '{arg}'")
-
-        if _type == bool:
-            if arg.lower() in ("true", "yes", "1"):
-                return True
-            elif arg.lower() in ("false", "no", "0"):
-                return False
-            else:
-                return _error(f"Expects a boolean value -- but is {arg}")
-        elif (_type is int) or (_type is float):
-            try:
-                if _type is int:
-                    value = int(arg)
-                else:
-                    value = float(arg)
-                if "min" in self.spec and value < self.spec["min"]:
-                    return _error(
-                        f"Must be at least {self.spec['min']} --but is {value}"
-                    )
-                if "max" in self.spec and value > self.spec["max"]:
-                    return _error(
-                        f"Must be at most {self.spec['max']} -- but is {value}"
-                    )
-
-                return value
-            except ValueError:
-                return _error(
-                    f"Parameter {_name} expects {PrettyText.withAOrAn( _type.__name__)} value -- but is {arg}"
-                )
-        elif _type is str:
-            if self.isEscaped():
-                return EscapeMgr.fromEscapedText(arg)
-            else:
-                return arg
-        elif _type is DataContents:
-            try:
-                return DataContents(
-                    arg,
-                    formatIn=self.spec.get("format", "default"),
-                    optionalNameSuggestion=_name,
-                )
-            except Exception as e:
-                return _error(f"Provided with `{arg}` which gave error", e)
-        else:
-            return _error(f"Unsupported type: {str(_type)}")
-
-    def mayBeDirect(self) -> bool:
-        return (
-            self.spec.get("mayBeDirect", False) or self.spec.get("mustBeDirect", False)
-        ) and not self.spec.get("hidden", False)
-
-
 def reviewParams(
     args,
     options_in_: list,
@@ -510,8 +167,21 @@ def reviewParams(
     spec = None
     arg_cleaned = ""
     giveHelp = False
-    for arg in args:
-        arg_cleaned = arg.replace("–", "-")
+
+    configOptions: Configuration | None = (
+        actionOwner.configOptions if actionOwner is not None else None
+    )
+    if configOptions is not None and not configOptions.hasContents():
+        configOptions = None
+
+    for _arg in args:
+        arg_cleaned = str(_arg)
+        if not (force_non_options):
+            if arg_cleaned.startswith("––"):
+                arg_cleaned = "--" + arg_cleaned.removeprefix("––")
+            elif arg_cleaned.startswith("–"):
+                arg_cleaned = "-" + arg_cleaned.removeprefix("–")
+
         if loadIntoSpec is not None:
             _name: str = loadIntoSpec.name()
             options_chosen[_name] = loadIntoSpec.load(
@@ -522,19 +192,36 @@ def reviewParams(
             loadIntoSpec = None
         elif (arg_cleaned == "--") and not (force_non_options):
             force_non_options = True
-        elif arg_cleaned.startswith("-") and not (force_non_options):
+        elif not arg_cleaned.startswith("-") or (force_non_options):
+            non_option_args.append(arg_cleaned)
+        elif arg_cleaned in (("-" + help_marker), "--help"):
+            giveHelp = True
+            returnNoneInsteadOfThrowingError = True
+        elif configOptions is not None and (
+            (arg_cleaned == "--config-view") or (arg_cleaned == "-C")
+        ):
+            print(configOptions.asText())
+        elif arg_cleaned == "--version":
+            if actionOwner is not None:
+                actionOwner.dumpVersion()
+                doHalt("Version Info - Exiting", suggestSilent=True)
+                sys.exit()
+        else:
             #
             # Process option
-            if arg_cleaned in (("-" + help_marker), "--help"):
-                giveHelp = True
-                returnNoneInsteadOfThrowingError = True
-            elif arg_cleaned == "--version":
-                if actionOwner is not None:
-                    actionOwner.dumpVersion()
-                    doHalt("Version Info - Exiting", suggestSilent=True)
-                    sys.exit()
-            else:
-                argMatched = False
+            argMatched = False
+
+            if (
+                configOptions is not None
+                and (arg_cleaned.startswith("--"))
+                and ("=" in arg_cleaned)
+            ):
+                argMatched = configOptions.setting_applyIfMatches(
+                    arg_cleaned.removeprefix("--").split("=", 1),
+                    returnNoneInsteadOfThrowingError,
+                )
+
+            if not (argMatched):
                 for spec in options_in:
                     _name: str = spec.name()
                     if spec.get("mustBeDirect", False):
@@ -550,7 +237,7 @@ def reviewParams(
                         break
                     elif paramSpec_hasValue and arg_cleaned.startswith(f"--{_name}="):
                         options_chosen[_name] = spec.load(
-                            arg.split("=", 1)[1],
+                            arg_cleaned.split("=", 1)[1],
                             options_chosen.get(_name, None),
                             returnNoneInsteadOfThrowingError,
                         )
@@ -561,14 +248,12 @@ def reviewParams(
                         argMatched = True
                         break
 
-                if not (argMatched) and not (returnNoneInsteadOfThrowingError):
-                    action_suffix = appInfo_get("APP_DEFINITION.post_exe", "")
-                    if action_suffix is None or (str(action_suffix).strip() == ""):
-                        action_suffix = ""
+            if not (argMatched) and not (returnNoneInsteadOfThrowingError):
+                action_suffix = appInfo_get("APP_DEFINITION.post_exe", "")
+                if action_suffix is None or (str(action_suffix).strip() == ""):
+                    action_suffix = ""
 
-                    error_exit(f"Unknown{action_suffix} option: {arg}")
-        else:
-            non_option_args.append(arg)
+                error_exit(f"Unknown{action_suffix} option: {arg_cleaned}")
 
     if loadIntoSpec is not None:
         error_exit(f"Missing value for option: {arg_cleaned}")
@@ -741,18 +426,20 @@ class Define:
             "lookup": entries,
             "default": default,
             "defaultEnvVar": "UKKO_VERBOSITY",
+            "description": "Set verbosity of messaging",
         }
 
-        self.app_definition["options"].insert(0, _verbositySpec)
+        if "settings" in self.app_definition:
+            self.app_definition["settings"]["verbosity"] = _verbositySpec
+        else:
+            self.app_definition["options"].insert(0, _verbositySpec)
+
         # Ensures we get the detailed logging during parameter review
         verbosityArg = None
         for x in sys.argv[1:]:
             if x == "--":
                 break
             if x.startswith("--verbosity="):
-                ParamSpec(_verbositySpec).load(
-                    self.app_definition["options"][0]["default"]
-                )
                 verbosityArg = x.split("=", 1)[1]
                 break
 
@@ -770,27 +457,20 @@ class Define:
         if "description" not in self.app_definition:
             self.app_definition["description"] = "No description provided"
 
+        self.configOptions = Configuration(self.app_definition)
+
+        if self.configOptions.hasContents():
+            self.app_definition["options"].append(
+                {
+                    "name": "config-view",
+                    "shortName": "C",
+                    "description": "Gives the current configuration",
+                }
+            )
+
         self.choices_made = {}
         self.orig_app_definition = deepcopy(self.app_definition)
         appInfo_set("APP_DEFINITION", deepcopy(self.app_definition))
-
-        config_fname = DictUtils.get(self.app_definition, "config/fname")
-        if config_fname is not None:
-            config_defaults = deepcopy(
-                DictUtils.get(self.app_definition, "config/defaults", {})
-            )
-
-            if not config_defaults:
-                config_defaults = {}
-
-            settings = DictUtils.getDict(self.app_definition, "settings", {})
-
-            for key, value in settings.items():
-                if "default" in value:
-                    DictUtils.set(config_defaults, ["settings", key], value["default"])
-                    DictUtils.get(settings, [key, "default"])
-
-            config_init(config_fname, config_defaults)
 
     def giveHelp(self, file_dest=sys.stdout):
         for x in self.getHelp():
@@ -827,6 +507,7 @@ class Define:
         #   * mayBeDirect
         #   * mustBeDirect
         #   * hidden
+
         for _spec in self.app_definition["options"]:
             paramSpec = ParamSpec(
                 _spec, self.app_definition.get("escapeArguments", False)
@@ -934,100 +615,69 @@ class Define:
 
         lines_out.append("")
 
-        outLines = []
-        if True:
-            help_marker = "h"
-            hasDefaults = False
-            for _spec in self.app_definition["options"]:
+        optionsCaption = "Options:"
+        ############################################
+        #
+        # Add any settings to  'lines_out'
+        #
+        appSettings = self.app_definition.get("settings", None)
+
+        if appSettings:
+            _summaries = ValueHelpSummaries()
+            for entry_name, entry_params in appSettings.items():
+                _spec = {}
+                _spec["name"] = entry_name
+                _spec["shortName"] = ""
+                _spec.update(entry_params)
+
                 spec = ParamSpec(
                     _spec, self.app_definition.get("escapeArguments", False)
                 )
-                cols = ["    ", ""]
-                if (
-                    spec.get("hidden", False)
-                    or spec.get("mustBeDirect", False)
-                    or spec.get("isChosen", False)
-                ):
-                    continue
-                _shortName = ParamSpec.shortNameWithHyphen(spec)
-                if _shortName is None:
-                    cols[0] += f" {'':<3}"
-                else:
-                    cols[0] += f"{_shortName:<3}"
-                    if _shortName == "-h":
+
+                pairOrNone = spec.getHelpSummary()
+                if pairOrNone is not None:
+                    _summaries.append(pairOrNone)
+
+            if len(_summaries) > 0:
+                lines_out.extend(_summaries.asLines("Option Settings:"))
+                lines_out.append("")
+                optionsCaption = "Other options:"
+
+        ############################################
+        #
+        # Add the options to  'lines_out'
+        #
+        if True:
+            help_marker = "h"
+            _summaries = ValueHelpSummaries()
+            for _spec in self.app_definition["options"]:
+
+                spec = ParamSpec(
+                    _spec, self.app_definition.get("escapeArguments", False)
+                )
+                pairOrNone = spec.getHelpSummary()
+                if pairOrNone is not None:
+                    _summaries.append(pairOrNone)
+
+                    if spec.shortNameWithHyphen() == "-h":
                         help_marker = "?"
 
-                decorated_name = spec.name()
-                if spec.hasValue():
-                    decorated_name += "="
-                if "mayBeDirect" in spec:
-                    decorated_name += "⁺"
-
-                cols[0] += f" | --{decorated_name:<20}"
-
-                cols[1] = (
-                    f"{ParamSpec.defaultQuotedTxt(spec):<20}".replace(" ", "\xa0") + " "
-                )
-
-                txt_ = ParamSpec.getValueHelp(spec, ParamSpec.InfoStyle.TERSE_SUMMARY)
-                _list = spec.getSuggestions()
-                if _list:
-                    txt_ += f" Suggestion: {' -or- '.join(map(str, _list))}"
-
-                envVarName = spec.get("defaultEnvVar", None)
-                if envVarName is not None:
-                    _envNote = f"Env: ${envVarName}"
-
-                    envValue = os.environ.get(envVarName, None)
-                    if envValue is not None:
-                        _envNote += f"='{envValue}'"
-
-                        otherDefault = spec.defaultValue(withoutEnv=True)
-                        if (otherDefault != envValue) and otherDefault is not None:
-                            _envNote += f" overwrites {otherDefault}"
-                            _envNote = _envNote.removeprefix("Env: ")
-                    txt_ += f" ({_envNote})"
-
-                MAX_WIDTH_HERE = 72
-                if len(txt_) >= MAX_WIDTH_HERE:
-
-                    for prefix in ("One of [", " Suggestion: "):
-                        if txt_.startswith(prefix):
-                            cols[1] += prefix
-                            txt_ = txt_[len(prefix) :]
-                            break
-
-                    parts = textwrap.wrap(txt_, width=MAX_WIDTH_HERE)
-                    last_part = parts.pop()
-                    hasDefaults = True
-                    for part in parts:
-                        outLines.append([cols[0], cols[1] + part])
-                        cols[0] = " " * len(cols[0])
-                        cols[1] = "\xa0" * len(cols[1])
-
-                    cols[1] += last_part
-                else:
-                    cols[1] += txt_
-                cols[1] = cols[1].strip(" \t")
-
-                if cols[1] != "":
-                    hasDefaults = True
-                outLines.append(cols)
-
             if not (handled_help_and_version):
-                outLines.append([f"    -{help_marker}  | --help", ""])
-                outLines.append(["        | --version", ""])
+                _summaries.append(ValueHelpSummary(f"-{help_marker}", "--help"))
+                _summaries.append(ValueHelpSummary("", "--version"))
 
-        if len(outLines) > 0:
-            headerLine = ["Options:", "Default" if hasDefaults else ""]
-            if len(directPrefixes) >= 2:
-                headerLine[0] = "Common options:"
-            outLines.insert(0, headerLine)
-            for cols in outLines:
-                _txt = str(cols[1]).strip(" \t")
-                lines_out.append(f"{cols[0]:<32}    {_txt}".replace("\xa0", " "))
-            if extra_msg != "":
-                lines_out.append(f"{extra_msg}")
+            if len(_summaries) > 0:
+                if len(directPrefixes) >= 2:
+                    optionsCaption = "Common options:"
+                lines_out.extend(_summaries.asLines(optionsCaption))
+
+                if extra_msg != "":
+                    lines_out.append(f"{extra_msg}")
+
+        ############################################
+        #
+        # Add examples to 'lines_out'
+        #
 
         if self.app_definition.get("examples", None):
             lines_out.append("")
@@ -1066,8 +716,10 @@ class Define:
 
         chosenActions = []
         options_in = self.app_definition.get("options", [])
+        settings_out = deepcopy(self.app_definition.get("settings", {}))
         nextActionOptions = None
         options_out = []
+
         nonOptionArgs = []
         addAll = False
         if args is None:
@@ -1117,6 +769,8 @@ class Define:
                             self.app_definition.get("post_exe", "") + " " + chosenAction
                         )
 
+                        settings_out.update(actionInfo.get("settings", {}))
+
                         extra_options = actionInfo.get("options", [])
                         if "description" in actionInfo:
                             self.app_definition["description"] += (
@@ -1151,6 +805,10 @@ class Define:
 
         self.app_definition["options"] = options_out
 
+        if len(settings_out) > 0:
+            self.app_definition["settings"] = settings_out
+        else:
+            self.app_definition.pop("settings", None)
         ######################################
         #
         # Basic parameter review
@@ -1645,180 +1303,3 @@ def deprecationWarning(message: str):
         appLog.print_warning(
             f"Deprecation Warning: {message} (Also failed to get caller info: {e})"
         )
-
-
-CONFIG_DEFAULTS = {}
-CONFIG_LOADED = {}
-CONFIG_USED = CONFIG_LOADED.copy()
-
-
-def config_loadFromFile(configPath: str):
-    global CONFIG_LOADED
-    try:
-        with open(configPath, "r", encoding="utf-8") as f:
-            CONFIG_LOADED = json.load(f)
-    except Exception as e:
-        print(f"⚠️  Warning: Unable to load config file '{configPath}': {e}")
-        CONFIG_LOADED = {}
-
-
-def _recursive_merge(dict1: dict, dict2: dict) -> dict:
-    result = dict1.copy()
-    for key, value in dict2.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-            result[key] = _recursive_merge(result[key], value)
-        else:
-            result[key] = value
-    return result
-
-
-def config_init(config_fname: str | None, defaults: dict[str, Any] | None = None):
-    global CONFIG_LOADED
-    global CONFIG_USED
-    global CONFIG_DEFAULTS
-
-    if defaults is not None:
-        CONFIG_DEFAULTS = defaults
-    if config_fname is not None:
-        config_loadFromFile(config_fname)
-
-    CONFIG_USED = _recursive_merge(CONFIG_DEFAULTS, CONFIG_LOADED)
-
-
-def config_get(key: str | list[str] = "") -> Any:
-    global CONFIG_USED
-    global CONFIG_DEFAULTS
-
-    if key == "":
-        return CONFIG_USED
-
-    result = DictUtils.get(CONFIG_USED, key, None)
-    if result is None:
-        appLog.print_error(
-            f"Config key '{key}' not found - nor found in CONFIG_DEFAULTS"
-        )
-    return result
-
-
-def setting_get_default(key: str) -> Any:
-    global CONFIG_DEFAULTS
-
-    result = DictUtils.get(CONFIG_DEFAULTS, "settings/" + key, "!!NOT_FOUND!!")
-
-    if result == "!!NOT_FOUND!!":
-        if not key.startswith("!"):
-            appLog.print_error(f"Default setting for key '{key}' not found")
-        result = None
-
-    return result
-
-
-def setting_set_int(
-    key: str, value: str | int, minValue: int | None = None, maxValue: int | None = None
-):
-
-    if not key.startswith("!"):
-
-        defaultValue = setting_get_default(key)
-
-        if (defaultValue is not None) and (not isinstance(defaultValue, int)):
-            appLog.print_error(
-                f"Default setting for key '{key}' is {defaultValue}: Not an integer"
-            )
-
-        if not isinstance(value, int):
-            try:
-                value = int(value)
-            except Exception as e:
-                appLog.print_warning(
-                    f"Setting[{key}]={value} is not an integer - Using default {defaultValue}"
-                )
-                return
-        if (minValue is not None) and (value < minValue):
-            appLog.print_warning(
-                f"Setting[{key}] : Clipping {value} to minimum {minValue}"
-            )
-            value = minValue
-
-        if (maxValue is not None) and (value > maxValue):
-            appLog.print_warning(
-                f"Setting[{key}] : Clipping {value} to maximum {maxValue}"
-            )
-            value = maxValue
-
-    global CONFIG_USED
-    CONFIG_USED["settings"][key] = value
-
-
-def setting_set_bool(key: str, value: str | bool):
-
-    defaultValue = setting_get_default(key)
-
-    if (defaultValue is not None) and (not isinstance(defaultValue, bool)):
-        appLog.print_warning(
-            f"Default setting for key '{key}' is {defaultValue}: Not boolean"
-        )
-
-    if not isinstance(value, bool):
-        try:
-            value = bool(value)
-        except Exception as e:
-            appLog.print_warning(
-                f"Setting[{key}]={value} is not a boolean - Using default {defaultValue}"
-            )
-            return
-
-    global CONFIG_USED
-    CONFIG_USED["settings"][key] = value
-
-
-def setting_get(key: str) -> Any:
-    global CONFIG_USED
-    global CONFIG_DEFAULTS
-
-    configKey = "settings/" + key
-    result = DictUtils.get(CONFIG_USED, configKey, None)
-    if key.startswith("!"):
-        return result
-
-    if result is None:
-        appLog.print_error(f"Setting '{key}' not found - nor found in CONFIG_DEFAULTS")
-    else:
-
-        defaultValue = setting_get_default(key)
-        expectedType = type(defaultValue)
-        if not isinstance(result, expectedType):
-            appLog.print_warning(
-                f"Type mismatch for setting '{key}': expected {expectedType}, got {type(result)}"
-            )
-
-    return result
-
-
-def setting_get_bool(key: str, defaultOnUtterFailure: bool = False) -> Any:
-    value = setting_get(key)
-
-    type_default = type(defaultOnUtterFailure)
-    if value is None:
-        return defaultOnUtterFailure  # < Error already noted
-    elif isinstance(value, type_default):
-        return value
-    else:
-        appLog.print_error(f"Setting[{key}] = {value} : Expected {type_default}")
-        return defaultOnUtterFailure
-
-
-def setting_get_int(key: str, defaultOnUtterFailure: int = 0) -> Any:
-
-    value = setting_get(key)
-
-    type_default = type(defaultOnUtterFailure)
-    if value is None:
-        return defaultOnUtterFailure  # < Error already noted
-    elif isinstance(value, type_default):
-        return value
-    elif not key.startswith("!"):
-        appLog.print_error(f"Setting[{key}] = {value} : Expected {type_default}")
-        return defaultOnUtterFailure
-    else:
-        return defaultOnUtterFailure
