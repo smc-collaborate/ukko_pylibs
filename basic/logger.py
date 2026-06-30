@@ -98,8 +98,14 @@ class SimpleLogger:
     def amPrintingVerbose(self) -> bool:
         return self.amPrinting(SimpleLogger.MsgKind_DETAIL)
 
+    def amPrintingDetailed(self) -> bool:
+        return self.amPrinting(SimpleLogger.MsgKind_DETAIL)
+
     def amPrintingTediousDetail(self) -> bool:
         return self.amPrinting(SimpleLogger.MsgKind_TEDIOUS)
+
+    def amPrintingInfo(self) -> bool:
+        return self.amPrinting(SimpleLogger.MsgKind_INFO)
 
     def print_progress(self, message: str | None = None) -> bool:
         if self.amPrintingVerbose():
