@@ -6,6 +6,7 @@ import inspect
 import json
 import re
 import sys
+import textwrap
 import time
 import traceback
 from typing import Any, Callable
@@ -698,6 +699,30 @@ class PrettyText:
             else:
                 txtOut += prefix + txt
         return txtOut
+
+    @staticmethod
+    def textWrapWithPrefixes(
+        txt: str, maxWidth: int | None = None, prefixes: list[str] | None = None
+    ) -> list[str]:
+        if maxWidth is None or len(txt) < maxWidth:
+            return [txt]
+
+        prefixToAppend = ""
+        otherPrefixes = ""
+        if prefixes is not None:
+            for prefix in prefixes:
+                if txt.startswith(prefix):
+                    txt = txt[len(prefix) :]
+                    prefixToAppend = prefix
+                    otherPrefixes = " " * len(prefix)
+                    maxWidth -= len(prefix)
+                    break
+        parts = textwrap.wrap(txt, width=maxWidth)
+        lines = []
+        lines.append(prefixToAppend + parts.pop())
+        for part in parts:
+            lines.append(otherPrefixes + part)
+        return lines
 
 
 class DictUtils:
