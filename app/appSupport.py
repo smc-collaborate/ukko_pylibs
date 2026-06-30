@@ -459,14 +459,6 @@ class Define:
             self.app_definition["description"] = "No description provided"
 
         appConfig._reload(self.app_definition)
-        if appConfig.hasContents():
-            self.app_definition["options"].append(
-                {
-                    "name": "config-view",
-                    "shortName": "C",
-                    "description": "Gives the current configuration",
-                }
-            )
 
         self.choices_made = {}
         self.orig_app_definition = deepcopy(self.app_definition)
@@ -476,6 +468,22 @@ class Define:
         for x in self.getHelp():
             file_dest.write(x.rstrip() + "\n")
         printVerbose_sysInfo()
+
+    def getWalkedValue(self, name: str, default: Any = None) -> Any | None:
+        """
+        Get the value of a parameter that was set during the 'walk' through the app definition
+        (ie: when an action was chosen)
+        :param name: The name of the parameter to get
+        :param default: The default value to return if the parameter was not set
+        :return: The value of the parameter, or the default if it was not set
+        """
+
+        found = default
+        for entry in self.choices_made.get("customisedChoicesWalked", [{}]):
+            if name in entry:
+                found = entry[name]
+
+        return found
 
     def getHelp(self) -> list[str]:
 
@@ -622,7 +630,10 @@ class Define:
         #
         # Add any settings to  'lines_out'
         #
-        appSettings = self.app_definition.get("settings", None)
+        shouldShowConfig = self.getWalkedValue("show-config")
+        appSettings = (
+            self.app_definition.get("settings", None) if shouldShowConfig else None
+        )
 
         if appSettings:
             _summaries = ValueHelpSummaries()
@@ -664,7 +675,10 @@ class Define:
                     if spec.shortNameWithHyphen() == "-h":
                         help_marker = "?"
 
-            if not (handled_help_and_version):
+            if (
+                not (handled_help_and_version)
+                and len(self.choices_made["customisedChoicesMade"]) == 0
+            ):
                 _summaries.append(ValueHelpSummary(f"-{help_marker}", "--help"))
                 _summaries.append(ValueHelpSummary("", "--version"))
 
@@ -717,6 +731,7 @@ class Define:
         #
 
         chosenActions = []
+        actionsWalked = [self.app_definition]
         options_in = self.app_definition.get("options", [])
         settings_out = deepcopy(self.app_definition.get("settings", {}))
         nextActionOptions = None
@@ -753,6 +768,7 @@ class Define:
                     chosenAction = nonOptionArgs[nonOptionArgsIndex].strip()
 
                     if chosenAction in _customisations:
+                        actionsWalked.append(_customisations[chosenAction])
                         chosenActions.append(chosenAction)
                         nextActionOptions = None
                         x["isChosen"] = True
@@ -766,6 +782,7 @@ class Define:
                                 chosenActions
                             )
                         actionInfo = _customisations[chosenAction]
+
                         self.app_definition["post_exe"] = (
                             self.app_definition.get("post_exe", "") + " " + chosenAction
                         )
@@ -803,7 +820,16 @@ class Define:
 
         self.choices_made["customisedChoicesMade"] = chosenActions
         self.choices_made["customisedChoicesNext"] = nextActionOptions
+        self.choices_made["customisedChoicesWalked"] = actionsWalked
 
+        if appConfig.hasContents() and self.getWalkedValue("show-config"):
+            options_out.append(
+                {
+                    "name": "config-view",
+                    "shortName": "C",
+                    "description": "Gives the current configuration",
+                }
+            )
         self.app_definition["options"] = options_out
 
         if len(settings_out) > 0:
