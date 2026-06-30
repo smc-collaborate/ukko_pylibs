@@ -982,11 +982,11 @@ class DictUtils:
                 return result
             else:
                 sys.stderr.write(
-                    f"⚠️  DictUtils.getDict(): Expected dict, but got {type(result)} for key '{keys}' in {Utils.asJsonStr(obj_in)}\n"
+                    f"⚠️  DictUtils.getDict({keys}): Expected dict, but got {type(result)} in {Utils.asJsonStr(obj_in)}\n"
                 )
                 return _defaultIfNotFound
         except Exception as e:
-            sys.stderr.write(f"⚠️  DictUtils.getDict(): Exception {e}\n")
+            sys.stderr.write(f"⚠️  DictUtils.getDict({keys}): Exception {e}\n")
             return _defaultIfNotFound
 
     @staticmethod
