@@ -968,7 +968,7 @@ class DictUtils:
 
     @staticmethod
     def getDict(
-        obj_in: dict[str, Any],
+        obj_in: dict[str, Any] | None,
         keys: str | list[str],
         defaultIfNotFound: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
