@@ -121,6 +121,57 @@ def appInfo_appendStr(
         appInfo_set(name, oldValue + valueToAppend)
 
 
+def appInfo_cmdWithVariant(_spec: ParamSpec | dict[str, Any], value: Any) -> str:
+
+    # return f"{appInfo_getStr("name+actions")} {valuePrefixOrBlank}{paramValue}"
+
+    if isinstance(_spec, ParamSpec):
+        spec = _spec
+    else:
+        spec = ParamSpec(_spec)
+
+    oldParams: list = appInfo_get(
+        "APP_AS_USED.paramsArray", []
+    )  # pyright: ignore[reportAssignmentType]
+
+    newList: list[str] = [appInfo_getStr("exeFullName")]
+
+    if spec.get("mustBeDirect"):
+        newList.extend(oldParams)
+        if str(value).startswith("-") and not ("--" in newList):
+            newList.append("--")
+
+        newList.append(str(value))
+    else:
+        if spec.hasValue():
+            newEntry = f"--{spec.name()}={value}"
+        elif spec.hasBoolValueForPresence() and value:
+            newEntry = f"--{spec.name()}"
+        else:
+            newEntry = ""
+        forcingDirect = False
+        for x in oldParams:
+            addExisting = True
+            if not forcingDirect:
+                if x == "--":
+                    if newEntry != "":
+                        newList.append(newEntry)
+                    forcingDirect = True
+                elif spec.getMatchedValue(x)[0]:
+                    if newEntry != "":
+                        newList.append(newEntry)
+                    addExisting = False
+                    forcingDirect = True
+
+            if addExisting:
+                newList.append(x)
+
+        if not forcingDirect and newEntry != "":
+            newList.append(newEntry)
+
+    return " ".join([EscapeMgr.asBashParam(x) for x in newList])
+
+
 def getExeName() -> str:
     return str(appInfo_get("exeFullName"))
 
@@ -162,6 +213,17 @@ def logger_traditional_set(loggLevel: int):
 appLog = SimpleLogger(getExeName(), onVerbosityThresholdChange=logger_traditional_set)
 
 appConfig = Configuration(logger=appLog)
+
+
+entries, default = appLog.get_thresholds()
+
+app_verbositySpec = {
+    "name": "verbosity",
+    "lookup": entries,
+    "default": default,
+    "defaultEnvVar": "UKKO_VERBOSITY",
+    "description": "Set verbosity of messaging",
+}
 
 
 def isVerbose() -> bool:
@@ -249,30 +311,21 @@ def reviewParams(
 
             if not (argMatched):
                 for spec in options_in:
-                    _name: str = spec.name()
-                    if spec.get("mustBeDirect", False):
-                        continue
-                    paramSpec_hasValue = spec.hasValue()
-                    if spec.matches(arg_cleaned):
-                        if not paramSpec_hasValue:
-                            options_chosen[_name] = True
-                        else:
-                            loadIntoSpec = spec
-
-                        argMatched = True
-                        break
-                    elif paramSpec_hasValue and arg_cleaned.startswith(f"--{_name}="):
-                        options_chosen[_name] = spec.load(
-                            arg_cleaned.split("=", 1)[1],
-                            options_chosen.get(_name, None),
-                            returnNoneInsteadOfThrowingError,
-                        )
-                        argMatched = True
-                        break
-                    elif not paramSpec_hasValue and (arg_cleaned == f"--{_name}"):
-                        options_chosen[_name] = True
-                        argMatched = True
-                        break
+                    if not spec.get("mustBeDirect", False):
+                        argMatched, _value = spec.getMatchedValue(arg_cleaned)
+                        if argMatched:
+                            _name: str = spec.name()
+                            if _value is None:
+                                loadIntoSpec = spec
+                            elif isinstance(_value, bool) and _value == True:
+                                options_chosen[_name] = _value
+                            else:
+                                options_chosen[_name] = spec.load(
+                                    _value,
+                                    options_chosen.get(_name, None),
+                                    returnNoneInsteadOfThrowingError,
+                                )
+                            break
 
             if not (argMatched) and not (returnNoneInsteadOfThrowingError):
                 action_suffix = appInfo_get("APP_AS_USED.post_exe", "")
@@ -334,33 +387,21 @@ def reviewParams(
                 options_chosen[_name] = False
             elif not returnNoneInsteadOfThrowingError:
 
-                _cmd = appInfo_getStr("name+params")
-
                 exampleOrNone = spec.getExample()
                 if exampleOrNone is not None:
                     try:
-                        if spec.get("mustBeDirect") and str(exampleOrNone).startswith(
-                            "-"
-                        ):
-                            _params = appInfo_get("APP_AS_USED.paramsArray", [])
-                            if Utils.is_iterable(_params):
-                                if (
-                                    "--" in _params
-                                ):  # pyright: ignore[reportOperatorIssue]
-                                    _cmd += " --"
-                        suggestion = _cmd + " " + EscapeMgr.asBashParam(exampleOrNone)
                         error_exit(
-                            f"Missing required parameter: {spec.getParamFormat()}",
-                            withSuggestion=suggestion,
+                            f"Missing required parameter: {styleAsError(spec.getParamFormat())}",
+                            withSuggestion=appInfo_cmdWithVariant(exampleOrNone, spec),
                         )
-                    except Exception as e:
+                    except Exception:
                         pass
 
                 valueHelp = spec.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)
                 if valueHelp == "":
                     valueHelp = spec.getParamFormat()
 
-                error_exit(f"Missing required parameter: {valueHelp}")
+                error_exit(f"Missing required parameter: {styleAsError(valueHelp)}")
     if len(_used_defaults) > 0:
         appLog.print_tediousDetail(f"Used defaults for: {', '.join(_used_defaults)}")
 
@@ -459,38 +500,23 @@ class Define:
         return _actionFunction, params
 
     def _setupVerbosity(self):
-        entries, default = appLog.get_thresholds()
-
-        _verbositySpec = {
-            "name": "verbosity",
-            "lookup": entries,
-            "default": default,
-            "defaultEnvVar": "UKKO_VERBOSITY",
-            "description": "Set verbosity of messaging",
-        }
 
         if "settings" in self.app_definition:
-            self.app_definition["settings"]["verbosity"] = _verbositySpec
+            self.app_definition["settings"]["verbosity"] = app_verbositySpec
         else:
-            self.app_definition["options"].insert(0, _verbositySpec)
+            self.app_definition["options"].insert(0, app_verbositySpec)
 
         # Ensures we get the detailed logging during parameter review
         appLog.setVerbosity(
-            ParamSpec(_verbositySpec).cheatPeekAtValue(), silentOnFailure=True
+            ParamSpec(app_verbositySpec).cheatPeekAtValue(), silentOnFailure=True
         )
 
     def _setupColourOptions(self):
-        _colourSpec = {
-            "name": "plain",
-            "shortName": "",
-            "defaultEnvVar": "UKKO_PLAIN_STYLING",
-            "description": "Disable output colouring & styling",
-        }
 
-        self.app_definition["options"].insert(0, _colourSpec)
+        self.app_definition["options"].insert(0, app_stylingSpec)
 
         # Ensures we get the styling correct of any error messages
-        styling_doDisable(ParamSpec(_colourSpec).cheatPeekAtValue())
+        styling_doDisable(ParamSpec(app_stylingSpec).cheatPeekAtValue())
 
     def __init__(self, _app_definition: dict[str, Any]):
         self.app_definition = _app_definition
@@ -1017,16 +1043,18 @@ def printVerbose_sysInfo():
         appLog.print_tediousDetail(f"Modules:\n" + "\n".join(lines))
 
 
-def getExceptionInfo(giveMinorInfoEvenIfNotVerbose: bool = False) -> list[str]:
-
+def getExceptionInfo(
+    giveMinorInfoEvenIfNotVerbose: bool = False,
+) -> tuple[list[str], bool]:
+    """Lines of info + bool indicating if --verbosity will give more info"""
     traceLines = traceback.format_exception(
         sys.exc_info()[1]
     )  # < This is sys.exception(), which was only introduced in 3.11, so we use sys.exc_info() for compatibility with earlier versions
 
     if appLog.isVerbose():
-        return traceLines
+        return traceLines, False
     elif not (giveMinorInfoEvenIfNotVerbose):
-        return []
+        return [], True
     else:
         review = []
         for line in traceLines[-2:-1]:
@@ -1037,8 +1065,7 @@ def getExceptionInfo(giveMinorInfoEvenIfNotVerbose: bool = False) -> list[str]:
             if not (line.strip().startswith('File "')):
                 results.append(line)
 
-        results.append("Use '--verbosity=details' for more information")
-        return results
+        return results, True
 
 
 def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
@@ -1049,7 +1076,6 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
     :param ex: The exception that occurred
     :param msg: Custom error message to display
     """
-    suggestion: bool | str = False
     isHandled = isinstance(e, HandledException)
     if action is None:
         action = str(e)
@@ -1076,9 +1102,13 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
         doHalt("System Exit - Exiting")
         sys.exit(e.code)
     else:
-        if not isinstance(suggestion, str):
-            suggestion = "\n".join(getExceptionInfo(not isHandled))
-        error_exit(f"{action}{emsgSuffix}", withSuggestion=suggestion)
+        lines, makeSuggestion = getExceptionInfo(not isHandled)
+        if lines:
+            emsgSuffix += "\n".join(lines)
+        if makeSuggestion:
+            emsgSuffix += f"\nSuggestion: {styleAsSuggestion(appInfo_cmdWithVariant(app_verbositySpec,'details'))} for more information"
+
+        error_exit(f"{action}{emsgSuffix}", withSuggestion=False)
 
 
 def returnJsonData(resultFull: Any, elementNameIfNotFull: str | None = None):
@@ -1155,7 +1185,7 @@ def error_exit(
         if suggestionTxt != "":
 
             print(
-                f"{prefixOrNone}Suggestion: {styleText(suggestionTxt, 'blue+bold')}",
+                f"{prefixOrNone}Suggestion: {styleAsSuggestion(suggestionTxt)}",
                 file=sys.stderr,
             )
 
@@ -1396,15 +1426,15 @@ def deprecationWarning(message: str):
 
 
 def stylingIsSupported() -> bool:
-    return styleText("test", "bold+blue") != "test"
+    return styleAs("test", "bold+blue") != "test"
 
 
-g_appColoursEnabled = True
+g_appColoursAreEnabled = True
 
 
 def _colourText(txt: str, color: str, attrs=None) -> str:
-    global g_appColoursEnabled
-    if g_appColoursEnabled is False:
+    global g_appColoursAreEnabled
+    if g_appColoursAreEnabled is False:
         return txt
 
     try:
@@ -1416,14 +1446,55 @@ def _colourText(txt: str, color: str, attrs=None) -> str:
         return txt
 
 
-def styleText(txt: str, style: str) -> str:
+def styleAs(value: Any | None, style: str) -> str:
+    global g_appColoursAreEnabled
+    if g_appColoursAreEnabled is False or (value is None) or (value == ""):
+        return ""
+
     x = style.split("+")
     color = x.pop(0)
 
-    return _colourText(txt, color, x if len(x) > 0 else None)
+    return _colourText(str(value), color, x if len(x) > 0 else None)
+
+
+def styleAsSuggestion(value: Any | None) -> str:
+    return styleAs(value, "blue+bold")
+
+
+def styleAsSuggestionList(values: list[Any], quoteIfNeeded: bool = False) -> str:
+
+    if quoteIfNeeded:
+        return ", ".join(
+            [styleAsSuggestion(EscapeMgr.escapeIfNeeded(str(x))) for x in values]
+        )
+    else:
+        return ", ".join([styleAsSuggestion(str(x)) for x in values])
+
+
+def styleAsError(value: Any | None) -> str:
+    return styleAs(value, "red+bold")
+
+
+def styleAsErrorList(values: list[Any], singularUnit: str = "") -> str:
+    if len(values) == 0:
+        return styleAsError(PrettyText.pluralize(len(values), singularUnit))
+    else:
+        return (
+            PrettyText.pluralizeName(len(values), singularUnit)
+            + ": "
+            + ", ".join([styleAsError(str(x)) for x in values])
+        )
 
 
 def styling_doDisable(disable: bool | None):
-    global g_appColoursEnabled
+    global g_appColoursAreEnabled
     if disable:
-        g_appColoursEnabled = False
+        g_appColoursAreEnabled = False
+
+
+app_stylingSpec = {
+    "name": "plain",
+    "shortName": "",
+    "defaultEnvVar": "UKKO_PLAIN_STYLING",
+    "description": "Disable output colouring & styling",
+}
