@@ -1369,3 +1369,42 @@ def deprecationWarning(message: str):
         appLog.print_warning(
             f"Deprecation Warning: {message} (Also failed to get caller info: {e})"
         )
+
+
+##################################
+# Styling
+#
+
+
+def stylingIsSupported() -> bool:
+    return styleText("test", "bold+blue") != "test"
+
+
+g_appColoursEnabled = True
+
+
+def _colourText(txt: str, color: str, attrs=None) -> str:
+    global g_appColoursEnabled
+    if g_appColoursEnabled is False:
+        return txt
+
+    try:
+        import termcolor
+
+        return termcolor.colored(txt, color, attrs=attrs)
+    except Exception as e:
+        print(f"⚠️  Unable to colour text: {txt} (color={color},attrs={attrs}) {e}")
+        return txt
+
+
+def styleText(txt: str, style: str) -> str:
+    x = style.split("+")
+    color = x.pop(0)
+
+    return _colourText(txt, color, x if len(x) > 0 else None)
+
+
+def styling_doEnable(enable: bool | None):
+    global appColoursEnabled
+    if enable is not None:
+        appColoursEnabled = enable
