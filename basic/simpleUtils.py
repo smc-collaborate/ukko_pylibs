@@ -116,6 +116,13 @@ def print_info(msg: str):
 
 
 class Utils:
+    @staticmethod
+    def is_iterable(obj) -> bool:
+        try:
+            iter(obj)
+            return True
+        except TypeError:
+            return False
 
     @staticmethod
     def isStdoutText():
