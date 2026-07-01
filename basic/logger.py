@@ -126,10 +126,12 @@ class SimpleLogger:
         message: Any | None,
         noPrefix: bool = False,
         dest: TextIO | None = None,
-    ) -> bool:
-
+    ) -> None | str:
+        """
+        :return: None (if not printed) or the prefix to use on the next line if continuing this message
+        """
         if message is None or not self.amPrinting(level):
-            return False
+            return None
 
         iconPrefix, txtPrefix, _ = self._getLevelIconAndPrefix(level)
 
@@ -140,7 +142,7 @@ class SimpleLogger:
 
         msg_text = self.asPrintable(message)
         if msg_text == "":
-            return False
+            return None
 
         if dest is None:
             textOut = sys.stderr
@@ -166,7 +168,7 @@ class SimpleLogger:
         for line in lines:
             textOut.write(f"{padding}{bar}{line}\n")
 
-        return True
+        return padding + bar
 
     def __init__(
         self, name: str, onVerbosityThresholdChange: Callable[[int], None] | None = None
@@ -217,16 +219,16 @@ class SimpleLogger:
     def print_infoOrVerbose(self, message: Any | None, isInfo: bool = True):
         self.doPrintEntry(self.MsgKind_INFO if isInfo else self.MsgKind_DETAIL, message)
 
-    def print_info(self, message: Any | None) -> bool:
+    def print_info(self, message: Any | None) -> None | str:
         return self.doPrintEntry(self.MsgKind_INFO, message)
 
-    def print_warning(self, message: Any | None) -> bool:
+    def print_warning(self, message: Any | None) -> None | str:
         return self.doPrintEntry(self.MsgKind_WARNING, message)
 
-    def print_verbose(self, message: Any | None) -> bool:
+    def print_verbose(self, message: Any | None) -> None | str:
         return self.doPrintEntry(self.MsgKind_DETAIL, message)
 
-    def print_tediousDetail(self, message: Any | None) -> bool:
+    def print_tediousDetail(self, message: Any | None) -> None | str:
         return self.doPrintEntry(self.MsgKind_TEDIOUS, message)
 
     def print_error(
@@ -235,15 +237,15 @@ class SimpleLogger:
         isFatal: bool = False,
         noPrefix: bool = False,
         dest: TextIO | None = None,
-    ) -> bool:
+    ) -> None | str:
         """Print an error message to stderr with a prefix.  Avoids printing the same message multiple times.
         :param message: The error message to print
-        :return: The length of the gap for the next line
+        :return: None (if not printed) or the prefix to use on the next line if continuing this message
         """
         if self.lastErrorMsg == message:
             if isFatal:
                 exit(1)
-            return False
+            return None
 
         self.lastErrorMsg = message
         msg = message.strip().removeprefix("❌").strip()
@@ -264,14 +266,14 @@ class SimpleLogger:
         elif msg.startswith("Error"):
             prefix = ""
 
-        isPrinted = self.doPrintEntry(
+        printPrefixToUseOrNone = self.doPrintEntry(
             self.MsgKind_ERROR, msg, noPrefix=noPrefix, dest=dest
         )
 
         if isFatal:
             exit(1)
 
-        return isPrinted
+        return printPrefixToUseOrNone
 
     @staticmethod
     def asPrintable(message: Any | None) -> str:
