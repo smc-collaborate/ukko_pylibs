@@ -347,13 +347,16 @@ class ParamSpec:
         else:
             return ""
 
-    def matches(self, option: str):
-        _shortName = self.shortNameWithHyphen()
-        if option == _shortName:
-            return True
-        if ("name" in self.spec) and (option == "--" + self.spec["name"]):
-            return True
-        return False
+    def getMatchedValue(self, arg: str) -> tuple[bool, Any]:
+        """matched, value"""
+
+        for _prefix in [self.longNameWithHyphens(), self.shortNameWithHyphen()]:
+            if _prefix:
+                if arg == _prefix:
+                    return (True, True if self.hasValue() else None)
+                if self.hasValue() and arg.startswith(f"{_prefix}="):
+                    return (True, arg.split("=", 1)[1])
+        return (False, None)
 
     from enum import Enum
 
