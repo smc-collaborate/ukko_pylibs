@@ -1128,17 +1128,22 @@ def error_exit(
 
     if exception is not None:
         msg += f" | Exception: {str(exception)}"
-    if withSuggestion:
-        if isinstance(withSuggestion, str):
-            extraLines = withSuggestion
+
+    prefixOrNone = appLog.print_error(msg, noPrefix=True)
+    if prefixOrNone is not None:
+        if not withSuggestion:
+            suggestionTxt = ""
+        elif isinstance(withSuggestion, str):
+            suggestionTxt = withSuggestion.removeprefix("Suggest:").strip()
         else:
-            exe_action = appInfo_getStr("name+actions")
+            suggestionTxt = appInfo_getStr("name+actions") + " --help"
 
-            extraLines = f"Suggest: {exe_action} --help"
+        if suggestionTxt != "":
 
-        msg += "\n" + extraLines
-
-    appLog.print_error(msg, noPrefix=True)
+            print(
+                f"{prefixOrNone}Suggestion: {styleText(suggestionTxt, 'blue+bold')}",
+                file=sys.stderr,
+            )
 
     printVerbose_sysInfo()
     doHalt("Exiting with error")
