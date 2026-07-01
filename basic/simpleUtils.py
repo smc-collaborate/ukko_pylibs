@@ -438,7 +438,7 @@ class Utils:
     def toHexText(src: bytes, maxNumChars: int | None = 100) -> str:
         txt = src.hex()
         if (maxNumChars is not None) and (len(txt) > maxNumChars):
-            suffix = f"... ({len(src)} bytes)"
+            suffix = f"… ({len(src)} bytes)"
             maxHexChars = maxNumChars - len(suffix)
             maxHexChars -= maxHexChars % 2
             txt = f"{txt[0:maxHexChars]}{suffix}"
@@ -500,7 +500,7 @@ class Utils:
             txtSuffix = f" ({len(data)} bytes)"
         maxDataLenBytes = (maxLen_chars - len(txtSuffix)) // 2
         if len(data) > maxDataLenBytes:
-            txtSuffix = f"... ({len(data)} bytes total)"
+            txtSuffix = f"… ({len(data)} bytes total)"
             maxDataLenBytes = (maxLen_chars - len(txtSuffix)) // 2
 
             return data[:maxDataLenBytes].hex() + txtSuffix
@@ -643,14 +643,33 @@ class PrettyText:
 
     @staticmethod
     def pluralize(count: int | float, singular: str, plural: str | None = None):
-        if plural is None:
-            if singular.endswith("y"):
-                plural = singular.removesuffix("y") + "ies"
-            elif (singular.endswith("s")) or (singular.endswith("x")):
-                plural = singular + "es"
-            else:
-                plural = singular + "s"
-        return f"{count} {singular}" if count == 1 else f"{count} {plural}"
+        return f"{count} {PrettyText.pluralizeName(count, singular, plural)}"
+
+    @staticmethod
+    def pluralizeName(count: int | float, singular: str, plural: str | None = None):
+        if singular == "":
+            singular = "item"
+
+        if count == 1:
+            return singular
+        elif plural is not None:
+            return plural
+        else:
+            return PrettyText.pluralizeSingular(singular)
+
+    @staticmethod
+    def pluralizeSingular(singular: str):
+        if singular == "":
+            singular = "item"
+
+        if singular.endswith("y"):
+            plural = singular.removesuffix("y") + "ies"
+        elif (singular.endswith("s")) or (singular.endswith("x")):
+            plural = singular + "es"
+        else:
+            plural = singular + "s"
+
+        return plural
 
     @staticmethod
     def UniLen_approx(s: str) -> int:
@@ -1151,6 +1170,14 @@ class EscapeMgr:
     @staticmethod
     def asEscapedText(value: Any) -> str:
         return json.dumps(value, ensure_ascii=False).removeprefix('"').removesuffix('"')
+
+    @staticmethod
+    def escapeIfNeeded(value: Any) -> str:
+        x = json.dumps(value, ensure_ascii=False)
+        if x.startswith('"') and x.endswith('"') and ((" " in x) or ("\\" in x)):
+            return x
+        else:
+            return x.removeprefix('"').removesuffix('"')
 
     @staticmethod
     def asOptionallyEscapedText(value: Any, applyEscaping: bool = True) -> Any:
