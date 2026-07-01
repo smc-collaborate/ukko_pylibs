@@ -459,10 +459,6 @@ class Define:
         return _actionFunction, params
 
     def _setupVerbosity(self):
-
-        if "options" not in self.app_definition:
-            self.app_definition["options"] = []
-
         entries, default = appLog.get_thresholds()
 
         _verbositySpec = {
@@ -479,22 +475,22 @@ class Define:
             self.app_definition["options"].insert(0, _verbositySpec)
 
         # Ensures we get the detailed logging during parameter review
-        verbosityArg = None
-        for x in sys.argv[1:]:
-            if x == "--":
-                break
-            if x.startswith("--verbosity="):
-                verbosityArg = x.split("=", 1)[1]
-                break
-
-        if verbosityArg is None:
-            verbosityArg = ParamSpec(_verbositySpec).defaultValue()
-        if verbosityArg is not None:
-            appLog.setVerbosity(verbosityArg, silentOnFailure=True)
+        appLog.setVerbosity(
+            ParamSpec(_verbositySpec).cheatPeekAtValue(), silentOnFailure=True
+        )
 
     def __init__(self, _app_definition: dict[str, Any]):
         self.app_definition = _app_definition
+
+        if "options" not in self.app_definition:
+            self.app_definition["options"] = []
+
+        ###############
+        #
         self._setupVerbosity()
+
+        ###############
+        #
         self.app_definition["runningDir"] = os.getcwd()
         if "version" not in self.app_definition:
             self.app_definition["version"] = "0.0.0"
