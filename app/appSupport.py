@@ -333,16 +333,34 @@ def reviewParams(
                 _used_defaults.append(_name)
                 options_chosen[_name] = False
             elif not returnNoneInsteadOfThrowingError:
+
+                _cmd = appInfo_getStr("name+params")
+
+                exampleOrNone = spec.getExample()
+                if exampleOrNone is not None:
+                    try:
+                        if spec.get("mustBeDirect") and str(exampleOrNone).startswith(
+                            "-"
+                        ):
+                            _params = appInfo_get("APP_AS_USED.paramsArray", [])
+                            if Utils.is_iterable(_params):
+                                if (
+                                    "--" in _params
+                                ):  # pyright: ignore[reportOperatorIssue]
+                                    _cmd += " --"
+                        suggestion = _cmd + " " + EscapeMgr.asBashParam(exampleOrNone)
+                        error_exit(
+                            f"Missing required parameter: {spec.getParamFormat()}",
+                            withSuggestion=suggestion,
+                        )
+                    except Exception as e:
+                        pass
+
                 valueHelp = spec.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)
-                prefix = ""
-
                 if valueHelp == "":
-                    prefix = spec.getParamFormat()
+                    valueHelp = spec.getParamFormat()
 
-                if not spec.get("mustBeDirect", False):
-                    prefix = ("-- " + prefix).strip()
-
-                error_exit(f"Missing required parameter: {prefix}{valueHelp}")
+                error_exit(f"Missing required parameter: {valueHelp}")
     if len(_used_defaults) > 0:
         appLog.print_tediousDetail(f"Used defaults for: {', '.join(_used_defaults)}")
 
