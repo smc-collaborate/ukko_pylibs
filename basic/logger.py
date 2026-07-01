@@ -185,33 +185,36 @@ class SimpleLogger:
         # |x|sys.stderr.write(f"⚠️  self.printThreshold ={self.printThreshold}\n")
 
     def setVerbosity(
-        self, setValue: bool | int | str, silentOnFailure: bool = False
+        self, setValue: None | bool | int | str, silentOnFailure: bool = False
     ) -> int:
-        oldThreshold = self.printThreshold
-        # |x| sys.stderr.write(f"⚠️  setVerbosity({json.dumps(setValue)}): From {oldThreshold}\n")
-        if isinstance(setValue, bool):
-            self.printThreshold = self.MsgKind_DETAIL if setValue else self.MsgKind_INFO
-        elif isinstance(setValue, str):
-            if setValue == "quiet":
-                self.printThreshold = self.MsgKind_WARNING
-            elif setValue == "info":
-                self.printThreshold = self.MsgKind_INFO
-            elif setValue == "details":
-                self.printThreshold = self.MsgKind_DETAIL
-            elif setValue == "all":
-                self.printThreshold = self.MsgKind_TEDIOUS
-            elif not silentOnFailure:
-                sys.stderr.write(
-                    f"⚠️  setVerbosity({json.dumps(setValue)}): Invalid value\n"
+        if setValue is not None:
+            oldThreshold = self.printThreshold
+            # |x| sys.stderr.write(f"⚠️  setVerbosity({json.dumps(setValue)}): From {oldThreshold}\n")
+            if isinstance(setValue, bool):
+                self.printThreshold = (
+                    self.MsgKind_DETAIL if setValue else self.MsgKind_INFO
                 )
-        if (
-            oldThreshold != self.printThreshold
-            and self.onVerbosityThresholdChange is not None
-        ):
-            try:
-                self.onVerbosityThresholdChange(self.printThreshold)
-            except Exception:
-                pass  # < Swallow any exceptions from the callback to avoid interfering with the main app
+            elif isinstance(setValue, str):
+                if setValue == "quiet":
+                    self.printThreshold = self.MsgKind_WARNING
+                elif setValue == "info":
+                    self.printThreshold = self.MsgKind_INFO
+                elif setValue == "details":
+                    self.printThreshold = self.MsgKind_DETAIL
+                elif setValue == "all":
+                    self.printThreshold = self.MsgKind_TEDIOUS
+                elif not silentOnFailure:
+                    sys.stderr.write(
+                        f"⚠️  setVerbosity({json.dumps(setValue)}): Invalid value\n"
+                    )
+            if (
+                oldThreshold != self.printThreshold
+                and self.onVerbosityThresholdChange is not None
+            ):
+                try:
+                    self.onVerbosityThresholdChange(self.printThreshold)
+                except Exception:
+                    pass  # < Swallow any exceptions from the callback to avoid interfering with the main app
         return self.printThreshold
 
     def isVerbose(self):
