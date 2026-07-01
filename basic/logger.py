@@ -52,6 +52,15 @@ class MsgKind:
             raise ValueError(f"MsgKind with value {value} already exists")
         return MsgKind(value, name, icon, thresholdName, isDefaultLevel)
 
+    def asDict(self) -> dict[str, Any]:
+        return {
+            "value": self.value,
+            "name": self.name,
+            "icon": self.icon,
+            "thresholdName": self.thresholdName,
+            "isDefaultLevel": self.isDefaultLevel,
+        }
+
 
 class SimpleLogger:
 
@@ -65,7 +74,7 @@ class SimpleLogger:
     def get_thresholds() -> Tuple[list[str], str]:
         defaultThreshold = ""
         thresholdList = list[str]()
-        for k, v in msgKinds.items():
+        for _k, v in msgKinds.items():
             if v.isDefaultLevel:
                 defaultThreshold = v.thresholdName
             if v.thresholdName:
