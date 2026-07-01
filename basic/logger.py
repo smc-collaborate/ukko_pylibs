@@ -107,6 +107,9 @@ class SimpleLogger:
     def amPrintingInfo(self) -> bool:
         return self.amPrinting(SimpleLogger.MsgKind_INFO)
 
+    def amPrintingError(self) -> bool:
+        return self.amPrinting(SimpleLogger.MsgKind_ERROR)
+
     def print_progress(self, message: str | None = None) -> bool:
         if self.amPrintingVerbose():
             if message is None:
