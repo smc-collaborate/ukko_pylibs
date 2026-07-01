@@ -385,12 +385,17 @@ class ParamSpec:
             result = "Supports escape characters (such as \\n, \\t)"
 
         if style == ParamSpec.InfoStyle.EXPECTED_SENTENCE:
-            example = str(self.spec.get("example", ""))
-            if example != "":
-                result += f"{self.getParamFormat()} (eg: {example})"
+            example = self.getExample()
+            if example is not None:
+                result += (
+                    f"{self.getParamFormat()} (eg: {EscapeMgr.asBashParam(example)})"
+                )
 
             result = result.strip()
         return result
+
+    def getExample(self) -> Any | None:
+        return self.spec.get("example", None)
 
     def getParamFormat(self) -> str:
         if "paramFormat" in self.spec:
