@@ -587,3 +587,28 @@ class ParamSpec:
             out_extraInfo,
             out_description,
         )
+
+    def cheatPeekAtValue(self, args: list[str] | None = None) -> Any | None:
+        # This is a cheat function to peek at the value of a parameter from the command line arguments.
+        # It is not intended for normal use, but can be useful for debugging or testing.
+        # Limitations:
+        #   * It only supports parameters that have a name and are not hidden or mustBeDirect.
+        #   * Only the full name is supported (e.g. --param=value), not the short name (e.g. -p value).
+        #   * It returns the first matching value it finds, and does not support multiple values for the same parameter.
+        #
+        arg = None
+        if args is None:
+            args = sys.argv[1:]
+        for x in args:
+            if x == "--":
+                break
+            if x.startswith("--" + self.name()):
+                arg = self.convertArg(
+                    x.split("=", 1)[1], returnNoneInsteadOfThrowingError=True
+                )
+                break
+
+        if arg is None:
+            arg = self.defaultValue()
+
+        return arg
