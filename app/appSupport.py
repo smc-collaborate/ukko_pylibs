@@ -479,6 +479,19 @@ class Define:
             ParamSpec(_verbositySpec).cheatPeekAtValue(), silentOnFailure=True
         )
 
+    def _setupColourOptions(self):
+        _colourSpec = {
+            "name": "plain",
+            "shortName": "",
+            "defaultEnvVar": "UKKO_PLAIN_STYLING",
+            "description": "Disable output colouring & styling",
+        }
+
+        self.app_definition["options"].insert(0, _colourSpec)
+
+        # Ensures we get the styling correct of any error messages
+        styling_doDisable(ParamSpec(_colourSpec).cheatPeekAtValue())
+
     def __init__(self, _app_definition: dict[str, Any]):
         self.app_definition = _app_definition
 
@@ -487,6 +500,7 @@ class Define:
 
         ###############
         #
+        self._setupColourOptions()
         self._setupVerbosity()
 
         ###############
@@ -1409,7 +1423,7 @@ def styleText(txt: str, style: str) -> str:
     return _colourText(txt, color, x if len(x) > 0 else None)
 
 
-def styling_doEnable(enable: bool | None):
-    global appColoursEnabled
-    if enable is not None:
-        appColoursEnabled = enable
+def styling_doDisable(disable: bool | None):
+    global g_appColoursEnabled
+    if disable:
+        g_appColoursEnabled = False
