@@ -47,6 +47,11 @@ g_appInfo: dict[str, Any] = (
 )  # Global variable to store the app definition & info in used
 
 
+def appInfo_getStr(name: str | list[str], valueIfNotFoundOrNone: str = "") -> str:
+    _value = appInfo_get(name, valueIfNotFoundOrNone)
+    return str(_value) if _value is not None else valueIfNotFoundOrNone
+
+
 def appInfo_get(
     name: str | list[str], valueIfNotFoundOrNone: Any | None = None
 ) -> Any | None:
@@ -71,15 +76,25 @@ def appInfo_get(
                 _value = os.path.basename(fullname)
             else:
                 _value = Utils.pathDisplay(fullname)
+    elif name == "name+actions":
+        _value = (
+            appInfo_getStr("exeFullName") + " " + appInfo_getStr("APP_AS_USED.post_exe")
+        ).strip()
+    elif name == "name+params":
+        _value = (
+            appInfo_getStr("exeFullName")
+            + " "
+            + appInfo_getStr("APP_AS_USED.allParams")
+        ).strip()
     elif name == "name+version":
-        _value = f"{appInfo_get('exeFullName')}"
-        suffix = appInfo_get("APP_DEFINITION.version")
+        _value = appInfo_getStr("exeFullName")
+        suffix = appInfo_getStr("APP_DEFINITION.version")
 
-        if suffix is not None:
-            _value += f" (v{suffix})"
+        if suffix:
+            _value += f" (v{suffix.removeprefix('v')})"
 
     elif name == "runBasics":
-        _value = str(appInfo_get("name+version"))
+        _value = appInfo_getStr("name+version")
         _args = sys.argv[1:]
         if len(_args) > 0:
             _value += " args: " + json.dumps(_args)
@@ -92,8 +107,18 @@ def appInfo_get(
 
 def appInfo_set(name: str | list[str], value: Any):
     global g_appInfo
-
+    # |x| print(f"appInfo_set({name})={value}")
     return DictUtils.set(g_appInfo, name, value)
+
+
+def appInfo_appendStr(
+    name: str | list[str], valueToAppend: str, withSpace: bool = True
+):
+    oldValue = appInfo_getStr(name, "")
+    if withSpace and oldValue != "" and valueToAppend != "":
+        appInfo_set(name, oldValue + " " + valueToAppend)
+    else:
+        appInfo_set(name, oldValue + valueToAppend)
 
 
 def getExeName() -> str:
@@ -250,7 +275,7 @@ def reviewParams(
                         break
 
             if not (argMatched) and not (returnNoneInsteadOfThrowingError):
-                action_suffix = appInfo_get("APP_DEFINITION.post_exe", "")
+                action_suffix = appInfo_get("APP_AS_USED.post_exe", "")
                 if action_suffix is None or (str(action_suffix).strip() == ""):
                     action_suffix = ""
 
@@ -707,10 +732,10 @@ class Define:
         return lines_out
 
     def getExeName_decorated(self, decorated=True):
-        txt = exeInfo_getName()
         if decorated:
-            txt += self.app_definition.get("post_exe", "")
-        return txt
+            return appInfo_getStr("name+actions")
+        else:
+            return exeInfo_getName()
 
     def dumpVersion(self, includeAuthor: bool = False):
         txt = f"{getExeName():<32} v{self.app_definition['version']:<10} {str(self.app_definition.get('description','')):<104}"
@@ -741,6 +766,12 @@ class Define:
         addAll = False
         if args is None:
             args = sys.argv[1:]
+
+        appInfo_set("APP_AS_USED.paramsArray", args)
+
+        for x in args:
+            appInfo_appendStr("APP_AS_USED.allParams", EscapeMgr.asBashParam(x))
+
         for arg in args:
             if not arg.startswith("-") or addAll:
                 nonOptionArgs.append(arg)
@@ -782,11 +813,7 @@ class Define:
                                 chosenActions
                             )
                         actionInfo = _customisations[chosenAction]
-
-                        self.app_definition["post_exe"] = (
-                            self.app_definition.get("post_exe", "") + " " + chosenAction
-                        )
-
+                        appInfo_appendStr("APP_AS_USED.post_exe", f"{chosenAction}")
                         settings_out.update(actionInfo.get("settings", {}))
 
                         extra_options = actionInfo.get("options", [])
@@ -1091,10 +1118,8 @@ def error_exit(
         if isinstance(withSuggestion, str):
             extraLines = withSuggestion
         else:
-            exe_action = getExeName()
-            exe_suffix = appInfo_get("APP_DEFINITION.post_exe", "")
-            if exe_suffix is not None and str(exe_suffix).strip() != "":
-                exe_action += str(exe_suffix)
+            exe_action = appInfo_getStr("name+actions")
+
             extraLines = f"Suggest: {exe_action} --help"
 
         msg += "\n" + extraLines
