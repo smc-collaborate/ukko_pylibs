@@ -19,6 +19,7 @@ if shared_dir not in sys.path:
 from ukko_pylibs.basic.simpleUtils import DictUtils, Utils
 from ukko_pylibs.basic.logger import SimpleLogger
 from ukko_pylibs.app.class_ParamSpec import ParamSpec
+from ukko_pylibs.basic.class_HandledException import HandledException
 
 #
 ################################################################################
@@ -124,7 +125,7 @@ class Configuration:
             _errmsg = f"Unable to convert value {json.dumps(argValue)} for setting '{argName}'"
             self.log_warning(_errmsg)
             if not avoidThrowingError:
-                raise Exception(_errmsg)
+                raise HandledException(_errmsg)
             return False
         else:
             self._setting_value_direct(argName, _value)
