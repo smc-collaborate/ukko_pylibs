@@ -1448,8 +1448,11 @@ def _colourText(txt: str, color: str, attrs=None) -> str:
 
 def styleAs(value: Any | None, style: str) -> str:
     global g_appColoursAreEnabled
-    if g_appColoursAreEnabled is False or (value is None) or (value == ""):
+    if value is None:
         return ""
+
+    if g_appColoursAreEnabled is False or (value == ""):
+        return value
 
     x = style.split("+")
     color = x.pop(0)
