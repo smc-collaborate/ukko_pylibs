@@ -53,7 +53,7 @@ class ValueHelpSummary:
             PrettyText.textWrapWithPrefixes(self.decoratedNamePlusExtras, 72),
             PrettyText.textWrapWithPrefixes(self.extraInfo, 72),
             PrettyText.textWrapWithPrefixes(self.defaultInfo),
-            PrettyText.textWrapWithPrefixes(self.description, 72),
+            PrettyText.textWrapWithPrefixes(self.description, 102, [" • "]),
         )
 
 
@@ -569,18 +569,17 @@ class ParamSpec:
         out_defaultTxt = self.defaultQuotedTxt()
 
         envVarName = self.spec.get("defaultEnvVar", None)
-        if envVarName is not None:
-            _envNote = f"Env: ${envVarName}"
+        _envNote = ""
+        if envVarName:
+            _envNote = f" -- Can also be set with ${envVarName}"
 
             envValue = os.environ.get(envVarName, None)
             if envValue is not None:
-                _envNote += f"='{envValue}'"
+                _envNote += f"={EscapeMgr.escapeIfNeeded(envValue)}"
 
                 otherDefault = self.defaultValue(withoutEnv=True)
                 if (otherDefault != envValue) and otherDefault is not None:
-                    _envNote += f" overwrites {otherDefault}"
-                    _envNote = _envNote.removeprefix("Env: ")
-            out_defaultTxt = f"{out_defaultTxt} ({_envNote})".strip()
+                    _envNote += f" (overwrites {otherDefault})"
 
         ##########
         #
@@ -597,7 +596,7 @@ class ParamSpec:
 
         ##########
         #
-        out_description = str(self.get("description", ""))
+        out_description = f"{self.get('description', '')} {_envNote}".strip()
 
         ##########
         #
