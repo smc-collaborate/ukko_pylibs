@@ -585,18 +585,19 @@ class Define:
         extra_msg = ""
         #
         # parameter spec contains:
-        #   * mayBeDirect - if the parameter can be passed directly as a value
-        #   * default     - the default value for the parameter
-        #   * type        - the type of the parameter (int, str, bool)
-        #   * lookup      - a dictionary of values for the parameter  (Or a list of permitted values)
-        #   * min         - the minimum value for the parameter
-        #   * max         - the maximum value for the parameter
-        #   * shortName   - a short name for the parameter (single character)
-        #   * name        - the name of the parameter
-        #   * supportMultiple
-        #   * mayBeDirect
-        #   * mustBeDirect
-        #   * hidden
+        #   * name            - the name of the parameter
+        #   * shortName       - a short name for the parameter (single character)
+        #   * default         - the default value for the parameter
+        #   * type            - the type of the parameter (int, str, bool)
+        #   * lookup          - a dictionary of values for the parameter  (Or a list of permitted values)
+        #   * min             - the minimum value for the parameter
+        #   * max             - the maximum value for the parameter
+        #
+        # Used more rarely:
+        #   * supportMultiple - The parameter is returned as an array of the multiple values
+        #   * mayBeDirect     - The parameter optionally can be passed directly as a value
+        #   * mustBeDirect    - The parameter MUST be passed directly as a value
+        #   * hidden          - The parameter is hidden
 
         for _spec in self.app_definition["options"]:
             paramObj = ParamSpec(
