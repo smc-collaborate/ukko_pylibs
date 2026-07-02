@@ -512,11 +512,14 @@ class Define:
         )
 
     def _setupColourOptions(self):
+        stylingDisabled = False
 
-        self.app_definition["options"].insert(0, app_stylingSpec)
+        if self.app_definition.get("enableStyling", True):
+            self.app_definition["options"].insert(0, app_stylingSpec)
 
-        # Ensures we get the styling correct of any error messages
-        styling_doDisable(ParamSpec(app_stylingSpec).cheatPeekAtValue())
+            # Ensures we get the styling correct of any error messages
+            stylingDisabled = ParamSpec(app_stylingSpec).cheatPeekAtValue()
+        styling_doDisable(stylingDisabled)
 
     def __init__(self, _app_definition: dict[str, Any]):
         self.app_definition = _app_definition
