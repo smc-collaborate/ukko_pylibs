@@ -347,7 +347,7 @@ def reviewParams(
         remaining_arg = arg
         for spec in options_in:
             _name: str = spec.name()
-            permit_direct = spec.mayBeDirect() and (
+            permit_direct = (spec.mayBeDirect() or spec.mustBeDirect()) and (
                 not (_name in options_chosen) or spec.get("supportMultiple", False)
             )
             if permit_direct:
@@ -702,8 +702,8 @@ class Define:
                 _spec["name"] = entry_name
                 _spec["shortName"] = ""
                 _spec.update(entry_params)
+                _spec["default"] = appConfig.setting_getPreUser(entry_name)
                 appSettingDefinitions.append(_spec)
-
             _summaries = ValueHelpSummaries(appSettingDefinitions)
             if len(_summaries) > 0:
                 lines_out.extend(_summaries.asLines("Option Settings:"))

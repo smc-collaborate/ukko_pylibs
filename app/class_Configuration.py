@@ -71,8 +71,8 @@ class Configuration:
                 self.notes.append(
                     f"Unable to load from config file '{Utils.pathDisplay(config_fname)}'"
                 )
-
-        self.CONFIG_USED = _recursive_merge(self._defaults, _loadedFromFile)
+        self.BEFORE_USER_CUSTOMISING = _recursive_merge(self._defaults, _loadedFromFile)
+        self.CONFIG_USED = deepcopy(self.BEFORE_USER_CUSTOMISING)
 
     def hasContents(self) -> bool:
         """Even if the contents is just an error message say WHY we didn't have contents"""
@@ -193,9 +193,15 @@ class Configuration:
         self.CONFIG_USED["settings"][key] = value
 
     def setting_get(self, key: str) -> Any:
+        return self._setting_get(self.CONFIG_USED, key)
+
+    def setting_getPreUser(self, key: str) -> Any:
+        return self._setting_get(self.BEFORE_USER_CUSTOMISING, key)
+
+    def _setting_get(self, source: dict[str, Any], key: str) -> Any:
 
         configKey = "settings/" + key
-        result = DictUtils.get(self.CONFIG_USED, configKey, None)
+        result = DictUtils.get(source, configKey, None)
         if key.startswith("!"):
             return result
 
