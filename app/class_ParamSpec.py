@@ -20,6 +20,7 @@ from ukko_pylibs.basic.simpleUtils import PrettyText
 from ukko_pylibs.basic.simpleUtils import EscapeMgr
 
 from ukko_pylibs.basic.class_DataContents import DataContents
+from ukko_pylibs.basic.simpleUtils import Utils
 
 #
 ################################################################################
@@ -34,12 +35,16 @@ class ValueHelpSummary:
         defaultInfo: str = "",
         extraInfo: str = "",
         description: str = "",
+        summaryAdd_param: str = "",
+        summaryAdd_directPrefixes: list[dict[str, str]] = [],
     ):
         self.shortName = "" if not shortName else f"{shortName},"
         self.decoratedNamePlusExtras = decoratedNamePlusExtras
         self.defaultInfo = defaultInfo
         self.extraInfo = extraInfo
         self.description = "" if not description else f" • {description}"
+        self.summaryAdd_param = summaryAdd_param
+        self.summaryAdd_directPrefixes = summaryAdd_directPrefixes
 
     def asWrapped(self) -> Tuple[list[str], list[str], list[str], list[str], list[str]]:
 
@@ -140,6 +145,21 @@ class ValueHelpSummaries(list[ValueHelpSummary]):
 
         return results
 
+    def __init__(self, specs: list[dict[str, Any]] = [], escapeArguments: bool = False):
+        super().__init__()
+        for _spec in specs:
+            spec = ParamSpec(_spec, escapeArguments)
+            if not spec.mustBeDirect():
+                pairOrNone = spec.getHelpSummary()
+                if pairOrNone is not None:
+                    self.append(pairOrNone)
+
+    def findByShortName(self, shortName: str) -> ValueHelpSummary | None:
+        for entry in self:
+            if entry.shortName == shortName:
+                return entry
+        return None
+
 
 class ParamSpec:
 
@@ -199,6 +219,7 @@ class ParamSpec:
         return self.spec.get(key, default)
 
     def asDict(self):
+        # print("self.asDict():" + Utils.asJsonStr(self.spec, indent=2))
         return self.spec
 
     def name(self) -> str:
@@ -353,7 +374,7 @@ class ParamSpec:
         for _prefix in [self.longNameWithHyphens(), self.shortNameWithHyphen()]:
             if _prefix:
                 if arg == _prefix:
-                    return (True, True if self.hasValue() else None)
+                    return (True, None if self.hasValue() else True)
                 if self.hasValue() and arg.startswith(f"{_prefix}="):
                     return (True, arg.split("=", 1)[1])
         return (False, None)
@@ -526,12 +547,10 @@ class ParamSpec:
 
     def getHelpSummary(self) -> ValueHelpSummary | None:
         """Returns: HelpSummary object or None"""
-        if (
-            self.spec.get("hidden", False)
-            or self.spec.get("mustBeDirect", False)
-            or self.spec.get("isChosen", False)
-        ):
+        if self.spec.get("hidden", False) or self.spec.get("isChosen", False):
             return None
+
+        _name = self.name()
 
         ##########
         #
@@ -582,6 +601,29 @@ class ParamSpec:
 
         ##########
         #
+        summaryAdd_param = ""
+        summaryAdd_directPrefixes = []
+        _formattedName = self.get("paramFormat", _name)
+
+        if self.get("mustBeDirect", None):
+            if "descriptions" in self.spec:
+                for name, value in self.getDescriptions().items():
+                    summaryAdd_directPrefixes.append(
+                        {"name": name, "description": value}
+                    )
+            elif self.type() is list or self.get("supportMultiple", False):
+                summaryAdd_param = f"[{_formattedName} …] "
+            else:
+                summaryAdd_param = f"[{_formattedName}] "
+
+        elif self.get("mayBeDirect", None):
+            if self.type() is list:
+                summaryAdd_param = f"[{_formattedName}⁺ …] "
+            else:
+                summaryAdd_param = f"[{_formattedName}⁺] "
+
+        ##########
+        #
 
         return ValueHelpSummary(
             out_shortName,
@@ -589,6 +631,8 @@ class ParamSpec:
             out_defaultTxt,
             out_extraInfo,
             out_description,
+            summaryAdd_param=summaryAdd_param,
+            summaryAdd_directPrefixes=summaryAdd_directPrefixes,
         )
 
     def cheatPeekAtValue(self, args: list[str] | None = None) -> Any | None:
@@ -605,7 +649,10 @@ class ParamSpec:
         for x in args:
             if x == "--":
                 break
-            if x.startswith("--" + self.name()):
+            if x == "--" + self.name():
+                arg = True
+                break
+            elif x.startswith("--" + self.name() + "="):
                 arg = self.convertArg(
                     x.split("=", 1)[1], returnNoneInsteadOfThrowingError=True
                 )
@@ -615,3 +662,6 @@ class ParamSpec:
             arg = self.defaultValue()
 
         return arg
+
+    def mustBeDirect(self) -> bool:
+        return self.spec.get("mustBeDirect", False)

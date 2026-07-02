@@ -596,40 +596,17 @@ class Define:
         #   * hidden
 
         for _spec in self.app_definition["options"]:
-            paramSpec = ParamSpec(
+            paramObj = ParamSpec(
                 _spec, self.app_definition.get("escapeArguments", False)
             )
-            _name = paramSpec.name()
 
-            _formattedName = paramSpec.get("paramFormat", _name)
+            usage = paramObj.getHelpSummary()
 
-            if paramSpec.get("hidden", False) or paramSpec.get("isChosen", False):
-                continue
-            if paramSpec.get("mustBeDirect", False):
-                if "descriptions" in paramSpec:
-                    for name, value in paramSpec.getDescriptions().items():
-                        directPrefixes.append({"name": name, "description": value})
-                elif paramSpec.type() is list or paramSpec.get(
-                    "supportMultiple", False
-                ):
-                    param_info += f"[{_formattedName} ...] "
-                else:
-                    param_info += f"[{_formattedName}] "
-
-            elif paramSpec.get("mayBeDirect", False):
-                if paramSpec.type() is list:
-                    param_info += f"[{_formattedName}⁺ ...] "
-                else:
-                    param_info += f"[{_formattedName}⁺] "
-
-                extra_msg = "Options marked with ⁺ may be passed directly, without the option name"
-
-        if isinstance(extra_params, str):
-            param_info += " -- " + extra_params
-        elif extra_params is None:
-            param_info += " [--] [param] .. [param]"
-        elif extra_params > 0:
-            param_info += " [--] [param] " * (extra_params)
+            if usage is not None:
+                if paramObj.mayBeDirect():
+                    extra_msg = "Options marked with ⁺ may be passed directly, without the option name"
+                param_info += usage.summaryAdd_param
+                directPrefixes.extend(usage.summaryAdd_directPrefixes)
 
         handled_help_and_version = False
         params_txt = f"[options] {param_info}".strip()
@@ -714,22 +691,17 @@ class Define:
             self.app_definition.get("settings", None) if shouldShowConfig else None
         )
 
+        help_marker = "h"
         if appSettings:
-            _summaries = ValueHelpSummaries()
+            appSettingDefinitions = []
             for entry_name, entry_params in appSettings.items():
                 _spec = {}
                 _spec["name"] = entry_name
                 _spec["shortName"] = ""
                 _spec.update(entry_params)
+                appSettingDefinitions.append(_spec)
 
-                spec = ParamSpec(
-                    _spec, self.app_definition.get("escapeArguments", False)
-                )
-
-                pairOrNone = spec.getHelpSummary()
-                if pairOrNone is not None:
-                    _summaries.append(pairOrNone)
-
+            _summaries = ValueHelpSummaries(appSettingDefinitions)
             if len(_summaries) > 0:
                 lines_out.extend(_summaries.asLines("Option Settings:"))
                 lines_out.append("")
@@ -740,19 +712,9 @@ class Define:
         # Add the options to  'lines_out'
         #
         if True:
-            help_marker = "h"
-            _summaries = ValueHelpSummaries()
-            for _spec in self.app_definition["options"]:
+            _summaries = ValueHelpSummaries(self.app_definition["options"])
 
-                spec = ParamSpec(
-                    _spec, self.app_definition.get("escapeArguments", False)
-                )
-                pairOrNone = spec.getHelpSummary()
-                if pairOrNone is not None:
-                    _summaries.append(pairOrNone)
-
-                    if spec.shortNameWithHyphen() == "-h":
-                        help_marker = "?"
+            help_marker = "?" if _summaries.findByShortName("-h") is not None else "h"
 
             if (
                 not (handled_help_and_version)
