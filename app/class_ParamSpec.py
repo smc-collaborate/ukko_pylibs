@@ -541,9 +541,9 @@ class ParamSpec:
             return _error(f"Unsupported type: {str(_type)}")
 
     def mayBeDirect(self) -> bool:
-        return (
-            self.spec.get("mayBeDirect", False) or self.spec.get("mustBeDirect", False)
-        ) and not self.spec.get("hidden", False)
+        return (self.spec.get("mayBeDirect", False)) and not self.spec.get(
+            "hidden", False
+        )
 
     def getHelpSummary(self) -> ValueHelpSummary | None:
         """Returns: HelpSummary object or None"""
