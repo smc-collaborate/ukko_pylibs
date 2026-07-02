@@ -246,6 +246,16 @@ class SimpleLogger:
     def print_tediousDetail(self, message: Any | None) -> None | str:
         return self.doPrintEntry(self.MsgKind_TEDIOUS, message)
 
+    def print_userError(
+        self,
+        message: str,
+        isFatal: bool = False,
+        dest: TextIO | None = None,
+    ) -> None | str:
+        return self.print_error(
+            message or "<unknown error>", isFatal=isFatal, noPrefix=True, dest=dest
+        )
+
     def print_error(
         self,
         message: str,
