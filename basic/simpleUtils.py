@@ -735,19 +735,23 @@ class PrettyText:
 
         prefixToAppend = ""
         otherPrefixes = ""
+
         if prefixes is not None:
             for prefix in prefixes:
                 if txt.startswith(prefix):
                     txt = txt[len(prefix) :]
+                    wid = PrettyText.UniLen_approx(prefix)
                     prefixToAppend = prefix
-                    otherPrefixes = " " * len(prefix)
-                    maxWidth -= len(prefix)
+                    otherPrefixes = " " * wid
+                    maxWidth -= wid
                     break
+
         parts = textwrap.wrap(txt, width=maxWidth)
         lines = []
-        lines.append(prefixToAppend + parts.pop())
+        lines.append(prefixToAppend + parts.pop(0))
         for part in parts:
-            lines.append(otherPrefixes + part)
+            lines.append(otherPrefixes + part.strip())
+
         return lines
 
 
