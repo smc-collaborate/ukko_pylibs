@@ -917,6 +917,11 @@ class Define:
             self.app_definition["settings"] = settings_out
         else:
             self.app_definition.pop("settings", None)
+
+        if "--debug-option=app-info" in args:
+            obj = {"appDefinition": self.app_definition}
+            print(Utils.asJsonStr(obj, indent=2))
+            exit(0)
         ######################################
         #
         # Basic parameter review
