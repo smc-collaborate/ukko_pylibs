@@ -694,7 +694,7 @@ class Define:
 
         ############################################
         #
-        # Add the options to  'lines_out'
+        # Add the menu options to  'lines_out'
         #
         if True:
             _summaries = ValueHelpSummaries(self.app_definition["options"])

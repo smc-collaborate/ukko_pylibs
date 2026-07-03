@@ -21,6 +21,7 @@ from ukko_pylibs.basic.simpleUtils import EscapeMgr
 
 from ukko_pylibs.basic.class_DataContents import DataContents
 from ukko_pylibs.basic.simpleUtils import Utils
+import ukko_pylibs.app.appSupport as app
 
 #
 ################################################################################
@@ -38,6 +39,7 @@ class ValueHelpSummary:
         summaryAdd_param: str = "",
         summaryAdd_directPrefixes: list[dict[str, str]] = [],
     ):
+        # |x| self.id = decoratedNamePlusExtras.removeprefix('--').removesuffix('=').removesuffix('⁺')
         self.shortName = "" if not shortName else f"{shortName},"
         self.decoratedNamePlusExtras = decoratedNamePlusExtras
         self.defaultInfo = defaultInfo
@@ -165,18 +167,20 @@ class ParamSpec:
 
     #
     # Fields include:
-    #   * mayBeDirect - if the parameter can be passed directly as a value
-    #   * default     - the default value for the parameter
-    #   * type        - the type of the parameter (int, str, bool)
-    #   * lookup      - a dictionary of values for the parameter  (Or a list of permitted values)
-    #   * min         - the minimum value for the parameter
-    #   * max         - the maximum value for the parameter
-    #   * shortName   - a short name for the parameter (single character)
-    #   * name        - the name of the parameter
-    #   * supportMultiple
-    #   * supportEscaping
-    #   * mustBeDirect
-    #   * hidden
+    #   * name            - the name of the parameter
+    #   * shortName       - a short name for the parameter (single character)
+    #   * default         - the default value for the parameter
+    #   * type            - the type of the parameter (int, str, bool)
+    #   * lookup          - a dictionary of values for the parameter  (Or a list of permitted values)
+    #   * min             - the minimum value for the parameter
+    #   * max             - the maximum value for the parameter
+    #
+    # Used more rarely:
+    #   * supportMultiple - The parameter is returned as an array of the multiple values
+    #   * mayBeDirect     - The parameter optionally can be passed directly as a value
+    #   * mustBeDirect    - The parameter MUST be passed directly as a value
+    #   * hidden          - The parameter is hidden
+    #
 
     def __init__(self, spec: dict[str, Any], defaultSupportEscaping: bool = False):
         self.defaultSupportEscaping = defaultSupportEscaping
@@ -229,14 +233,12 @@ class ParamSpec:
         # Define what it means for an item to be "in" the container
         return item in self.spec
 
-    def getLookup(self):
+    def getLookup(self) -> dict[str, Any] | list[str] | None:
         if "lookup" in self.spec:
             return self.spec["lookup"]
         elif "permitted" in self.spec:
-            from ukko_pylibs.app.appSupport import appLog
-
-            appLog.print_warning(
-                "Internal note: Spec uses 'permitted' instead of 'lookup' - please update to use 'lookup'"
+            app.deprecationWarning(
+                "Spec uses 'permitted' instead of 'lookup' - please update to use 'lookup'"
             )
             return self.spec["permitted"]
         else:
@@ -390,13 +392,14 @@ class ParamSpec:
         _lookup = self.getLookup()
         if _lookup is not None:
             if isinstance(_lookup, dict):
-                result = ", ".join(_lookup.keys())
+                _values = list(_lookup.keys())
             else:
-                result = ", ".join(map(str, _lookup))
+                _values = _lookup
+                ", ".join(map(str, _lookup))
             if style == ParamSpec.InfoStyle.TERSE_SUMMARY:
-                result = f"{result.replace(' ','').replace(',','/')}"
+                result = ("/".join(_values)).replace(" ", "")
             elif style == ParamSpec.InfoStyle.EXPECTED_SENTENCE:
-                result = f"Expected one of [{result}]"
+                result = f"Expected one of [{app.styleAsSuggestionList(_values)}]"
         elif ("min" in self.spec) or ("max" in self.spec):
             result = f"{self.spec.get('min','')} … {self.spec.get('max','')}"
             if style == ParamSpec.InfoStyle.EXPECTED_SENTENCE:
@@ -453,6 +456,13 @@ class ParamSpec:
         valueList.append(value)
 
         return valueList
+
+    def convertArg_orGiveHelp(self, arg) -> tuple[Any | None, str | None]:
+        valueOrNone = self.convertArg(arg, True)
+        if valueOrNone is None:
+            return None, self.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)
+        else:
+            return valueOrNone, None
 
     def convertArg(self, arg, returnNoneInsteadOfThrowingError: bool = False) -> Any:
 
