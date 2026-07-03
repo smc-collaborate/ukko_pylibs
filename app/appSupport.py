@@ -906,28 +906,29 @@ class Define:
         g_reviewedParams = _params
         return _params
 
-    def option_usedDefault(self, name):
-        """
-        Check if the option is set to its default value.
-        :param name: The name of the option to check.
-        :return: True if the option was omitted - forcing the deault value to be used
-        """
-        return name in self.choices_made.get("default_parameters", [])
 
-    def option_isDefault(self, name):
-        """
-        Check if the option is set to its default value.
-        :param name: The name of the option to check.
-        :return: True if the option is set to its default value, False otherwise.
-        """
-        if self.option_usedDefault(name):
-            return True
-        _value = self.choices_made.get("chosen_parameters", {}).get(name, None)
-        if _value is None:
-            return False
-        return _value == ParamSpec.defaultValue(
-            self.app_definition["options"].get(name)
-        )
+# |Remove|    def option_usedDefault(self, name):
+# |Remove|        """
+# |Remove|        Check if the option is set to its default value.
+# |Remove|        :param name: The name of the option to check.
+# |Remove|        :return: True if the option was omitted - forcing the deault value to be used
+# |Remove|        """
+# |Remove|        return name in self.choices_made.get("default_parameters", [])
+# |Remove|
+# |Remove|    def option_isDefault(self, name):
+# |Remove|        """
+# |Remove|        Check if the option is set to its default value.
+# |Remove|        :param name: The name of the option to check.
+# |Remove|        :return: True if the option is set to its default value, False otherwise.
+# |Remove|        """
+# |Remove|        if self.option_usedDefault(name):
+# |Remove|            return True
+# |Remove|        _value = self.choices_made.get("chosen_parameters", {}).get(name, None)
+# |Remove|        if _value is None:
+# |Remove|            return False
+# |Remove|        return _value == ParamSpec.defaultValue(
+# |Remove|            self.app_definition["options"].get(name)
+# |Remove|        )
 
 
 ################################
