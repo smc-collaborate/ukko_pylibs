@@ -1014,29 +1014,22 @@ def printVerbose_sysInfo():
         appLog.print_tediousDetail(f"Modules:\n" + "\n".join(lines))
 
 
-def getExceptionInfo(
-    giveMinorInfoEvenIfNotVerbose: bool = False,
-) -> tuple[list[str], bool]:
+def getPrettyExceptionTrace() -> list[str]:
     """Lines of info + bool indicating if --verbosity will give more info"""
     traceLines = traceback.format_exception(
         sys.exc_info()[1]
     )  # < This is sys.exception(), which was only introduced in 3.11, so we use sys.exc_info() for compatibility with earlier versions
 
-    if appLog.isVerbose():
-        return traceLines, False
-    elif not (giveMinorInfoEvenIfNotVerbose):
-        return [], True
-    else:
-        review = []
-        for line in traceLines[-2:-1]:
-            review += line.split("\n")
+    lines = "\n".join(traceLines[-2:-1]).split(
+        "\n"
+    )  # < Some of the lines already have newlines, so we split them into separate lines
 
-        results = []
-        for line in review:
-            if not (line.strip().startswith('File "')):
-                results.append(line)
+    results = []
+    for line in lines:
+        if not (line.strip().startswith('File "')):
+            results.append(line)
 
-        return results, True
+    return results
 
 
 def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
@@ -1073,13 +1066,15 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
         doHalt("System Exit - Exiting")
         sys.exit(e.code)
     else:
-        lines, makeSuggestion = getExceptionInfo(not isHandled)
-        if lines:
-            emsgSuffix += "\n".join(lines)
-        if makeSuggestion:
-            emsgSuffix += f"\nSuggestion: {styleAsSuggestion(appInfo_cmdWithVariant(app_verbositySpec,'details'))} for more information"
+        if not isHandled:
+            if appLog.isVerbose():
+                emsgSuffix += "\n".join(getPrettyExceptionTrace())
+            else:
+                emsgSuffix += f"\nSuggestion: {styleAsSuggestion(appInfo_cmdWithVariant(app_verbositySpec,'details'))} for more information"
 
-        error_exit(f"{action}{emsgSuffix}", withSuggestion=False)
+        error_exit(
+            f"{action}{emsgSuffix}", withSuggestion=(action.startswith("Missing value"))
+        )
 
 
 def returnJsonData(resultFull: Any, elementNameIfNotFull: str | None = None):
