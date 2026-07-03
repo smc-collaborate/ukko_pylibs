@@ -573,31 +573,12 @@ class Define:
 
         exeName = getExeName()
         exeNameDecorated = self.getExeName_decorated()
-        # |Logging| try:
-        # |Logging|     print(Utils.asJsonStr(self.app_definition, indent=2))
-        # |Logging| except:
-        # |Logging|     print(self.app_definition)
 
         extra_params = self.app_definition.get("additional_parameters", 0)
 
         param_info = ""
         directPrefixes = []
         extra_msg = ""
-        #
-        # parameter spec contains:
-        #   * name            - the name of the parameter
-        #   * shortName       - a short name for the parameter (single character)
-        #   * default         - the default value for the parameter
-        #   * type            - the type of the parameter (int, str, bool)
-        #   * lookup          - a dictionary of values for the parameter  (Or a list of permitted values)
-        #   * min             - the minimum value for the parameter
-        #   * max             - the maximum value for the parameter
-        #
-        # Used more rarely:
-        #   * supportMultiple - The parameter is returned as an array of the multiple values
-        #   * mayBeDirect     - The parameter optionally can be passed directly as a value
-        #   * mustBeDirect    - The parameter MUST be passed directly as a value
-        #   * hidden          - The parameter is hidden
 
         for _spec in self.app_definition["options"]:
             paramObj = ParamSpec(
