@@ -685,7 +685,10 @@ class PrettyText:
 
     @staticmethod
     def withSubstitutions(
-        src: str, prefix: str, substitutions: dict[str, Any], suffix: str
+        src: str,
+        substitutions: dict[str, Any],
+        prefix: str = "{",
+        suffix: str = "}",  # < These defaults make it compatible with python's 'parse' function
     ) -> str:
         """Replaces all occurrences of prefix+key{:xxx}+suffix in src with the corresponding value from substitutions"""
         if prefix == "":
@@ -708,7 +711,7 @@ class PrettyText:
 
                 if not (key in substitutions):
                     print_warning(
-                        f"PrettyText.withSubstitutions({prefix}{':'.join(keyAndFormatting)}{suffix}): No substitution found for key '{key}'"
+                        f"PrettyText.withSubstitutions({prefix}{':'.join(keyAndFormatting)}{suffix}): No substitution '{key}' found in: {substitutions}"
                     )
                 elif len(keyAndFormatting) > 1:
                     formatSpec = keyAndFormatting[1]
@@ -725,6 +728,56 @@ class PrettyText:
             else:
                 txtOut += prefix + txt
         return txtOut
+
+    @staticmethod
+    def doParseText(format: str, input: str | None) -> dict[str, Any]:
+        """
+        Parses `input` according to a template `format` string containing
+        {field_name} placeholders, and returns a dict of the extracted values.
+
+        Example:
+            PrettyText.doParseText("Hi {name}, today is {day}","Hi Fred, today is Tuesday")
+            -> {'success':True,'values':{'name': 'Fred', 'day': 'Tuesday'}}
+            PrettyText.doParseText("Hi {name}, today is {day}",None)
+            -> {'success':True,'values':{'name': '{name}', 'day': '{day}'}}
+        """
+        if input is None:
+            input = format
+        try:
+            import re
+
+            token_pattern = re.compile(r"\{(\w+)\}")
+
+            regex_parts: list[str] = []
+            last_end = 0
+
+            for m in token_pattern.finditer(format):
+                # Escape the literal text that comes before this placeholder
+                literal = format[last_end : m.start()]
+                regex_parts.append(re.escape(literal))
+
+                field_name = m.group(1)
+                # Non-greedy capture group named after the field
+                regex_parts.append(f"(?P<{field_name}>.+?)")
+
+                last_end = m.end()
+
+            # Escape any trailing literal text after the last placeholder
+            regex_parts.append(re.escape(format[last_end:]))
+
+            pattern = "^" + "".join(regex_parts) + "$"
+            match = re.match(pattern, input)
+
+            if not match:
+                return {
+                    "success": False,
+                    "error": f"Input {input!r} does not match format {format!r}",
+                }
+            else:
+                return {"success": True, "values": match.groupdict()}
+
+        except Exception as e:
+            return {"success": False, "error": "Exception: " + str(e)}
 
     @staticmethod
     def textWrapWithPrefixes(

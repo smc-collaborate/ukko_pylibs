@@ -32,7 +32,7 @@ from ukko_pylibs.basic.class_HandledException import HandledException
 from ukko_pylibs.app.class_Configuration import Configuration
 from ukko_pylibs.app.class_ParamSpec import (
     ParamSpec,
-    ValueHelpSummary,
+    ParamSpecList,
     ValueHelpSummaries,
 )
 
@@ -121,22 +121,19 @@ def appInfo_appendStr(
         appInfo_set(name, oldValue + valueToAppend)
 
 
-def appInfo_cmdWithVariant(_spec: ParamSpec | dict[str, Any], value: Any) -> str:
+def appInfo_cmdWithVariant(spec: ParamSpec | None, value: Any) -> str:
 
     # return f"{appInfo_getStr("name+actions")} {valuePrefixOrBlank}{paramValue}"
-
-    if isinstance(_spec, ParamSpec):
-        spec = _spec
-    else:
-        spec = ParamSpec(_spec)
 
     oldParams: list = appInfo_get(
         "APP_AS_USED.paramsArray", []
     )  # pyright: ignore[reportAssignmentType]
 
-    newList: list[str] = [appInfo_getStr("exeFullName")]
+    newList: list[Any] = [appInfo_getStr("exeFullName")]
 
-    if spec.get("mustBeDirect"):
+    if spec is None:
+        newList.extend(oldParams)
+    elif spec.get("mustBeDirect"):
         newList.extend(oldParams)
         if str(value).startswith("-") and not ("--" in newList):
             newList.append("--")
@@ -217,339 +214,36 @@ appConfig = Configuration(logger=appLog)
 
 entries, default = appLog.get_thresholds()
 
-app_verbositySpec = {
-    "name": "verbosity",
-    "lookup": entries,
-    "default": default,
-    "defaultEnvVar": "UKKO_VERBOSITY",
-    "description": "Set verbosity of messaging",
-}
-
 
 def isVerbose() -> bool:
     return appLog.isVerbose()
 
 
-def reviewParams(
-    args,
-    options_in_: list,
-    actionOwner=None,
-    limitedExtraParams: int | str | None = None,
-    appValue_escapeArguments: bool = False,
-):
-    returnNoneInsteadOfThrowingError = actionOwner is None
-    help_marker = "h"
-    options_in: list[ParamSpec] = []
-    for _spec in options_in_:
-        paramSpec = ParamSpec(_spec, appValue_escapeArguments)
-        options_in.append(paramSpec)
-
-        _shortName = paramSpec.shortNameWithHyphen()
-        if _shortName == "-h":
-            help_marker = "?"
-
-    options_chosen: dict[str, Any] = {}
-    non_option_args = []
-    force_non_options = False
-
-    loadIntoSpec: ParamSpec | None = None
-    spec = None
-    arg_cleaned = ""
-    giveHelp = False
-
-    if appConfig.hasContents():
-        configOptions = appConfig
-    else:
-        configOptions = None
-
-    for _arg in args:
-        arg_cleaned = str(_arg)
-        if not (force_non_options):
-            if arg_cleaned.startswith("––"):
-                arg_cleaned = "--" + arg_cleaned.removeprefix("––")
-            elif arg_cleaned.startswith("–"):
-                arg_cleaned = "-" + arg_cleaned.removeprefix("–")
-
-        if loadIntoSpec is not None:
-            _name: str = loadIntoSpec.name()
-            options_chosen[_name] = loadIntoSpec.load(
-                arg_cleaned,
-                options_chosen.get(_name, None),
-                returnNoneInsteadOfThrowingError,
-            )
-            loadIntoSpec = None
-        elif (arg_cleaned == "--") and not (force_non_options):
-            force_non_options = True
-        elif not arg_cleaned.startswith("-") or (force_non_options):
-            non_option_args.append(arg_cleaned)
-        elif arg_cleaned in (("-" + help_marker), "--help"):
-            giveHelp = True
-            returnNoneInsteadOfThrowingError = True
-        elif configOptions is not None and (
-            (arg_cleaned == "--config-view") or (arg_cleaned == "-C")
-        ):
-            print(configOptions.asText())
-        elif arg_cleaned == "--version":
-            if actionOwner is not None:
-                actionOwner.dumpVersion()
-                doHalt("Version Info - Exiting", suggestSilent=True)
-                sys.exit()
-        else:
-            #
-            # Process option
-            argMatched = False
-
-            if (
-                configOptions is not None
-                and (arg_cleaned.startswith("--"))
-                and ("=" in arg_cleaned)
-            ):
-                argMatched = configOptions.setting_applyIfMatches(
-                    arg_cleaned.removeprefix("--").split("=", 1),
-                    returnNoneInsteadOfThrowingError,
-                )
-
-            if not (argMatched):
-                for spec in options_in:
-                    if not spec.get("mustBeDirect", False):
-                        argMatched, _value = spec.getMatchedValue(arg_cleaned)
-                        if argMatched:
-                            _name: str = spec.name()
-                            if _value is None:
-                                loadIntoSpec = spec
-                            elif isinstance(_value, bool) and _value == True:
-                                options_chosen[_name] = _value
-                            else:
-                                options_chosen[_name] = spec.load(
-                                    _value,
-                                    options_chosen.get(_name, None),
-                                    returnNoneInsteadOfThrowingError,
-                                )
-                            break
-
-            if not (argMatched) and not (returnNoneInsteadOfThrowingError):
-                action_suffix = appInfo_get("APP_AS_USED.post_exe", "")
-                if action_suffix is None or (str(action_suffix).strip() == ""):
-                    action_suffix = ""
-
-                error_exit(f"Unknown{action_suffix} option: {arg_cleaned}")
-
-    if loadIntoSpec is not None:
-        error_exit(f"Missing value for option: {arg_cleaned}")
-
-        # |Logging| print_verbose(f"arg: {arg}")
-
-    ##################################################################################################
-    # Load non_option_args - either into _options ('mayBeDirect/mustBeDirect') or into 'remaining_args'
-    #
-    remaining_args = []
-    for arg in non_option_args:
-        remaining_arg = arg
-        for spec in options_in:
-            _name: str = spec.name()
-            permit_direct = (spec.mayBeDirect() or spec.mustBeDirect()) and (
-                not (_name in options_chosen) or spec.get("supportMultiple", False)
-            )
-            if permit_direct:
-                options_chosen[_name] = spec.load(
-                    arg,
-                    options_chosen.get(_name, None),
-                    returnNoneInsteadOfThrowingError,
-                )  # Can be direct parameter
-                remaining_arg = None
-                break
-
-        if remaining_arg is not None:
-            remaining_args.append(remaining_arg)
-
-    if (remaining_args is not None) and (len(remaining_args) > 0):
-        if appValue_escapeArguments:
-            options_chosen["--"] = [
-                EscapeMgr.fromEscapedText(x) for x in remaining_args
-            ]
-        else:
-            options_chosen["--"] = remaining_args
-
-    ################################################
-    # Load Defaults for missing _options
-    #
-    _used_defaults = []
-    for spec in options_in:
-        _name: str = spec.name()
-        if _name not in options_chosen:
-            if "default" in spec:
-                _used_defaults.append(_name)
-                options_chosen[_name] = spec.defaultValue()
-            elif spec.type() is type(None):
-                # Special case - the existance of it is the value - so if it is included we set it to True (eg: --verbosity=details)
-                # but if it is not included, we set it to False
-                _used_defaults.append(_name)
-                options_chosen[_name] = False
-            elif not returnNoneInsteadOfThrowingError:
-
-                exampleOrNone = spec.getExample()
-                if exampleOrNone is not None:
-                    try:
-                        error_exit(
-                            f"Missing required parameter: {styleAsError(spec.getParamFormat())}",
-                            withSuggestion=appInfo_cmdWithVariant(exampleOrNone, spec),
-                        )
-                    except Exception:
-                        pass
-
-                valueHelp = spec.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)
-                if valueHelp == "":
-                    valueHelp = spec.getParamFormat()
-
-                error_exit(f"Missing required parameter: {styleAsError(valueHelp)}")
-    if len(_used_defaults) > 0:
-        appLog.print_tediousDetail(f"Used defaults for: {', '.join(_used_defaults)}")
-
-    ################################################
-    #
-    # Validate extra parameters etc
-    #
-    appLog.print_tediousDetail(f"argv: " + Utils.asJsonStr(args, indent=2))
-    appLog.print_tediousDetail(
-        f"AS LOADED: " + Utils.asJsonStr(options_chosen, indent=2)
-    )
-
-    if not returnNoneInsteadOfThrowingError and not (limitedExtraParams is None):
-        found_count = len(options_chosen.get("--", []))
-        if isinstance(limitedExtraParams, str):
-            if found_count == 0:
-                error_exit(f"Expected {limitedExtraParams}")
-        elif found_count != limitedExtraParams:
-            txt = (
-                "No additional parameters expected"
-                if (limitedExtraParams == 0)
-                else f"Expected {PrettyText.pluralize(limitedExtraParams, 'additional parameter')}"
-            )
-            if found_count > 0:
-                txt += f"  {found_count}: {','.join(remaining_args)}"
-            error_exit(txt)
-
-    appLog.print_tediousDetail(f"AS USED: " + Utils.asJsonStr(options_chosen, indent=2))
-    appLog.print_tediousDetail(f"Remaining Arguments: {remaining_args}")
-
-    if actionOwner is not None and hasattr(actionOwner, "choices_made"):
-        actionOwner.choices_made["params"] = options_chosen
-        actionOwner.choices_made["default_parameters"] = _used_defaults
-
-        appLog.print_tediousDetail(
-            f"Choices made: {Utils.asJsonStr(actionOwner.choices_made, indent=2)}"
-        )
-        appLog.print_tediousDetail(
-            f"OptionsAvail: {Utils.asJsonStr(options_in_, indent=2)}"
-        )
-
-    if giveHelp:
-        if actionOwner is not None:
-            actionOwner.giveHelp(sys.stdout)
-            doHalt("Help Info Provided - Exiting", suggestSilent=True)
-            sys.exit()
-
-
-g_reviewedParams = {}
-g_appDefinition = {}
-
-
-def getAllParams() -> dict[str, Any]:
-    global g_reviewedParams
-    return deepcopy(g_reviewedParams)
-
-
-def getDefinition():
-    global g_appDefinition
-    return deepcopy(g_appDefinition)
-
-
 def getValue(name: str, default: Any | None = None) -> Any | None:
-    global g_reviewedParams
-    if name in g_reviewedParams:
-        return g_reviewedParams[name]
+    global g_runningApp
+
+    if g_runningApp is not None:
+        return g_runningApp.appParameters.choices_made.get(name, default)
     else:
         return default
 
 
-def getNonDefaultParams() -> dict[str, Any]:
-    global g_reviewedParams
-    _reviewParams = deepcopy(g_reviewedParams)
-    defaultsUsed = _reviewParams.pop("__defaults_used__", [])
-    for k in defaultsUsed:
-        _reviewParams.pop(k, None)
-
-    return _reviewParams
-
-
-class Define:
-    def getCallbackAndParams(self, args) -> Tuple[Any, dict[str, Any]]:
-        params = self.parseParams(args)
-
-        _actionFunction = self.choices_made.get("functionCallback", None)
-
-        if _actionFunction is None:
-            error_exit(
-                f"No action function found for the given arguments (AppDefinition appears to be incorrectly configured)"
-            )
-
-        appLog.print_info(
-            f"Running {self.choices_made.get('functionCallback_Reason',None)}"
-        )
-
-        return _actionFunction, params
-
-    def _setupVerbosity(self):
-
-        if "settings" in self.app_definition:
-            self.app_definition["settings"]["verbosity"] = app_verbositySpec
-        else:
-            self.app_definition["options"].insert(0, app_verbositySpec)
-
-        # Ensures we get the detailed logging during parameter review
-        appLog.setVerbosity(
-            ParamSpec(app_verbositySpec).cheatPeekAtValue(), silentOnFailure=True
-        )
-
-    def _setupColourOptions(self):
-        stylingDisabled = False
-
-        if self.app_definition.get("enableStyling", True):
-            self.app_definition["options"].insert(0, app_stylingSpec)
-
-            # Ensures we get the styling correct of any error messages
-            stylingDisabled = ParamSpec(app_stylingSpec).cheatPeekAtValue()
-        styling_doDisable(stylingDisabled)
-
-    def __init__(self, _app_definition: dict[str, Any]):
-        self.app_definition = _app_definition
-
-        if "options" not in self.app_definition:
-            self.app_definition["options"] = []
-
-        ###############
-        #
-        self._setupColourOptions()
-        self._setupVerbosity()
-
-        ###############
-        #
-        self.app_definition["runningDir"] = os.getcwd()
-        if "version" not in self.app_definition:
-            self.app_definition["version"] = "0.0.0"
-        if "description" not in self.app_definition:
-            self.app_definition["description"] = "No description provided"
-
-        appConfig._reload(self.app_definition)
-
+class AppParameters:
+    def __init__(self, options: list[dict[str, Any]]):
+        self.orig_options = options
+        self.options = deepcopy(options)
+        self.avail = (
+            ParamSpecList()
+        )  # < Really 'availableParametersWithTheseParticularChoices' .. but that's too long a name
         self.choices_made = {}
-        self.orig_app_definition = deepcopy(self.app_definition)
-        appInfo_set("APP_DEFINITION", deepcopy(self.app_definition))
+        self.customisedChoicesWalked: list[dict[str, Any]] = []
+        self.parsedSettingsOut = {}
 
-    def giveHelp(self, file_dest=sys.stdout):
-        for x in self.getHelp():
-            file_dest.write(x.rstrip() + "\n")
-        printVerbose_sysInfo()
+    def optionInsert(self, spec: dict[str, Any] | None) -> Any | None:
+        if spec is not None:
+            self.options.insert(0, spec)
+            return ParamSpec(spec).cheatPeekAtValue()
+        return None
 
     def getWalkedValue(self, name: str, default: Any = None) -> Any | None:
         """
@@ -561,11 +255,267 @@ class Define:
         """
 
         found = default
-        for entry in self.choices_made.get("customisedChoicesWalked", [{}]):
+        for entry in self.customisedChoicesWalked:
             if name in entry:
                 found = entry[name]
 
         return found
+
+    def getOverviewAsText(self) -> str:
+        param_info = ""
+        for paramObj in self.avail:
+            usage = paramObj.getHelpSummary()
+            param_info += usage.summaryAdd_param if usage else ""
+
+        return param_info
+
+    def getCustomisationChoicesAsText(self) -> str:
+        _choices = self.choices_made.get("customisedChoicesMade", [])
+        _result = ""
+        for x in _choices:
+            _result += f" {x}"
+        return _result
+
+    # |x|def getCustomisingOptions(self) -> list[dict[str, Any]]:
+    # |x|    directPrefixes = []
+    # |x|    for paramObj in self.avail.doFilterByAttr("isCustomising"):
+    # |x|        directPrefixes.extend([{'name': key, 'description': value} for key, value in paramObj.spec.get('descriptions',{}).items()])
+    # |x|    return directPrefixes
+
+    class ProcessingPartialInfo:
+        def __init__(self, args: list[str]):
+            self.escapeArguments: bool = False
+            self.nextActionOptions = None
+
+            self.nonOptionArgs = []
+            self.nonOptionArgIndex = 0
+            _addAll = False
+            for arg in args:
+                if not arg.startswith("-") or _addAll:
+                    self.nonOptionArgs.append(arg)
+                elif arg == "--":
+                    _addAll = True
+
+            self.chosenActions = []
+            self.actionsWalked = []
+            self.nextActionOptions: dict[str, Any] | None = None
+
+    def doParsing(self, app_definition: dict[str, Any], args: list[str]):
+
+        appInfo_set("APP_AS_USED.paramsArray", args)
+
+        for x in args:
+            appInfo_appendStr("APP_AS_USED.allParams", EscapeMgr.asBashParam(x))
+
+        self.parsedDescription = ""
+        self.parsedExamples: list[str] = []
+
+        #################
+        #
+        # Build 'self.avail' - the list of available parameters, based on the app definition and the arguments provided
+        #
+        _partialInfo = AppParameters.ProcessingPartialInfo(args)
+        self._groupInfoUpdate(app_definition, _partialInfo)
+
+        for x in self.options:
+
+            _customisations = x.get("customising", None)
+            if (_customisations is not None) and isinstance(_customisations, dict):
+                for _value in self._processCustomisingEntry(
+                    _customisations, x, _partialInfo
+                ):
+                    self.avail.append(ParamSpec(_value, _partialInfo.escapeArguments))
+            else:
+                self.avail.append(ParamSpec((x)))
+
+        #######################################
+        #
+        # Build 'self.loadedParams'
+        self.loadedParams = {}
+        for x in self.avail:
+            self.loadedParams[x.name()] = x.cheatPeekAtValue(args)
+
+        self.choices_made["params"] = self.loadedParams
+        if len(_partialInfo.chosenActions) > 0:
+            self.choices_made["customisedChoicesMade"] = _partialInfo.chosenActions
+        if _partialInfo.nextActionOptions is not None:
+            self.choices_made["customisedChoicesNext"] = _partialInfo.nextActionOptions
+        self.customisedChoicesWalked = _partialInfo.actionsWalked
+
+        # self.app_definition["options"] = options_out
+
+    def _processCustomisingEntry(
+        self,
+        _customisations: dict[str, Any],
+        x: dict[str, Any],
+        _partialInfo: ProcessingPartialInfo,
+    ) -> list[dict[str, Any]]:
+        x["usage"] = "next"
+        extra_options = []
+        x["mustBeDirect"] = True
+
+        _partialInfo.nextActionOptions = _customisations
+        if _partialInfo.nonOptionArgIndex < len(_partialInfo.nonOptionArgs):
+
+            chosenAction = _partialInfo.nonOptionArgs[
+                _partialInfo.nonOptionArgIndex
+            ].strip()
+
+            if chosenAction in _customisations:
+
+                self._groupInfoUpdate(_customisations[chosenAction], _partialInfo)
+                _partialInfo.chosenActions.append(chosenAction)
+
+                x["isChosen"] = True
+                x["usage"] = "isChosen"
+                x["group"] = chosenAction
+                _func_callback = _customisations[chosenAction].get(
+                    "_func_callback", None
+                )
+                if _func_callback is not None:
+                    self.choices_made["functionCallback"] = _func_callback
+                    self.choices_made["functionCallback_Reason"] = "+".join(
+                        _partialInfo.chosenActions
+                    )
+                actionInfo = _customisations[chosenAction]
+                appInfo_appendStr("APP_AS_USED.post_exe", f"{chosenAction}")
+                self.parsedSettingsOut.update(actionInfo.get("settings", {}))
+
+                extra_options = actionInfo.get("options", [])
+
+        action_descriptions = {}
+        action_keys = list(_customisations.keys())
+
+        for key in _customisations:
+            action_descriptions[key] = _customisations[key].get("description", "")
+        x["descriptions"] = action_descriptions
+        x["lookup"] = action_keys
+
+        options_to_append = []
+        if x.get("usage", None) is not None:
+            options_to_append.append(x)
+            for xx in extra_options:
+                xx["group"] = "+".join(
+                    [_action.title() for _action in _partialInfo.chosenActions]
+                )
+                options_to_append.append(xx)
+        return options_to_append
+
+    def _groupInfoUpdate(
+        self,
+        groupInfo: dict[str, Any],
+        updateThis: ProcessingPartialInfo,
+    ):
+        self.parsedSettingsOut.update(deepcopy(groupInfo.get("settings", {})))
+        _bool = groupInfo.get("escapeArguments", None)
+        if isinstance(_bool, bool):
+            updateThis.escapeArguments = _bool
+
+        if "description" in groupInfo:
+            if self.parsedDescription != "":
+                self.parsedDescription += " - "
+            self.parsedDescription += str(groupInfo["description"])
+        if "examples" in groupInfo:
+            self.parsedExamples += str(groupInfo["examples"])
+        updateThis.actionsWalked.append(groupInfo)
+        updateThis.nextActionOptions = None
+
+
+class Define:
+
+    def __init__(self, _app_definition: dict[str, Any]):
+        self.app_definition = _app_definition
+
+        ###############
+        #
+        self.app_definition["runningDir"] = os.getcwd()
+        if "version" not in self.app_definition:
+            self.app_definition["version"] = "0.0.0"
+        if "description" not in self.app_definition:
+            self.app_definition["description"] = "No description provided"
+
+        ###############
+        #
+        self.appParameters = AppParameters(self.app_definition.get("options", []))
+        self.appParameters.optionInsert(
+            {
+                "name": "help",
+                "group": "~appAuto",
+                "shortName": "",
+                "description": "Gives help",
+            }
+        )
+
+        self.appParameters.optionInsert(
+            {
+                "name": "version",
+                "group": "~appAuto",
+                "shortName": "",
+                "description": f"Gives version information for this app: v{self.app_definition['version']}",
+            }
+        )
+
+        _verbosityChoice = self.appParameters.optionInsert(
+            {
+                "name": "verbosity",
+                "group": "~appAuto",
+                "lookup": entries,
+                "default": default,
+                "defaultEnvVar": "UAPP_VERBOSITY",
+                "description": "Set verbosity of messaging",
+            }
+        )
+        appLog.setVerbosity(
+            _verbosityChoice, silentOnFailure=True
+        )  # < Ensures we get the detailed logging during parameter review
+
+        if True:
+            stylingDisabled = False
+
+            if self.app_definition.get("enableStyling", True):
+                stylingDisabled = (
+                    self.appParameters.optionInsert(
+                        {
+                            "name": "colour",
+                            "lookup": ["enable", "disable"],
+                            "group": "~appAuto",
+                            "shortName": "",
+                            "default": "enable",
+                            "defaultEnvVar": "UAPP_COLOUR",
+                            "description": "Select output colouring & styling",
+                        }
+                    )
+                    == "disable"
+                )
+
+            # Ensures we get the styling correct of any error messages
+            styling_doDisable(stylingDisabled)
+
+        appConfig._reload(self.app_definition)
+
+        self.orig_app_definition = deepcopy(self.app_definition)
+        appInfo_set("APP_DEFINITION", deepcopy(self.app_definition))
+
+    def getCallbackAndParams(self, args) -> Tuple[Any, dict[str, Any]]:
+        params = self.parseParams(args)
+
+        _actionFunction = self.appParameters.choices_made.get("functionCallback", None)
+
+        if _actionFunction is None:
+            error_exit(
+                f"No action function found for the given arguments (AppDefinition appears to be incorrectly configured)"
+            )
+
+        appLog.print_info(
+            f"Running {self.appParameters.choices_made.get('functionCallback_Reason',None)}"
+        )
+
+        return _actionFunction, params
+
+    def giveHelp(self, file_dest=sys.stdout):
+        for x in self.getHelp():
+            file_dest.write(x.rstrip() + "\n")
+        printVerbose_sysInfo()
 
     def getHelp(self) -> list[str]:
 
@@ -574,36 +524,46 @@ class Define:
         exeName = getExeName()
         exeNameDecorated = self.getExeName_decorated()
 
-        extra_params = self.app_definition.get("additional_parameters", 0)
-
-        param_info = ""
-        directPrefixes = []
-        extra_msg = ""
-
-        for _spec in self.app_definition["options"]:
-            paramObj = ParamSpec(
-                _spec, self.app_definition.get("escapeArguments", False)
-            )
-
-            usage = paramObj.getHelpSummary()
-
-            if usage is not None:
-                if paramObj.mayBeDirect():
-                    extra_msg = "Options marked with ⁺ may be passed directly, without the option name"
-                param_info += usage.summaryAdd_param
-                directPrefixes.extend(usage.summaryAdd_directPrefixes)
-
-        handled_help_and_version = False
-        params_txt = f"[options] {param_info}".strip()
         verText = f"v{self.app_definition['version']}"
-        if len(directPrefixes) == 0:
+
+        params_txt = f" {self.appParameters.getOverviewAsText()}".strip()
+
+        _customisedChoiceNext: dict[str, Any] | None = (
+            self.appParameters.choices_made.get("customisedChoicesNext", None)
+        )
+        # customisedChoicesNext
+        if not _customisedChoiceNext:
             lines_out.append(
-                f"{exeNameDecorated:<32} {verText:<13} - {str(self.app_definition.get('description','')):<90}"
+                f"{exeNameDecorated:<32} {verText:<13} : {str(self.appParameters.parsedDescription):<90}"
             )
             lines_out.append("")
-            lines_out.append(f"Usage: {exeNameDecorated} {params_txt}")
+            lines_out.append(
+                f"Usage: {exeNameDecorated} [options] {params_txt}"
+            )  # + {self.appParameters.getCustomisationChoicesAsText()}
         else:
-            prefix = "Usage: "
+            # |eg:|  "send": {
+            # |eg:|      "description": "Send ground command messages",
+            # |eg:|      "options": [
+            # |eg:|          PARAM_COMMANDS_DEFINITION,
+            # |eg:|          {
+            # |eg:|              "name": "keep-monitoring",
+            # |eg:|              "description": "Continues to monitor even after all sent messages are handled",
+            # |eg:|          },
+            # |eg:|      ],
+            # |eg:|      "show-config": True,
+
+            directPrefixes = []
+            for key, paramObj in _customisedChoiceNext.items():
+                _description = paramObj.get("description", "")
+                _obj: dict[str, Any] = {
+                    "name": key,
+                    "description": _description,
+                }  # +"="+Utils.asJsonStr(paramObj)}
+
+                _obj["options"] = paramObj.get("options", None) is not None
+                directPrefixes.append(_obj)
+
+            prefix = f"Usage: "
             directPrefixes.append({"blankLine": True})
             directPrefixes.append(
                 {
@@ -612,17 +572,6 @@ class Define:
                     "description": "Gives help information on the action (From the above list)",
                 }
             )
-
-            directPrefixes.append(
-                {
-                    "name": "--version",
-                    "options": False,
-                    "description": "Gives version information for this app: " + verText,
-                    "noDecoration": True,
-                }
-            )
-
-            handled_help_and_version = True
 
             maxLen = 30
             for _entry in directPrefixes:
@@ -639,7 +588,7 @@ class Define:
                         maxLen = _len
             extrasLen = len(params_txt)
             lines_out.append(
-                f"{' '*len(prefix)} {exeNameDecorated:<{maxLen}} {' '*extrasLen} | {str(self.app_definition.get('description','')):<90}"
+                f"{exeNameDecorated:<{maxLen+len(prefix)+1}} {' '*extrasLen} | {str(self.app_definition.get('description','')):<90}"
             )
             lines_out.append("")
             for _entry in directPrefixes:
@@ -666,65 +615,66 @@ class Define:
 
         lines_out.append("")
 
-        optionsCaption = "Options:"
-        ############################################
-        #
-        # Add any settings to  'lines_out'
-        #
-        shouldShowConfig = self.getWalkedValue("show-config")
-        appSettings = (
-            self.app_definition.get("settings", None) if shouldShowConfig else None
-        )
-
-        help_marker = "h"
-        if appSettings:
-            appSettingDefinitions = []
-            for entry_name, entry_params in appSettings.items():
-                _spec = {}
-                _spec["name"] = entry_name
-                _spec["shortName"] = ""
-                _spec.update(entry_params)
-                _spec["default"] = appConfig.setting_getPreUser(entry_name)
-                appSettingDefinitions.append(_spec)
-            _summaries = ValueHelpSummaries(appSettingDefinitions)
-            if len(_summaries) > 0:
-                lines_out.extend(_summaries.asLines("Option Settings:"))
-                lines_out.append("")
-                optionsCaption = "Other options:"
+        optionSummaries = ValueHelpSummaries()
 
         ############################################
         #
-        # Add the menu options to  'lines_out'
+        # Add:  ['settings']: 'Setting Options'
         #
-        if True:
-            _summaries = ValueHelpSummaries(self.app_definition["options"])
+        shouldShowConfig = self.appParameters.getWalkedValue("show-config")
+        if shouldShowConfig:
 
-            help_marker = "?" if _summaries.findByShortName("-h") is not None else "h"
+            appSettings = self.app_definition.get("settings", None)
 
-            if (
-                not (handled_help_and_version)
-                and len(self.choices_made["customisedChoicesMade"]) == 0
-            ):
-                _summaries.append(ValueHelpSummary(f"-{help_marker}", "--help"))
-                _summaries.append(ValueHelpSummary("", "--version"))
-
-            if len(_summaries) > 0:
-                if len(directPrefixes) >= 2:
-                    optionsCaption = "Common options:"
-                lines_out.extend(_summaries.asLines(optionsCaption))
-
-                if extra_msg != "":
-                    lines_out.append(f"{extra_msg}")
+            if appSettings:
+                for entry_name, entry_params in appSettings.items():
+                    _spec = {"group": "settings", "name": entry_name, "shortName": ""}
+                    _spec.update(entry_params)
+                    _spec["default"] = appConfig.setting_getPreUser(
+                        entry_name
+                    )  # < After update to overwrite it
+                    optionSummaries.appendItem("Setting Options", _spec)
 
         ############################################
         #
-        # Add examples to 'lines_out'
+        # Add:  ['~chosen']: 'Specific Options'
+        #
+        _nonDirect = [x for x in self.appParameters.avail if not (x.mustBeDirect())]
+        for paramObj in _nonDirect:
+            _g = paramObj.get("group")
+            if (_g != "") and (_g != "~appAuto"):
+                optionSummaries.appendItem(f"{_g} Options", paramObj)
+
+        # < Ensure '~appAuto' are last
+        for paramObj in _nonDirect:
+            _g = paramObj.get("group", None)
+            if _g == "":
+                optionSummaries.appendItem("Other Options", paramObj)
+        for paramObj in _nonDirect:
+            _g = paramObj.get("group", None)
+            if _g == "~appAuto":
+                optionSummaries.appendItem("Other Options", paramObj)
+
+        ############################################
+        #
+        # Print the options
+        #
+        lines_out.extend(optionSummaries.asLines())
+
+        if any(d.mayBeDirect() for d in _nonDirect):
+            lines_out.append(
+                "Options marked with ⁺ may be passed directly, without the option name"
+            )
+
+        ############################################
+        #
+        # Add examples
         #
 
-        if self.app_definition.get("examples", None):
+        if self.appParameters.parsedExamples:
             lines_out.append("")
             lines_out.append("Examples:")
-            for s in self.app_definition["examples"]:
+            for s in self.appParameters.parsedExamples:
                 txt = exeName.join(s.split("<exeName>"))
                 txt = exeNameDecorated.join(txt.split("<exeName+action>"))
                 lines_out.append(f" • {txt}")
@@ -752,141 +702,283 @@ class Define:
             sys.stdout.write(f"{'':<32}  {'':<10} {str(line)}\n")
 
     def parseParams(self, args: list[str] | None = None) -> dict[str, Any]:
-        self.app_definition = deepcopy(self.orig_app_definition)
-        ####################################
-        #
+        global g_runningApp
+        g_runningApp = self
 
-        chosenActions = []
-        actionsWalked = [self.app_definition]
-        options_in = self.app_definition.get("options", [])
-        settings_out = deepcopy(self.app_definition.get("settings", {}))
-        nextActionOptions = None
-        options_out = []
-
-        nonOptionArgs = []
-        addAll = False
         if args is None:
             args = sys.argv[1:]
 
-        appInfo_set("APP_AS_USED.paramsArray", args)
+        if "--version" in args:
+            self.dumpVersion()
+            doHalt("Version Info - Exiting", suggestSilent=True)
+            sys.exit()
 
-        for x in args:
-            appInfo_appendStr("APP_AS_USED.allParams", EscapeMgr.asBashParam(x))
+        self.app_definition = deepcopy(self.orig_app_definition)
 
-        for arg in args:
-            if not arg.startswith("-") or addAll:
-                nonOptionArgs.append(arg)
-            elif arg == "--":
-                addAll = True
-        nonOptionArgsIndex = 0
-        for x in options_in:
-            _customisations = x.get("customising", None)
-            is_customising_entry = (_customisations is not None) and (
-                isinstance(_customisations, dict)
-            )
+        self.appParameters.doParsing(self.app_definition, args)
 
-            if not is_customising_entry:
-                options_out.append(x)
+        if appConfig.hasContents() and self.appParameters.getWalkedValue("show-config"):
+            if self.app_definition.get(
+                "show-config", None
+            ) == self.appParameters.getWalkedValue("show-config"):
+                groupName = "~appAuto"
             else:
-                if nextActionOptions is None:
-                    nextActionOptions = _customisations
-                    x["usage"] = "next"
-                extra_options = []
-                x["mustBeDirect"] = True
-                _customisations = x.get("customising", None)
+                groupName = "+".join(
+                    [
+                        _action.title()
+                        for _action in self.appParameters.choices_made[
+                            "customisedChoicesMade"
+                        ]
+                    ]
+                )
 
-                if nonOptionArgsIndex < len(nonOptionArgs):
-
-                    chosenAction = nonOptionArgs[nonOptionArgsIndex].strip()
-
-                    if chosenAction in _customisations:
-                        actionsWalked.append(_customisations[chosenAction])
-                        chosenActions.append(chosenAction)
-                        nextActionOptions = None
-                        x["isChosen"] = True
-                        x["usage"] = "isChosen"
-                        _func_callback = _customisations[chosenAction].get(
-                            "_func_callback", None
-                        )
-                        if _func_callback is not None:
-                            self.choices_made["functionCallback"] = _func_callback
-                            self.choices_made["functionCallback_Reason"] = "+".join(
-                                chosenActions
-                            )
-                        actionInfo = _customisations[chosenAction]
-                        appInfo_appendStr("APP_AS_USED.post_exe", f"{chosenAction}")
-                        settings_out.update(actionInfo.get("settings", {}))
-
-                        extra_options = actionInfo.get("options", [])
-                        if "description" in actionInfo:
-                            self.app_definition["description"] += (
-                                " - " + actionInfo["description"]
-                            )
-                        if "examples" in actionInfo:
-                            if not isinstance(
-                                self.app_definition.get("examples", None), list
-                            ):
-                                self.app_definition["examples"] = []
-                            self.app_definition["examples"] += actionInfo["examples"]
-
-                action_descriptions = {}
-                action_keys = list(_customisations.keys())
-
-                for key in _customisations:
-                    action_descriptions[key] = _customisations[key].get(
-                        "description", ""
-                    )
-                x["descriptions"] = action_descriptions
-                x["lookup"] = action_keys
-                x["mustBeDirect"] = True
-                if x.get("usage", None) is not None:
-                    options_out.append(x)
-                    options_out += extra_options
-
-            if x.get("mustBeDirect", False) or x.get("mayBeDirect", False):
-                nonOptionArgsIndex += 1
-
-        self.choices_made["customisedChoicesMade"] = chosenActions
-        self.choices_made["customisedChoicesNext"] = nextActionOptions
-        self.choices_made["customisedChoicesWalked"] = actionsWalked
-
-        if appConfig.hasContents() and self.getWalkedValue("show-config"):
-            options_out.append(
-                {
-                    "name": "config-view",
-                    "shortName": "C",
-                    "description": "Gives the current configuration",
-                }
+            self.appParameters.avail.append(
+                ParamSpec(
+                    {
+                        "name": "config-view",
+                        "group": groupName,
+                        "shortName": "C",
+                        "description": "Gives the current configuration",
+                    }
+                )
             )
-        self.app_definition["options"] = options_out
 
-        if len(settings_out) > 0:
-            self.app_definition["settings"] = settings_out
-        else:
-            self.app_definition.pop("settings", None)
+        ####################################
+        #
+
+        # |x|if len(settings_out) > 0:
+        # |x|    self.app_definition["settings"] = settings_out
+        # |x|else:
+        # |x|    self.app_definition.pop("settings", None)
 
         if "--debug-option=app-info" in args:
             obj = {"appDefinition": self.app_definition}
             print(Utils.asJsonStr(obj, indent=2))
             exit(0)
+
         ######################################
         #
         # Basic parameter review
-        reviewParams(
-            args,
-            self.app_definition["options"],
-            self,
-            self.app_definition.get("additional_parameters", 0),
-            self.app_definition.get("escapeArguments", False),
+        self._reviewParams(args)
+
+        return self.choices_made["params"]
+
+    def _reviewParams(
+        self,
+        args,
+    ):
+        limitedExtraParams: int | str | None = self.app_definition.get(
+            "additional_parameters", 0
+        )
+        appValue_escapeArguments: bool = self.app_definition.get(
+            "escapeArguments", False
         )
 
-        _params = deepcopy(self.choices_made["params"])
-        _params["__defaults_used__"] = self.choices_made.get("default_parameters", [])
+        returnNoneInsteadOfThrowingError = False
+        help_marker = "?" if self.appParameters.avail.containsShortName("-h") else "h"
 
-        global g_reviewedParams
-        g_reviewedParams = _params
-        return _params
+        options_chosen: dict[str, Any] = {}
+        non_option_args = []
+        force_non_options = False
 
+        loadIntoSpec: ParamSpec | None = None
+        spec = None
+        arg_cleaned = ""
+        giveHelp = False
+
+        if appConfig.hasContents():
+            configOptions = appConfig
+        else:
+            configOptions = None
+
+        for _arg in args:
+            arg_cleaned = str(_arg)
+
+            if loadIntoSpec is not None:
+                _name: str = loadIntoSpec.name()
+                options_chosen[_name] = loadIntoSpec.load(
+                    arg_cleaned,
+                    options_chosen.get(_name, None),
+                    returnNoneInsteadOfThrowingError,
+                )
+                loadIntoSpec = None
+            elif (arg_cleaned == "--") and not (force_non_options):
+                force_non_options = True
+            elif not arg_cleaned.startswith("-") or (force_non_options):
+                non_option_args.append(arg_cleaned)
+            elif arg_cleaned in (("-" + help_marker), "--help"):
+                giveHelp = True
+                returnNoneInsteadOfThrowingError = True
+            elif configOptions is not None and (
+                (arg_cleaned == "--config-view") or (arg_cleaned == "-C")
+            ):
+                print(configOptions.asText())
+                returnNoneInsteadOfThrowingError = True
+            else:
+                #
+                # Process option
+                argMatched = False
+
+                if (
+                    configOptions is not None
+                    and (arg_cleaned.startswith("--"))
+                    and ("=" in arg_cleaned)
+                ):
+                    argMatched = configOptions.setting_applyIfMatches(
+                        arg_cleaned.removeprefix("--").split("=", 1),
+                        returnNoneInsteadOfThrowingError,
+                    )
+
+                if not (argMatched):
+                    spec, _value = self.appParameters.avail.getMatchedSpecAndValue(
+                        arg_cleaned
+                    )
+                    if spec is not None:
+                        _name: str = spec.name()
+                        if _value is None:
+                            loadIntoSpec = spec
+                        elif isinstance(_value, bool) and _value == True:
+                            options_chosen[_name] = _value
+                        else:
+                            options_chosen[_name] = spec.load(
+                                _value,
+                                options_chosen.get(_name, None),
+                                returnNoneInsteadOfThrowingError,
+                            )
+                        break
+
+                if not (argMatched) and not (returnNoneInsteadOfThrowingError):
+                    action_suffix = appInfo_get("APP_AS_USED.post_exe", "")
+                    if action_suffix is None or (str(action_suffix).strip() == ""):
+                        action_suffix = ""
+
+                    error_exit(f"Unknown{action_suffix} option: {arg_cleaned}")
+
+        if loadIntoSpec is not None:
+            error_exit(f"Missing value for option: {arg_cleaned}")
+
+            # |Logging| print_verbose(f"arg: {arg}")
+
+        ##################################################################################################
+        # Load non_option_args - either into _options ('mayBeDirect/mustBeDirect') or into 'remaining_args'
+        #
+        remaining_args = []
+        for arg in non_option_args:
+            remaining_arg = arg
+            for spec in self.appParameters.avail:
+                _name: str = spec.name()
+                permit_direct = (spec.mayBeDirect() or spec.mustBeDirect()) and (
+                    not (_name in options_chosen) or spec.get("supportMultiple", False)
+                )
+                if permit_direct:
+                    options_chosen[_name] = spec.load(
+                        arg,
+                        options_chosen.get(_name, None),
+                        returnNoneInsteadOfThrowingError,
+                    )  # Can be direct parameter
+                    remaining_arg = None
+                    break
+
+            if remaining_arg is not None:
+                remaining_args.append(remaining_arg)
+
+        if (remaining_args is not None) and (len(remaining_args) > 0):
+            if appValue_escapeArguments:
+                options_chosen["--"] = [
+                    EscapeMgr.fromEscapedText(x) for x in remaining_args
+                ]
+            else:
+                options_chosen["--"] = remaining_args
+
+        ################################################
+        # Load Defaults for missing _options
+        #
+        _used_defaults = []
+        for spec in self.appParameters.avail:
+            _name: str = spec.name()
+            if _name not in options_chosen:
+                if "default" in spec:
+                    _used_defaults.append(_name)
+                    options_chosen[_name] = spec.defaultValue()
+                elif spec.type() is type(None):
+                    # Special case - the existance of it is the value - so if it is included we set it to True (eg: --verbosity=details)
+                    # but if it is not included, we set it to False
+                    _used_defaults.append(_name)
+                    options_chosen[_name] = False
+                elif not returnNoneInsteadOfThrowingError:
+
+                    exampleOrNone = spec.getExample()
+                    if exampleOrNone is not None:
+                        try:
+                            error_exit(
+                                f"Missing required parameter: {styleAsError(spec.getParamFormat())}",
+                                withSuggestion=appInfo_cmdWithVariant(
+                                    spec, exampleOrNone
+                                ),
+                            )
+                        except Exception:
+                            pass
+
+                    valueHelp = spec.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)
+                    if valueHelp == "":
+                        valueHelp = spec.getParamFormat()
+
+                    error_exit(
+                        f"Missing required parameter: {styleAsError(valueHelp)}",
+                        withSuggestion=True,
+                    )
+        if len(_used_defaults) > 0:
+            appLog.print_tediousDetail(
+                f"Used defaults for: {', '.join(_used_defaults)}"
+            )
+
+        ################################################
+        #
+        # Validate extra parameters etc
+        #
+        appLog.print_tediousDetail(f"argv: " + Utils.asJsonStr(args, indent=2))
+        appLog.print_tediousDetail(
+            f"AS LOADED: " + Utils.asJsonStr(options_chosen, indent=2)
+        )
+
+        if not returnNoneInsteadOfThrowingError and not (limitedExtraParams is None):
+            found_count = len(options_chosen.get("--", []))
+            if isinstance(limitedExtraParams, str):
+                if found_count == 0:
+                    error_exit(f"Expected {limitedExtraParams}")
+            elif found_count != limitedExtraParams:
+                txt = (
+                    "No additional parameters expected"
+                    if (limitedExtraParams == 0)
+                    else f"Expected {PrettyText.pluralize(limitedExtraParams, 'additional parameter')}"
+                )
+                if found_count > 0:
+                    txt += f"  {found_count}: {','.join(remaining_args)}"
+                error_exit(txt)
+
+        appLog.print_tediousDetail(
+            f"AS USED: " + Utils.asJsonStr(options_chosen, indent=2)
+        )
+        appLog.print_tediousDetail(f"Remaining Arguments: {remaining_args}")
+
+        self.choices_made = {}
+        self.choices_made["params"] = options_chosen
+        self.choices_made["default_parameters"] = _used_defaults
+
+        appLog.print_tediousDetail(
+            f"Choices made: {Utils.asJsonStr(self.choices_made, indent=2)}"
+        )
+        appLog.print_tediousDetail(
+            f"ParsedParams: {Utils.asJsonStr(self.appParameters.avail, indent=2)}"
+        )
+
+        if giveHelp:
+            self.giveHelp(sys.stdout)
+            doHalt("Help Info Provided - Exiting", suggestSilent=True)
+            sys.exit()
+
+
+g_runningApp: Define | None = None
 
 # |Remove|    def option_usedDefault(self, name):
 # |Remove|        """
@@ -1051,8 +1143,8 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
         if not isHandled:
             if appLog.isVerbose():
                 emsgSuffix += "\n".join(getPrettyExceptionTrace())
-            else:
-                emsgSuffix += f"\nSuggestion: {styleAsSuggestion(appInfo_cmdWithVariant(app_verbositySpec,'details'))} for more information"
+            elif g_runningApp is not None:
+                emsgSuffix += f"\nSuggestion: {styleAsSuggestion(appInfo_cmdWithVariant(g_runningApp.appParameters.avail.get('verbosity'),'details'))} for more information"
 
         error_exit(
             f"{action}{emsgSuffix}", withSuggestion=(action.startswith("Missing value"))
@@ -1380,20 +1472,8 @@ def stylingIsSupported() -> bool:
 g_appColoursAreEnabled = True
 
 
-def _colourText(txt: str, color: str, attrs=None) -> str:
-    global g_appColoursAreEnabled
-    if g_appColoursAreEnabled is False:
-        return txt
-
-    try:
-        import termcolor
-
-        return termcolor.colored(txt, color, attrs=attrs)
-    except Exception as e:
-        print(f"⚠️  Unable to colour text: {txt} (color={color},attrs={attrs}) {e}")
-        return txt
-
-
+# First is always the colour, the rest are attributes (eg: bold, underline, etc)
+#
 def styleAs(value: Any | None, style: str) -> str:
     global g_appColoursAreEnabled
     if value is None:
@@ -1403,13 +1483,70 @@ def styleAs(value: Any | None, style: str) -> str:
         return value
 
     x = style.split("+")
-    color = x.pop(0)
 
-    return _colourText(str(value), color, x if len(x) > 0 else None)
+    color: str | None = ""
+    on_color: str | None = ""
+    attrs: list[str] | None = []
+
+    try:
+        import termcolor
+
+        color = x.pop(0)
+
+        while len(x) > 0:
+            attr = x.pop(0)
+            if attr.startswith("on_"):
+                on_color = attr
+            else:
+                attrs.append(attr)
+
+        return termcolor.colored(
+            str(value),
+            color=color or None,
+            on_color=on_color or None,
+            attrs=attrs or None,
+        )
+    except Exception as e:
+        print(f"⚠️  Unable to style  text: {value} (style:{style}) {e}")
+        return str(value)
 
 
 def styleAsSuggestion(value: Any | None) -> str:
     return styleAs(value, "blue+bold")
+
+
+def styleAsExceptFor(
+    value: Any | None,
+    styleName: str,
+    exceptFor: list[str],
+    prefix: str = "{",
+    suffix: str = "}",
+) -> str:
+
+    txtOut = styleAs(value, styleName)
+
+    if exceptFor:
+
+        styleOn, styleOff = styleAs(f"|", styleName).split("|")
+
+        if styleOn != "" or styleOff != "":
+            subst: dict[str, str] = {}
+            for x in exceptFor:
+                subst[x] = styleOff + prefix + x + suffix + styleOn
+
+            txtOut = PrettyText.withSubstitutions(txtOut, subst, prefix, suffix)
+
+    return txtOut
+
+
+def styleAsSuggestionExceptFor(
+    txt: str, exceptFor: list[str], prefix: str = "{", suffix: str = "}"
+) -> str:
+    return styleAsExceptFor(txt, "blue+bold", exceptFor, prefix, suffix)
+
+
+def styleAsUnderline(value: Any | None) -> str:
+    return styleAs(value, "+underline")
 
 
 def styleAsSuggestionList(values: list[Any], quoteIfNeeded: bool = False) -> str:
@@ -1441,11 +1578,3 @@ def styling_doDisable(disable: bool | None):
     global g_appColoursAreEnabled
     if disable:
         g_appColoursAreEnabled = False
-
-
-app_stylingSpec = {
-    "name": "plain",
-    "shortName": "",
-    "defaultEnvVar": "UKKO_PLAIN_STYLING",
-    "description": "Disable output colouring & styling",
-}

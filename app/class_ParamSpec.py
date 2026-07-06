@@ -20,7 +20,6 @@ from ukko_pylibs.basic.simpleUtils import PrettyText
 from ukko_pylibs.basic.simpleUtils import EscapeMgr
 
 from ukko_pylibs.basic.class_DataContents import DataContents
-from ukko_pylibs.basic.simpleUtils import Utils
 import ukko_pylibs.app.appSupport as app
 
 #
@@ -29,8 +28,11 @@ import ukko_pylibs.app.appSupport as app
 
 class ValueHelpSummary:
 
+    Columns = Tuple[list[str], list[str], list[str], list[str], list[str]]
+
     def __init__(
         self,
+        group: str,
         shortName: str,
         decoratedNamePlusExtras: str,
         defaultInfo: str = "",
@@ -39,16 +41,49 @@ class ValueHelpSummary:
         summaryAdd_param: str = "",
         summaryAdd_directPrefixes: list[dict[str, str]] = [],
     ):
+        self.group = group
         # |x| self.id = decoratedNamePlusExtras.removeprefix('--').removesuffix('=').removesuffix('⁺')
-        self.shortName = "" if not shortName else f"{shortName},"
+        self.shortName = shortName  # "" if not shortName else f"{shortName},"
         self.decoratedNamePlusExtras = decoratedNamePlusExtras
         self.defaultInfo = defaultInfo
         self.extraInfo = extraInfo
-        self.description = "" if not description else f" • {description}"
+        self.description = description  # "" if not description else f" • {description}"
         self.summaryAdd_param = summaryAdd_param
         self.summaryAdd_directPrefixes = summaryAdd_directPrefixes
 
-    def asWrapped(self) -> Tuple[list[str], list[str], list[str], list[str], list[str]]:
+    def clone(self) -> "ValueHelpSummary":
+        return ValueHelpSummary(
+            self.group,
+            self.shortName,
+            self.decoratedNamePlusExtras,
+            self.defaultInfo,
+            self.extraInfo,
+            self.description,
+            self.summaryAdd_param,
+            list(self.summaryAdd_directPrefixes),
+        )
+
+    def asDict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {
+            "namePlus": self.decoratedNamePlusExtras,
+            "group": self.group,
+        }
+
+        if self.shortName:
+            result["shortName"] = self.shortName
+        result["description"] = self.description
+        if self.extraInfo:
+            result["extraInfo"] = self.extraInfo
+        if self.defaultInfo:
+            result["defaultInfo"] = self.defaultInfo
+        if self.summaryAdd_param:
+            result["summaryAdd_param"] = self.summaryAdd_param
+        if self.summaryAdd_directPrefixes:
+            result["summaryAdd_directPrefixes"] = self.summaryAdd_directPrefixes
+
+        return result
+
+    def asWrapped(self) -> "ValueHelpSummary.Columns":
 
         return (
             PrettyText.textWrapWithPrefixes(self.shortName),
@@ -57,110 +92,6 @@ class ValueHelpSummary:
             PrettyText.textWrapWithPrefixes(self.defaultInfo),
             PrettyText.textWrapWithPrefixes(self.description, 102, [" • "]),
         )
-
-
-class ValueHelpSummaries(list[ValueHelpSummary]):
-    COLUMNS = range(5)
-    MIN_COL0_WIDTH = 3
-
-    def _doReview(self):
-        self.maxWidths = [0, 0, 0, 0, 0]
-        self.wrapped: list[
-            Tuple[list[str], list[str], list[str], list[str], list[str]]
-        ] = []
-
-        for entry in self:
-            wrappedEntry = entry.asWrapped()
-            self.wrapped.append(wrappedEntry)
-
-            for i in self.COLUMNS:
-                self.maxWidths[i] = max(
-                    self.maxWidths[i], max(map(len, wrappedEntry[i]))
-                )
-
-    def _colWidth(self, col: int, withPadding: bool = False) -> int:
-        if col < 0 or col >= len(self.maxWidths):
-            return 0
-
-        wid = self.maxWidths[col]
-        if col == 0 and wid < self.MIN_COL0_WIDTH:
-            wid = self.MIN_COL0_WIDTH
-
-        if (wid == 0) and (col > 1):
-            return 0
-
-        if withPadding:
-            # |if (col == 1):
-            # |    wid += 2
-            # |else:
-            wid += 1
-        return wid
-
-    def _asSingleLine(self, cols: list[str]) -> str:
-
-        txt = f"{cols[0]:<{self._colWidth(0)}} {cols[1]:<{self._colWidth(1)}} "  # |x| {' ' if self.maxWidths[1] == 0 else '|'}"
-
-        for n in self.COLUMNS:
-            if n <= 1 or (self.maxWidths[n] <= 0):
-                continue
-            txt += f" {cols[n]:<{self._colWidth(n)}}"
-        return txt
-
-    def _cumulativeWidthIncludingPadding(self, colAfterLast: int, colFirst: int = 0):
-
-        result = 0
-        for n in range(colFirst, colAfterLast):
-            result += self._colWidth(n, withPadding=True)
-        return result
-
-    def asLines(self, caption: str) -> list[str]:
-
-        self._doReview()
-        results: list[str] = []
-
-        if self.maxWidths[3] > 0:
-            col3Caption = "Default"
-            self.maxWidths[3] = max(self.maxWidths[3], len(col3Caption))
-        else:
-            col3Caption = ""
-        results.append(
-            f"{caption:<{self._cumulativeWidthIncludingPadding(3)}} {col3Caption}"
-        )
-        for columnsOfWrappedLines in self.wrapped:
-            subLine = 0
-            while True:
-                hasContents = False
-                subLineContents = []
-                for i in self.COLUMNS:
-                    wrappedCol = columnsOfWrappedLines[i]
-                    if len(wrappedCol) > subLine:
-                        hasContents = True
-                        subLineContents.append(wrappedCol[subLine])
-                    else:
-                        subLineContents.append("")
-
-                if not hasContents:
-                    break
-
-                results.append(self._asSingleLine(subLineContents))
-                subLine += 1
-
-        return results
-
-    def __init__(self, specs: list[dict[str, Any]] = [], escapeArguments: bool = False):
-        super().__init__()
-        for _spec in specs:
-            spec = ParamSpec(_spec, escapeArguments)
-            if not spec.mustBeDirect():
-                pairOrNone = spec.getHelpSummary()
-                if pairOrNone is not None:
-                    self.append(pairOrNone)
-
-    def findByShortName(self, shortName: str) -> ValueHelpSummary | None:
-        for entry in self:
-            if entry.shortName == shortName:
-                return entry
-        return None
 
 
 class ParamSpec:
@@ -387,7 +318,7 @@ class ParamSpec:
         EXPECTED_SENTENCE = 1
         TERSE_SUMMARY = 2
 
-    def getValueHelp(self, style: InfoStyle) -> str:
+    def getValueHelp(self, style: InfoStyle, noExample: bool = False) -> str:
         result = ""
         _lookup = self.getLookup()
         if _lookup is not None:
@@ -411,15 +342,14 @@ class ParamSpec:
         elif self.isEscaped():
             result = "Supports escape characters (such as \\n, \\t)"
 
-        if style == ParamSpec.InfoStyle.EXPECTED_SENTENCE:
+        if style == ParamSpec.InfoStyle.EXPECTED_SENTENCE and not noExample:
             example = self.getExample()
             if example is not None:
                 result += (
                     f"{self.getParamFormat()} (eg: {EscapeMgr.asBashParam(example)})"
                 )
 
-            result = result.strip()
-        return result
+        return result.strip()
 
     def getExample(self) -> Any | None:
         return self.spec.get("example", None)
@@ -550,11 +480,6 @@ class ParamSpec:
         else:
             return _error(f"Unsupported type: {str(_type)}")
 
-    def mayBeDirect(self) -> bool:
-        return (self.spec.get("mayBeDirect", False)) and not self.spec.get(
-            "hidden", False
-        )
-
     def getHelpSummary(self) -> ValueHelpSummary | None:
         """Returns: HelpSummary object or None"""
         if self.spec.get("hidden", False) or self.spec.get("isChosen", False):
@@ -635,6 +560,7 @@ class ParamSpec:
         #
 
         return ValueHelpSummary(
+            str(self.spec.get("group", None) or ""),
             out_shortName,
             out_decoratedName + out_terseInfo,
             out_defaultTxt,
@@ -674,3 +600,197 @@ class ParamSpec:
 
     def mustBeDirect(self) -> bool:
         return self.spec.get("mustBeDirect", False)
+
+    def isNotHidden(self) -> bool:
+        return not self.spec.get("hidden", False)
+
+    def mayBeDirect(self) -> bool:
+        return (self.spec.get("mayBeDirect", False)) and not self.isNotHidden()
+
+    # |x|    def isVisiblyChosen(self) -> bool:
+    # |x|        return self.spec.get("isChosen", False) and not self.isNotHidden()
+
+    def isCustomising(self) -> bool:
+        return (self.spec.get("customising", None) is not None) and self.isNotHidden()
+
+
+class ParamSpecList(list[ParamSpec]):
+    def __init__(
+        self,
+        specs: list[dict[str, Any]] = [],
+        group: str = "",
+        escapeArguments: bool = False,
+    ):
+        super().__init__()
+        for _spec in specs:
+            spec = ParamSpec(_spec, escapeArguments)
+            self.append(spec)
+
+    def doFilterByAttr(self, attr) -> "ParamSpecList":
+        result = ParamSpecList()
+        for spec in self:
+            if getattr(spec, attr)():
+                result.append(spec)
+        return result
+
+    def get(self, name: str) -> ParamSpec | None:
+        for spec in self:
+            if spec.name() == name:
+                return spec
+        return None
+
+    def containsShortName(self, shortName: str) -> bool:
+        for spec in self:
+            if spec.shortNameWithHyphen() == shortName:
+                return True
+        return False
+
+    def getMatchedSpecAndValue(self, arg: str) -> tuple[ParamSpec | None, Any | None]:
+        for spec in self:
+            if not spec.get("mustBeDirect", False):
+                argMatched, _value = spec.getMatchedValue(arg)
+                if argMatched:
+                    return spec, _value
+        return None, None
+
+
+class ValueHelpSummaries(list[ValueHelpSummary]):
+    COLUMNS = range(5)
+    MIN_COL0_WIDTH = 3
+
+    def appendItem(
+        self,
+        groupCaption: str,
+        item: ValueHelpSummary | ParamSpec | dict[str, Any] | None,
+    ):
+        if item is None:
+            return
+
+        if isinstance(item, dict):
+            item = ParamSpec(item)
+        if isinstance(item, ParamSpec):
+            item = item.getHelpSummary()
+
+        if item is not None:
+            item_out = item.clone()
+            item_out.group = groupCaption
+            self.append(item_out)
+
+    def _doReview(self):
+        self.maxWidths = [0, 0, 0, 0, 0]
+        self.groupPlusWrapped: list[Tuple[str, ValueHelpSummary.Columns]] = []
+
+        for entry in self:
+            wrappedEntry = entry.asWrapped()
+            self.groupPlusWrapped.append((entry.group, wrappedEntry))
+
+            for i in self.COLUMNS:
+                self.maxWidths[i] = max(
+                    self.maxWidths[i], max(map(len, wrappedEntry[i]))
+                )
+
+    def _colWidth(self, col: int, withPadding: bool = False) -> int:
+        if col < 0 or col >= len(self.maxWidths):
+            return 0
+
+        wid = self.maxWidths[col]
+        if col == 0 and wid < self.MIN_COL0_WIDTH:
+            wid = self.MIN_COL0_WIDTH
+
+        if (wid == 0) and (col > 1):
+            return 0
+
+        if withPadding:
+            if col > 0:
+                wid += 1
+        return wid
+
+    def _asSingleLine(self, cols: list[str]) -> str:
+
+        if cols[0] != "":
+            cols[0] += ","
+        txt = f"{cols[0]:<{self._colWidth(0)}}{cols[1]:<{self._colWidth(1)}}"  # |x| {' ' if self.maxWidths[1] == 0 else '|'}"
+
+        for n in self.COLUMNS:
+            if n <= 1 or (self.maxWidths[n] <= 0):
+                continue
+            txt += f" {cols[n]:<{self._colWidth(n)}}"
+        return txt
+
+    def _cumulativeWidthIncludingPadding(self, colAfterLast: int, colFirst: int = 0):
+
+        result = 0
+        for n in range(colFirst, colAfterLast):
+            result += self._colWidth(n, withPadding=True)
+        return result
+
+    def asLines(self) -> list[str]:
+
+        self._doReview()
+        results: list[str] = []
+
+        if self.maxWidths[3] > 0:
+            col3Caption = "Default"
+            self.maxWidths[3] = max(self.maxWidths[3], len(col3Caption))
+        else:
+            col3Caption = ""
+
+        prevGroup: str | None = None
+        for group, columnsOfWrappedLines in self.groupPlusWrapped:
+            if group != prevGroup:
+                if prevGroup is not None:
+                    results.append("")
+                results.append(
+                    f"   {app.styleAsUnderline(group):<{self._cumulativeWidthIncludingPadding(3)}}     {app.styleAsUnderline(col3Caption)}"
+                )
+                col3Caption = ""
+                prevGroup = group
+
+            subLine = 0
+            while True:
+                hasContents = False
+                subLineContents = []
+                for i in self.COLUMNS:
+                    wrappedCol = columnsOfWrappedLines[i]
+                    if len(wrappedCol) > subLine:
+                        hasContents = True
+                        subLineContents.append(wrappedCol[subLine])
+                    else:
+                        subLineContents.append("")
+
+                if not hasContents:
+                    break
+
+                results.append(self._asSingleLine(subLineContents))
+                subLine += 1
+
+        return results
+
+    @staticmethod
+    def createFromDescriptions(
+        specs: list[dict[str, Any]] = [],
+        group: str = "",
+        escapeArguments: bool = False,
+        includeMustBeDirect: bool = False,
+    ) -> "ValueHelpSummaries":
+        return ValueHelpSummaries.createFromParamSpecList(
+            ParamSpecList(specs, group, escapeArguments), includeMustBeDirect
+        )
+
+    @staticmethod
+    def createFromParamSpecList(
+        paramSpecList: "ParamSpecList", includeMustBeDirect: bool = False
+    ) -> "ValueHelpSummaries":
+        result = ValueHelpSummaries()
+        for spec in paramSpecList:
+            if not spec.mustBeDirect() or includeMustBeDirect:
+                pairOrNone = spec.getHelpSummary()
+                if pairOrNone is not None:
+                    result.append(pairOrNone)
+        return result
+
+    def findByShortName(self, shortName: str) -> ValueHelpSummary | None:
+        for entry in self:
+            if entry.shortName == shortName:
+                return entry
+        return None
