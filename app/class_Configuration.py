@@ -20,6 +20,7 @@ from ukko_pylibs.basic.simpleUtils import DictUtils, Utils
 from ukko_pylibs.basic.logger import SimpleLogger
 from ukko_pylibs.app.class_ParamSpec import ParamSpec
 from ukko_pylibs.basic.class_HandledException import HandledException
+import ukko_pylibs.app.appSupport as app
 
 #
 ################################################################################
@@ -119,13 +120,17 @@ class Configuration:
             return False
         spec = ParamSpec(setting_params)
 
-        _value = spec.convertArg(argValue, returnNoneInsteadOfThrowingError=True)
+        _value, _help = spec.convertArg_orGiveHelp(argValue)
 
         if _value is None:
-            _errmsg = f"Unable to convert value {json.dumps(argValue)} for setting '{argName}'"
-            self.log_warning(_errmsg)
+            if argValue == "":
+                _errmsg = f"Missing value for {app.styleAsSuggestion(argName)}\n{_help}"
+            else:
+                _errmsg = f"Invalid value for {app.styleAsSuggestion(argName)}: {json.dumps(argValue)}\n{_help}"
             if not avoidThrowingError:
                 raise HandledException(_errmsg)
+            else:
+                self.log_warning(_errmsg)
             return False
         else:
             self._setting_value_direct(argName, _value)
