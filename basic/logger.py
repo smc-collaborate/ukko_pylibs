@@ -176,7 +176,7 @@ class SimpleLogger:
             bar = " | "
 
         textOut.write(f"{prefix}{bar}{topLine}\n")
-        padding = " " * PrettyText.UniLen_approx(prefix)
+        padding = PrettyText.asSpaces(prefix)
         for line in lines:
             textOut.write(f"{padding}{bar}{line}\n")
 

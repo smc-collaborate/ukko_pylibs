@@ -672,16 +672,20 @@ class PrettyText:
         return plural
 
     @staticmethod
-    def UniLen_approx(s: str) -> int:
+    def uniLen_approx(s: str) -> int:
         # A simple approximation of the display width of a string, treating wide characters as 2 and narrow as 1
         # This is not perfect but should work reasonably well for most cases
         width = 0
-        for ch in s:
+        for ch in PrettyText.removeAnsiCodes(s):
             if ch in ["🔒", "❌", "✅", "⚠️", "ℹ️", "❓", "⭐", "🔍"]:
                 width += 2
             else:
                 width += 1
         return width
+
+    @staticmethod
+    def asSpaces(s: str) -> str:
+        return " " * PrettyText.uniLen_approx(s)
 
     @staticmethod
     def withSubstitutions(
@@ -780,6 +784,15 @@ class PrettyText:
             return {"success": False, "error": "Exception: " + str(e)}
 
     @staticmethod
+    def removeAnsiCodes(text: str, doStrip: bool = True) -> str:
+        # Matches ANSI escape sequences
+        if doStrip:
+            ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+            return ansi_escape.sub("", text)
+        else:
+            return text
+
+    @staticmethod
     def textWrapWithPrefixes(
         txt: str, maxWidth: int | None = None, prefixes: list[str] | None = None
     ) -> list[str]:
@@ -793,7 +806,7 @@ class PrettyText:
             for prefix in prefixes:
                 if txt.startswith(prefix):
                     txt = txt[len(prefix) :]
-                    wid = PrettyText.UniLen_approx(prefix)
+                    wid = PrettyText.uniLen_approx(prefix)
                     prefixToAppend = prefix
                     otherPrefixes = " " * wid
                     maxWidth -= wid
@@ -806,6 +819,46 @@ class PrettyText:
             lines.append(otherPrefixes + part.strip())
 
         return lines
+
+    # cols = ["ID", "Name", "Keys"]
+    @staticmethod
+    def tableAsLines(
+        rows: list[list[str]],
+        dividers: str | None = "|",
+        cols: list[str] | None = None,
+        colWidths: list[int] | None = None,
+    ) -> list[str]:
+        lines: list[str] = []
+        visWidths: list[int] = []
+        for row in rows:
+            for i, col in enumerate(row):
+                wid = PrettyText.uniLen_approx(col)
+                if len(visWidths) <= i:
+                    visWidths.append(wid)
+                elif visWidths[i] is None or (wid > visWidths[i]):
+                    visWidths[i] = wid
+        for row in rows:
+            txtOut = ""
+            for i, col in enumerate(row):
+                if dividers is not None and i > 0:
+                    txtOut += dividers
+                visLen = PrettyText.uniLen_approx(col)
+                txtOut += f"{col}{' '*(visWidths[i]-visLen)}"
+            lines.append(txtOut)
+
+        return lines
+
+    @staticmethod
+    def tableDump(
+        rows: list[list[str]],
+        dividers: str | None = "|",
+        cols: list[str] | None = None,
+        colWidths: list[int] | None = None,
+    ):
+        for line in PrettyText.tableAsLines(
+            rows, dividers=dividers, cols=cols, colWidths=colWidths
+        ):
+            print(line)
 
 
 class DictUtils:

@@ -1088,22 +1088,45 @@ def printVerbose_sysInfo():
         appLog.print_tediousDetail(f"Modules:\n" + "\n".join(lines))
 
 
-def getPrettyExceptionTrace() -> list[str]:
-    """Lines of info + bool indicating if --verbosity will give more info"""
-    traceLines = traceback.format_exception(
-        sys.exc_info()[1]
-    )  # < This is sys.exception(), which was only introduced in 3.11, so we use sys.exc_info() for compatibility with earlier versions
-
-    lines = "\n".join(traceLines[-2:-1]).split(
+def getPrettyExceptionInfo(e: BaseException) -> Tuple[str, list[str]]:
+    """summaryText,TraceLines"""
+    traceLines = (
+        "\n".join(traceback.format_exception(type(e), e, e.__traceback__))
+    ).split(
         "\n"
     )  # < Some of the lines already have newlines, so we split them into separate lines
 
-    results = []
-    for line in lines:
-        if not (line.strip().startswith('File "')):
-            results.append(line)
+    summary = []
+    for _line in traceLines:
+        line = _line.strip()
+        if line.startswith('File "'):
+            summary = []
+        elif line:
+            summary.append(_line)
 
-    return results
+    sourceLeft = []
+    if len(summary) >= 2:
+        kind = summary[-1]
+        _untrimmed = summary[0].rstrip()
+
+        source = _untrimmed.lstrip()
+        prefixToStrip = _untrimmed[: (len(_untrimmed) - len(source))]
+        for x in summary[1:-1]:
+            sourceLeft.append(x.removeprefix(prefixToStrip))
+    else:
+        kind = str(e)
+        source = ""
+
+    msg = f"Unexpected Error `{styleAsError(kind)}`"
+    if source:
+        msg += " from `"
+        prefix = PrettyText.asSpaces(msg)
+        msg += styleAsError(source) + "`"
+
+        for x in sourceLeft:
+            msg += "\n" + prefix + styleAsError(x)
+
+    return msg, traceLines[:-3]
 
 
 def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
@@ -1139,16 +1162,20 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
         # sys.stderr.write(f"\n⚠️  Exiting with code: {e.code}\n")
         doHalt("System Exit - Exiting")
         sys.exit(e.code)
-    else:
-        if not isHandled:
-            if appLog.isVerbose():
-                emsgSuffix += "\n".join(getPrettyExceptionTrace())
-            elif g_runningApp is not None:
-                emsgSuffix += f"\nSuggestion: {styleAsSuggestion(appInfo_cmdWithVariant(g_runningApp.appParameters.avail.get('verbosity'),'details'))} for more information"
-
+    elif isHandled:
         error_exit(
-            f"{action}{emsgSuffix}", withSuggestion=(action.startswith("Missing value"))
+            f"{action}{emsgSuffix}", withSuggestion=action.startswith("Missing value")
         )
+    else:
+
+        msg, traceLines = getPrettyExceptionInfo(e)
+        msg += "\n"
+        if appLog.isVerbose() or [x for x in os.environ if x.startswith("VSCODE_")]:
+            msg += "\n".join([f"   [trace]: {x}" for x in traceLines])
+
+        elif g_runningApp is not None:
+            msg += f"Suggestion: {styleAsSuggestion(appInfo_cmdWithVariant(g_runningApp.appParameters.avail.get('verbosity'),'details'))} for more information"
+        error_exit(msg, withSuggestion=False)
 
 
 def returnJsonData(resultFull: Any, elementNameIfNotFull: str | None = None):

@@ -396,12 +396,16 @@ class ParamSpec:
 
     def convertArg(self, arg, returnNoneInsteadOfThrowingError: bool = False) -> Any:
 
-        def _error(msg: str, e: Exception | None = None):
+        def _error(
+            msg: str, e: Exception | None = None, but_is_this_value: Any | None = None
+        ):
             if returnNoneInsteadOfThrowingError:
                 return None
             else:
                 from ukko_pylibs.app.appSupport import error_exit
 
+                if but_is_this_value is not None:
+                    msg += f" -- but is {app.styleAsError(but_is_this_value)}"
                 error_exit(f"Parameter {_name}: {msg}", e, withSuggestion=True)
 
         _name = self.spec.get("name", "<Unnamed>")
@@ -412,7 +416,8 @@ class ParamSpec:
                     return _lookup[arg]
                 else:
                     return _error(
-                        f"{self.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)} -- but is {arg}"
+                        f"{self.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)}",
+                        but_is_this_value=arg,
                     )
             elif arg in _lookup:
                 return arg
@@ -425,7 +430,8 @@ class ParamSpec:
                         if humanFormatted.startswith(parts[0] + "=<"):
                             return arg
             return _error(
-                f"{self.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)} -- but is {arg}"
+                f"{self.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)}",
+                but_is_this_value=arg,
             )
 
         _type = self.type()
@@ -442,7 +448,7 @@ class ParamSpec:
             elif arg.lower() in ("false", "no", "0"):
                 return False
             else:
-                return _error(f"Expects a boolean value -- but is {arg}")
+                return _error(f"Expects a boolean value", but_is_this_value=arg)
         elif (_type is int) or (_type is float):
             try:
                 if _type is int:
@@ -451,17 +457,18 @@ class ParamSpec:
                     value = float(arg)
                 if "min" in self.spec and value < self.spec["min"]:
                     return _error(
-                        f"Must be at least {self.spec['min']} --but is {value}"
+                        f"Must be at least {self.spec['min']}", but_is_this_value=value
                     )
                 if "max" in self.spec and value > self.spec["max"]:
                     return _error(
-                        f"Must be at most {self.spec['max']} -- but is {value}"
+                        f"Must be at most {self.spec['max']}", but_is_this_value=value
                     )
 
                 return value
             except ValueError:
                 return _error(
-                    f"Parameter {_name} expects {PrettyText.withAOrAn( _type.__name__)} value -- but is {arg}"
+                    f"Parameter {_name} expects {PrettyText.withAOrAn( _type.__name__)} value",
+                    but_is_this_value=arg,
                 )
         elif _type is str:
             if self.isEscaped():
