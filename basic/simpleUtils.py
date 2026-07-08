@@ -677,7 +677,7 @@ class PrettyText:
         # This is not perfect but should work reasonably well for most cases
         width = 0
         for ch in PrettyText.removeAnsiCodes(s):
-            if ch in ["🔒", "❌", "✅", "⚠️", "ℹ️", "❓", "⭐", "🔍"]:
+            if ch in ["🔒", "❌", "✅", "⚠️", "ℹ️", "❓", "⭐", "🔍", "↩", "↤"]:
                 width += 2
             else:
                 width += 1
