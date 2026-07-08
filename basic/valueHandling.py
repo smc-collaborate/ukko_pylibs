@@ -9,9 +9,6 @@ import sys
 
 import os
 
-import numpy as np
-
-
 shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)

@@ -187,14 +187,22 @@ class Configuration:
             )
 
         if not isinstance(value, bool):
-            try:
-                value = bool(value)
-            except Exception as e:
+            if isinstance(value, str):
+                v = value.strip().lower()
+                if v in ("true", "yes", "1", "on"):
+                    value = True
+                elif v in ("false", "no", "0", "off"):
+                    value = False
+                else:
+                    self.log_warning(
+                        f"Setting[{key}]={value} is not a boolean - Using default {defaultValue}"
+                    )
+                    return
+            else:
                 self.log_warning(
                     f"Setting[{key}]={value} is not a boolean - Using default {defaultValue}"
                 )
                 return
-
         self.CONFIG_USED["settings"][key] = value
 
     def setting_get(self, key: str) -> Any:

@@ -796,7 +796,7 @@ class PrettyText:
     def textWrapWithPrefixes(
         txt: str, maxWidth: int | None = None, prefixes: list[str] | None = None
     ) -> list[str]:
-        if maxWidth is None or len(txt) < maxWidth:
+        if maxWidth is None or PrettyText.uniLen_approx(txt) <= maxWidth:
             return [txt]
 
         prefixToAppend = ""
@@ -812,8 +812,14 @@ class PrettyText:
                     maxWidth -= wid
                     break
 
+        if maxWidth is None or maxWidth <= 0:
+            return [prefixToAppend.rstrip()] if prefixToAppend else [""]
+
         parts = textwrap.wrap(txt, width=maxWidth)
-        lines = []
+        if not parts:
+            return [prefixToAppend.rstrip()] if prefixToAppend else [""]
+
+        lines: list[str] = []
         lines.append(prefixToAppend + parts.pop(0))
         for part in parts:
             lines.append(otherPrefixes + part.strip())

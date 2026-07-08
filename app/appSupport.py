@@ -416,8 +416,11 @@ class AppParameters:
                 self.parsedDescription += " - "
             self.parsedDescription += str(groupInfo["description"])
         if "examples" in groupInfo:
-            self.parsedExamples += str(groupInfo["examples"])
-        updateThis.actionsWalked.append(groupInfo)
+            examples = groupInfo["examples"]
+            if isinstance(examples, list):
+                self.parsedExamples.extend([str(x) for x in examples])
+            else:
+                self.parsedExamples.append(str(examples))
         updateThis.nextActionOptions = None
 
 
@@ -829,15 +832,16 @@ class Define:
                         returnNoneInsteadOfThrowingError,
                     )
 
-                if not (argMatched):
+                if not argMatched:
                     spec, _value = self.appParameters.avail.getMatchedSpecAndValue(
                         arg_cleaned
                     )
                     if spec is not None:
+                        argMatched = True
                         _name: str = spec.name()
                         if _value is None:
                             loadIntoSpec = spec
-                        elif isinstance(_value, bool) and _value == True:
+                        elif isinstance(_value, bool) and _value is True:
                             options_chosen[_name] = _value
                         else:
                             options_chosen[_name] = spec.load(
@@ -845,7 +849,6 @@ class Define:
                                 options_chosen.get(_name, None),
                                 returnNoneInsteadOfThrowingError,
                             )
-                        break
 
                 if not (argMatched) and not (returnNoneInsteadOfThrowingError):
                     action_suffix = appInfo_get("APP_AS_USED.post_exe", "")
