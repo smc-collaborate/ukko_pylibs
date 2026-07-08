@@ -14,7 +14,7 @@ if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 from ukko_pylibs.app.appSupport import appLog
-from ukko_pylibs.basic.simpleUtils import Utils
+from ukko_pylibs.basic.simpleUtils import PrettyText, Utils
 import ukko_pylibs.basic.fileUtils as fileUtils
 
 
@@ -34,18 +34,6 @@ def md_make(text: str) -> str:
 def md_literalQuote(text: str, quoteRequested: bool = True) -> str:
     quoteMark = "`" if quoteRequested else ""
     return f"{quoteMark}{text}{quoteMark}"
-
-
-def UniLen_approx(s: str) -> int:
-    # A simple approximation of the display width of a string, treating wide characters as 2 and narrow as 1
-    # This is not perfect but should work reasonably well for most cases
-    width = 0
-    for ch in s:
-        if ch in ["🔒", "🔓", "❌", "✅", "⚠️", "ℹ️", "❓", "⭐"]:
-            width += 2
-        else:
-            width += 1
-    return width
 
 
 def objToMarkdownText(srcObj: dict, txtPrefix: str = "") -> str:
@@ -557,11 +545,15 @@ class MarkdownTable(IMarkdownElement):
 
         for row in self.rows:
             for i, cell in enumerate(row):
-                maxWidths[i] = max(maxWidths[i], UniLen_approx(self._asStr(cell)))
+                maxWidths[i] = max(
+                    maxWidths[i], PrettyText.uniLen_approx(self._asStr(cell))
+                )
 
         for i, header in enumerate(self.headersPlus):
             if (maxWidths[i] > 0) or not self.hideEmptyColumns:
-                maxWidths[i] = max(maxWidths[i], UniLen_approx(self._asStr(header)))
+                maxWidths[i] = max(
+                    maxWidths[i], PrettyText.uniLen_approx(self._asStr(header))
+                )
 
         return maxWidths
 
@@ -612,7 +604,7 @@ class MarkdownTable(IMarkdownElement):
 
             def _formatColEntry(cell: str, visWidth: int) -> str:
                 cellStr = self._asStr(cell)
-                visLen = UniLen_approx(cellStr)
+                visLen = PrettyText.uniLen_approx(cellStr)
                 if visLen > visWidth:
                     cellStr = cellStr[: visWidth - 3] + "..."
                 # if len(cellStr)!= visLen:cellStr=f"{cellStr} ({visLen} chars)"

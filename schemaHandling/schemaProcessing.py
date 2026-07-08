@@ -688,12 +688,12 @@ class MarkdownTable:
         for row in self.rows:
             for i, cell in enumerate(row):
                 maxWidths[i] = max(
-                    maxWidths[i], PrettyText.UniLen_approx(self._asStr(cell))
+                    maxWidths[i], PrettyText.uniLen_approx(self._asStr(cell))
                 )
 
         for i, header in enumerate(self.headers):
             if (maxWidths[i] > 0) or not self.hideEmptyColumns:
-                maxWidths[i] = max(maxWidths[i], PrettyText.UniLen_approx(header))
+                maxWidths[i] = max(maxWidths[i], PrettyText.uniLen_approx(header))
 
         return maxWidths
 
@@ -714,7 +714,7 @@ class MarkdownTable:
 
             def _formatColEntry(cell: str, visWidth: int) -> str:
                 cellStr = self._asStr(cell)
-                visLen = PrettyText.UniLen_approx(cellStr)
+                visLen = PrettyText.uniLen_approx(cellStr)
                 if visLen > visWidth:
                     cellStr = cellStr[: visWidth - 3] + "..."
                 # if len(cellStr)!= visLen:cellStr=f"{cellStr} ({visLen} chars)"
