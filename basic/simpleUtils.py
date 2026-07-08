@@ -860,6 +860,22 @@ class PrettyText:
         ):
             print(line)
 
+    @staticmethod
+    def bulletPoints(msgs: list[str] | str, prefix: str = " • ") -> str:
+        theList: list[str] = []
+        if isinstance(msgs, str):
+            theList = msgs.splitlines()
+        else:
+            theList = "\n".join(
+                msgs
+            ).splitlines()  # Ensure we cope with individual lines having newlines!
+
+        txtOut = ""
+        for msg in theList:
+            if msg.strip() != "":
+                txtOut += f"{prefix}{msg.strip()}\n"
+        return txtOut
+
 
 class DictUtils:
     @staticmethod
