@@ -70,6 +70,46 @@ class ValueLimitations:
                 obj["errors"] = self._errors
             return obj
 
+    def doValidateValue(self, value: Any) -> Tuple[str | None, Any]:
+        """Returns (errorMsg, refinedValue)"""
+
+        def returnFailure(msg: str) -> Tuple[str, Any]:
+            return f"{json.dumps(value)} is {msg}. Valid: {self._asText()}", value
+
+        if self.kind == "float":
+            try:
+                valueOut = float(value)
+            except Exception:
+                return returnFailure("not numeric")
+        elif self.kind == "bool":
+            if isinstance(value, bool):
+                return None, value
+            elif isinstance(value, (int, float)) and value in (0, 1):
+                return None, bool(value)
+            elif isinstance(value, str) and value.lower() in ("true", "false"):
+                return None, (value.lower() == "true")
+            else:
+                return returnFailure("not boolean (0,1,true,false)")
+        elif self.isNumeric():
+            try:
+                valueOut = int(value)
+            except Exception:
+                return returnFailure("not an integer")
+        elif self.kind:
+            return returnFailure(f"not a recognized type `{self.kind}`")
+        else:
+            return None, value
+        #
+        # Now 'valueOut' is numeric, and we can check the range
+        #
+        if self.minValue is not None and valueOut < self.minValue:
+            return returnFailure(f"less than minimum {self.minValue}")
+        if self.maxValue is not None and valueOut > self.maxValue:
+            return returnFailure(f"greater than maximum {self.maxValue}")
+        # @todo: Add validation of time_ns and time_n|immediate types
+
+        return None, valueOut
+
     def isNumeric(self) -> bool:
         return self.kind in ValueLimitations.NUMERIC_RANGES
 
