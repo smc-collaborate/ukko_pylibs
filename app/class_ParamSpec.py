@@ -624,15 +624,14 @@ class ParamSpec:
 class ParamSpecList(list[ParamSpec]):
     def __init__(
         self,
-        specs: list[dict[str, Any]] = [],
+        specs: list[dict[str, Any]] | None = None,
         group: str = "",
         escapeArguments: bool = False,
     ):
         super().__init__()
-        for _spec in specs:
+        for _spec in (specs or []):
             spec = ParamSpec(_spec, escapeArguments)
             self.append(spec)
-
     def doFilterByAttr(self, attr) -> "ParamSpecList":
         result = ParamSpecList()
         for spec in self:
