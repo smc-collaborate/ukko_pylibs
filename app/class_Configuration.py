@@ -138,6 +138,8 @@ class Configuration:
             return True
 
     def _setting_value_direct(self, key: str, value: Any):
+        if not "settings" in self.CONFIG_USED:
+            self.CONFIG_USED["settings"] = {}
         self.CONFIG_USED["settings"][key] = value
 
     def setting_set_int(
@@ -203,7 +205,7 @@ class Configuration:
                     f"Setting[{key}]={value} is not a boolean - Using default {defaultValue}"
                 )
                 return
-        self.CONFIG_USED["settings"][key] = value
+        self._setting_value_direct(key, value)
 
     def setting_get(self, key: str) -> Any:
         return self._setting_get(self.CONFIG_USED, key)
