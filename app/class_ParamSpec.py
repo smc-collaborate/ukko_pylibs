@@ -39,7 +39,7 @@ class ValueHelpSummary:
         extraInfo: str = "",
         description: str = "",
         summaryAdd_param: str = "",
-        summaryAdd_directPrefixes: list[dict[str, str]] = [],
+        summaryAdd_directPrefixes: list[dict[str, str]] | None = None,
     ):
         self.group = group
         # |x| self.id = decoratedNamePlusExtras.removeprefix('--').removesuffix('=').removesuffix('⁺')
@@ -49,7 +49,7 @@ class ValueHelpSummary:
         self.extraInfo = extraInfo
         self.description = description  # "" if not description else f" • {description}"
         self.summaryAdd_param = summaryAdd_param
-        self.summaryAdd_directPrefixes = summaryAdd_directPrefixes
+        self.summaryAdd_directPrefixes = summaryAdd_directPrefixes or []
 
     def clone(self) -> "ValueHelpSummary":
         return ValueHelpSummary(
