@@ -14,7 +14,7 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic.simpleUtils import Utils
+from ukko_pylibs.basic.simpleUtils import PrettyText, Utils
 from ukko_pylibs.basic.simpleUtils import DictUtils
 from ukko_pylibs.basic.simpleUtils import ImageInfo
 import ukko_pylibs.app.appSupport as app
@@ -508,7 +508,19 @@ class DataHeaderFormat:
 
                     pos: int = rawDataStream.tell() - len(entry_bytes)
                     appLog.print_verbose(
-                        f"  • {entry_attr:<34}={str(entry_value):<24}  {entry_printSuffix:<12} {txtSuffix:<9} : {' '*(pos*2)}{entry_bytes.hex():<30}  {conversionEntry.get('lookup', '')}"
+                        "  • "
+                        + PrettyText.padToWidth(entry_attr, 34)
+                        + "="
+                        + PrettyText.padToWidth(entry_value, 24)
+                        + "  "
+                        + PrettyText.padToWidth(entry_printSuffix, 12)
+                        + " "
+                        + PrettyText.padToWidth(txtSuffix, 9)
+                        + " : "
+                        + (" " * (pos * 2))
+                        + PrettyText.padToWidth(entry_bytes.hex(), 30)
+                        + "  "
+                        + str(conversionEntry.get("lookup", ""))
                     )
 
             except Exception as e:

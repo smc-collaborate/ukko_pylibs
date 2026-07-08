@@ -689,7 +689,8 @@ class ValueHelpSummaries(list[ValueHelpSummary]):
 
             for i in self.COLUMNS:
                 self.maxWidths[i] = max(
-                    self.maxWidths[i], max(map(len, wrappedEntry[i]))
+                    self.maxWidths[i],
+                    max(map(PrettyText.uniLen_approx, wrappedEntry[i])),
                 )
 
     def _colWidth(self, col: int, withPadding: bool = False) -> int:
@@ -712,13 +713,22 @@ class ValueHelpSummaries(list[ValueHelpSummary]):
 
         if cols[0] != "":
             cols[0] += ","
-        txt = f"{cols[0]:<{self._colWidth(0)}}{cols[1]:<{self._colWidth(1)}}"  # |x| {' ' if self.maxWidths[1] == 0 else '|'}"
+        txt = f"{PrettyText.padToWidth(cols[0], self._colWidth(0))}{PrettyText.padToWidth(cols[1], self._colWidth(1))}"  # |x| {' ' if self.maxWidths[1] == 0 else '|'}"
 
         for n in self.COLUMNS:
             if n <= 1 or (self.maxWidths[n] <= 0):
                 continue
-            txt += f" {cols[n]:<{self._colWidth(n)}}"
+            txt += f" {PrettyText.padToWidth(cols[n], self._colWidth(n))}"
         return txt
+
+    def getDividerLine(self, horizontalChar: str = "─", verticalChar: str = "┼") -> str:
+        line = ""
+        for width in self.maxWidths:
+            if width > 0:
+                if line != "":
+                    line += verticalChar
+                line += horizontalChar * width
+        return line
 
     def _cumulativeWidthIncludingPadding(self, colAfterLast: int, colFirst: int = 0):
 
@@ -727,6 +737,15 @@ class ValueHelpSummaries(list[ValueHelpSummary]):
             result += self._colWidth(n, withPadding=True)
         return result
 
+    def maxLenOfGroupCol(self, group: str, column: int) -> int:
+        return max(
+            [
+                len("".join(y[column]))
+                for _group, y in self.groupPlusWrapped
+                if _group == group
+            ]
+        )
+
     def asLines(self) -> list[str]:
 
         self._doReview()
@@ -734,7 +753,9 @@ class ValueHelpSummaries(list[ValueHelpSummary]):
 
         if self.maxWidths[3] > 0:
             col3Caption = "Default"
-            self.maxWidths[3] = max(self.maxWidths[3], len(col3Caption))
+            self.maxWidths[3] = max(
+                self.maxWidths[3], PrettyText.uniLen_approx(col3Caption)
+            )
         else:
             col3Caption = ""
 
@@ -743,10 +764,18 @@ class ValueHelpSummaries(list[ValueHelpSummary]):
             if group != prevGroup:
                 if prevGroup is not None:
                     results.append("")
-                results.append(
-                    f"   {app.styleAsUnderline(group):<{self._cumulativeWidthIncludingPadding(3)}}     {app.styleAsUnderline(col3Caption)}"
-                )
-                col3Caption = ""
+
+                titleLine = "   " + app.styleAsUnderline(group)
+
+                if self.maxLenOfGroupCol(group, 3) > 0:
+                    titleLine += " " * (
+                        self._cumulativeWidthIncludingPadding(3)
+                        - PrettyText.uniLen_approx(titleLine)
+                    ) + app.styleAsUnderline(col3Caption)
+                    # col3Caption='' #< If we want this only on the topmost line
+                results.append(titleLine)
+
+                # |For experiments|results.append(f"{self.getDividerLine()} ! {self.maxWidths}")
                 prevGroup = group
 
             subLine = 0

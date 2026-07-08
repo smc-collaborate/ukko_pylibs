@@ -537,7 +537,7 @@ class Define:
         # customisedChoicesNext
         if not _customisedChoiceNext:
             lines_out.append(
-                f"{exeNameDecorated:<32} {verText:<13} : {str(self.appParameters.parsedDescription):<90}"
+                f"{PrettyText.padToWidth(exeNameDecorated, 32)} {PrettyText.padToWidth(verText, 13)} : {PrettyText.padToWidth(str(self.appParameters.parsedDescription), 90)}"
             )
             lines_out.append("")
             lines_out.append(
@@ -591,7 +591,11 @@ class Define:
                         maxLen = _len
             extrasLen = len(params_txt)
             lines_out.append(
-                f"{exeNameDecorated:<{maxLen+len(prefix)+1}} {' '*extrasLen} | {str(self.app_definition.get('description','')):<90}"
+                PrettyText.padToWidth(
+                    exeNameDecorated, maxLen + len(prefix) + 2 + extrasLen
+                )
+                + " │ "
+                + PrettyText.padToWidth(self.app_definition.get("description", ""), 90)
             )
             lines_out.append("")
             for _entry in directPrefixes:
@@ -612,7 +616,7 @@ class Define:
                         suffix = " | " + _value
 
                     lines_out.append(
-                        f"{prefix} {_nameToUse:<{maxLen}} {_params_out:<{extrasLen}}{suffix}"
+                        f"{prefix} {PrettyText.padToWidth(_nameToUse, maxLen)} {PrettyText.padToWidth(_params_out, extrasLen)}{suffix}"
                     )
                     prefix = " " * len(prefix)
 
@@ -692,7 +696,7 @@ class Define:
             return exeInfo_getName()
 
     def dumpVersion(self, includeAuthor: bool = False):
-        txt = f"{getExeName():<32} v{self.app_definition['version']:<10} {str(self.app_definition.get('description','')):<104}"
+        txt = f"{PrettyText.padToWidth(getExeName(), 32)} v{PrettyText.padToWidth(self.app_definition['version'], 10)} {PrettyText.padToWidth(str(self.app_definition.get('description','')), 104)}"
 
         if includeAuthor and ("author" in self.app_definition):
             txt += f" | {self.app_definition['author']}"
@@ -702,7 +706,9 @@ class Define:
         extras = self.app_definition.get("versions_extra", [])
 
         for line in extras:
-            sys.stdout.write(f"{'':<32}  {'':<10} {str(line)}\n")
+            sys.stdout.write(
+                f"{PrettyText.padToWidth('', 32)}  {PrettyText.padToWidth('', 10)} {PrettyText.padToWidth(str(line), 104)}\n"
+            )
 
     def parseParams(self, args: list[str] | None = None) -> dict[str, Any]:
         global g_runningApp
@@ -1480,7 +1486,7 @@ def deprecationWarning(message: str):
             for x in caller_frame:
                 stack_lines.insert(
                     0,
-                    f"{'└── ' if top_frame else '│   '} {('' if x.code_context is None else x.code_context[0].strip()):<120} | {x.filename.split('/')[-1]:<30} : {x.lineno}",
+                    f"{'└── ' if top_frame else '│   '} {PrettyText.padToWidth('' if x.code_context is None else x.code_context[0].strip(), 120)} | {PrettyText.padToWidth(x.filename.split('/')[-1], 30)} : {x.lineno}",
                 )
                 top_frame = False
         appLog.print_warning(msg + "\n" + ("\n".join(stack_lines)))
@@ -1585,6 +1591,14 @@ def styleAsSuggestionExceptFor(
 
 def styleAsUnderline(value: Any | None) -> str:
     return styleAs(value, "+underline")
+
+
+def styleAsBoldUnderline(value: Any | None) -> str:
+    return styleAs(value, "+underline+bold")
+
+
+def styleAsBold(value: Any | None) -> str:
+    return styleAs(value, "+bold")
 
 
 def styleAsSuggestionList(values: list[Any], quoteIfNeeded: bool = False) -> str:

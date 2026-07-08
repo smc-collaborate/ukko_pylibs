@@ -673,8 +673,9 @@ class PrettyText:
 
     @staticmethod
     def uniLen_approx(s: str) -> int:
-        # A simple approximation of the display width of a string, treating wide characters as 2 and narrow as 1
-        # This is not perfect but should work reasonably well for most cases
+        """A simple approximation of the display width of a string, treating wide characters as 2 and narrow as 1
+        This is not intended to be perfect (thus the '_approx' in the name) but works well for our use cases
+        """
         width = 0
         for ch in PrettyText.removeAnsiCodes(s):
             if ch in ["🔒", "❌", "✅", "⚠️", "ℹ️", "❓", "⭐", "🔍", "↩", "↤"]:
@@ -686,6 +687,23 @@ class PrettyText:
     @staticmethod
     def asSpaces(s: str) -> str:
         return " " * PrettyText.uniLen_approx(s)
+
+    @staticmethod
+    def padToWidth(value: Any, width: int, direction: str = "<") -> str:
+        """Direction can be '>' (text on right), '^' (text center), or '<' (text on left) (default)
+        Think of this being equivalent to '{:<width}', '{:>width}', or '{:^width}' in python's format specifiers, but this handles wide unicode characters and ANSI codes
+        """
+        text = str(value)
+        vis = PrettyText.uniLen_approx(text)
+        padLen = max(0, width - vis)
+        if direction == ">":
+            return (" " * padLen) + text
+        elif direction == "^":
+            left = padLen // 2
+            right = padLen - left
+            return (" " * left) + text + (" " * right)
+        else:  # direction == "<"
+            return text + (" " * padLen)
 
     @staticmethod
     def withSubstitutions(
