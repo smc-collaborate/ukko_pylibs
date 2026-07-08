@@ -1499,6 +1499,10 @@ def stylingIsSupported() -> bool:
 g_appColoursAreEnabled = True
 
 
+def print_extra(message: str) -> None | str:
+    print(styleAs(message, "cyan+bold"), file=sys.stderr)
+
+
 # First is always the colour, the rest are attributes (eg: bold, underline, etc)
 #
 def styleAs(value: Any | None, style: str) -> str:
