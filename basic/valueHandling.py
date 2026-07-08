@@ -71,7 +71,7 @@ class ValueLimitations:
         """Returns (errorMsg, refinedValue)"""
 
         def returnFailure(msg: str) -> Tuple[str, Any]:
-            return f"{json.dumps(value)} is {msg}. Valid: {self._asText()}", value
+            return f"{Utils.asJsonStr(value)} is {msg}. Valid: {self._asText()}", value
 
         if self.kind == "float":
             try:
@@ -264,5 +264,5 @@ def parseNamedParams_orErrMsg(paramsTxt: str) -> dict[str, Any] | str:
         if isinstance(params, dict) and all(isinstance(k, str) for k in params.keys()):
             return params
         return f"Parsed `{paramsTxt}` as a non-dictionary type: {type(params)}"
-    except Exception:
-        return f"Unable to parse as relaxed JSON: `{paramsTxt}`"
+    except Exception as e:
+        return f"Unable to parse: `{paramsTxt}` ({e})"

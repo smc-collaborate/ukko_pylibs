@@ -322,11 +322,7 @@ class ParamSpec:
         result = ""
         _lookup = self.getLookup()
         if _lookup is not None:
-            if isinstance(_lookup, dict):
-                _values = list(_lookup.keys())
-            else:
-                _values = _lookup
-                ", ".join(map(str, _lookup))
+            _values = list(_lookup.keys()) if isinstance(_lookup, dict) else _lookup
             if style == ParamSpec.InfoStyle.TERSE_SUMMARY:
                 result = ("/".join(_values)).replace(" ", "")
             elif style == ParamSpec.InfoStyle.EXPECTED_SENTENCE:
@@ -629,9 +625,10 @@ class ParamSpecList(list[ParamSpec]):
         escapeArguments: bool = False,
     ):
         super().__init__()
-        for _spec in (specs or []):
+        for _spec in specs or []:
             spec = ParamSpec(_spec, escapeArguments)
             self.append(spec)
+
     def doFilterByAttr(self, attr) -> "ParamSpecList":
         result = ParamSpecList()
         for spec in self:

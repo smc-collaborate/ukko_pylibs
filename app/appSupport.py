@@ -1496,7 +1496,9 @@ def deprecationWarning(message: str):
 
 
 def stylingIsSupported() -> bool:
-    return styleAs("test", "bold+blue") != "test"
+    return (
+        styleAs("test", "bold+blue") != "test"
+    )  # < These are safe, known options that should always work. If this doesn't give different text - styling is not supported in this environment
 
 
 g_appColoursAreEnabled = True
@@ -1541,7 +1543,9 @@ def styleAs(value: Any | None, style: str) -> str:
             attrs=attrs or None,
         )
     except Exception as e:
-        print(f"⚠️  Unable to style  text: {value} (style:{style}) {e}")
+        print(
+            f"⚠️  Unable to style  text: {value} (style:{style}) {e}", file=sys.stderr
+        )  # Don't use appLog here as appLog may choose to use styling at some point in the future
         return str(value)
 
 
