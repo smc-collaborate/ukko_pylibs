@@ -612,7 +612,7 @@ class ParamSpec:
         return not self.spec.get("hidden", False)
 
     def mayBeDirect(self) -> bool:
-        return (self.spec.get("mayBeDirect", False)) and not self.isNotHidden()
+        return (self.spec.get("mayBeDirect", False)) and self.isNotHidden()
 
     # |x|    def isVisiblyChosen(self) -> bool:
     # |x|        return self.spec.get("isChosen", False) and not self.isNotHidden()
