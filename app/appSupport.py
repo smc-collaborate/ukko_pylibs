@@ -36,6 +36,8 @@ from ukko_pylibs.app.class_ParamSpec import (
 ################################################################################
 
 
+app = sys.modules[__name__]
+
 ######################################
 #
 g_appInfo: dict[str, Any] = (
@@ -1533,8 +1535,9 @@ def styleAs(value: Any | None, style: str) -> str:
     if value is None:
         return ""
 
+    text = str(value)
     if g_appColoursAreEnabled is False or (value == ""):
-        return str(value)
+        return text
 
     x = style.split("+")
 
@@ -1555,7 +1558,7 @@ def styleAs(value: Any | None, style: str) -> str:
                 attrs.append(attr)
 
         return termcolor.colored(
-            str(value),
+            PrettyText.removeAnsiCodes(text),  # < Remove existing styling
             color=color or None,
             on_color=on_color or None,
             attrs=attrs or None,
