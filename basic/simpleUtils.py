@@ -1,10 +1,12 @@
 import array
 import base64
 from collections import OrderedDict
+from copy import deepcopy
 import hashlib
 import inspect
 import json
 import re
+import os
 import sys
 import textwrap
 import time
@@ -12,19 +14,18 @@ import traceback
 from typing import Any, Callable
 from datetime import datetime as dt_datetime
 from datetime import timezone as dt_timezone
+import numpy as np
 
 ################################################################################
 #
 # Add project root directory to system path
 
-import os
-
-import numpy as np
-
 
 shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
+
+from ukko_pylibs.basic.logger import appLog
 
 ################################################################################
 #
@@ -47,72 +48,6 @@ def get_cwdOnStartup():
     if not cwdOnStartup:
         cwdOnStartup = pwdOnModuleLoad
     return cwdOnStartup
-
-
-def print_error(msg, optional_extra_msg=None):
-
-    msg_full = f"{msg}{optional_extra_msg if optional_extra_msg else ''}"
-
-    try:
-        if sys.modules.get("ukko_pylibs.app.appSupport") is not None:
-            from ukko_pylibs.app.appSupport import appLog
-
-            appLog.print_error(msg_full)
-            return
-    except BaseException:
-        sys.stderr.write(f"❌ Error: {msg_full}\n")
-    return
-
-
-def print_warning(msg):
-
-    try:
-        if sys.modules.get("ukko_pylibs.app.appSupport") is not None:
-            from ukko_pylibs.app.appSupport import appLog
-
-            appLog.print_warning(msg)
-            return
-    except BaseException:
-        sys.stderr.write(f"⚠️ Warning: {msg}\n")
-    return
-
-
-def print_tediousDetail(msg: str):
-
-    try:
-        if sys.modules.get("ukko_pylibs.app.appSupport") is not None:
-            from ukko_pylibs.app.appSupport import appLog
-
-            appLog.print_tediousDetail(msg)
-            return
-    except BaseException:
-        pass
-    sys.stderr.write(f"🔍  Detailed: {msg}\n")
-
-
-def print_verbose(msg: str):
-
-    try:
-        if sys.modules.get("ukko_pylibs.app.appSupport") is not None:
-            from ukko_pylibs.app.appSupport import appLog
-
-            appLog.print_verbose(msg)
-            return
-    except BaseException:
-        pass
-    sys.stderr.write(f"ℹ️  Verbose: {msg}\n")
-
-
-def print_info(msg: str):
-    try:
-        if sys.modules.get("ukko_pylibs.app.appSupport") is not None:
-            from ukko_pylibs.app.appSupport import appLog
-
-            appLog.print_info(msg)
-            return
-    except BaseException:
-        pass
-    sys.stderr.write(f"ℹ️  Info: {msg}\n")
 
 
 class Utils:
@@ -246,9 +181,9 @@ class Utils:
             return text
         except FileNotFoundError:
             print(os.environ)
-            return print_error(f"Text File not found at '{file_path}'")
+            return appLog.print_error(f"Text File not found at '{file_path}'")
         except Exception as e:
-            return print_error(f"An exception occurred: {e}")
+            return appLog.print_error(f"An exception occurred: {e}")
 
     @staticmethod
     def json_load_from_file(fname: str, defaultValue=None):
@@ -343,7 +278,7 @@ class Utils:
                                     returnThis = _topLine.split("->")[-1]
 
                             if returnThis is not None:
-                                return f"«{returnThis}»"
+                                return f"«{str(returnThis).strip()}»"
                         return {"«type»": outResult}
 
                     if isinstance(o, bytes):
@@ -724,7 +659,7 @@ class PrettyText:
             _n = txt.find(suffix)
             substText: str | None = None
             if _n < 0:
-                print_warning(
+                appLog.print_warning(
                     f"PrettyText.withSubstitutions({prefix}…{suffix}): Found prefix '{prefix}' without matching suffix '{suffix}'"
                 )
             else:
@@ -732,7 +667,7 @@ class PrettyText:
                 key = keyAndFormatting[0]
 
                 if not (key in substitutions):
-                    print_warning(
+                    appLog.print_warning(
                         f"PrettyText.withSubstitutions({prefix}{':'.join(keyAndFormatting)}{suffix}): No substitution '{key}' found in: {substitutions}"
                     )
                 elif len(keyAndFormatting) > 1:
@@ -740,7 +675,7 @@ class PrettyText:
                     try:
                         substText = format(substitutions[key], formatSpec)
                     except Exception as e:
-                        print_warning(
+                        appLog.print_warning(
                             f"PrettyText.withSubstitutions({prefix}{':'.join(keyAndFormatting)}{suffix}): Error formatting value '{substitutions[key]}' with format spec '{formatSpec}': {e}"
                         )
                 else:
@@ -849,26 +784,50 @@ class PrettyText:
     def tableAsLines(
         rows: list[list[str]],
         dividers: str | None = "|",
-        cols: list[str] | None = None,
-        colWidths: list[int] | None = None,
+        colTitles: list[str] | None = None,
+        colVisWidths: list[int] | None = None,
     ) -> list[str]:
         lines: list[str] = []
-        visWidths: list[int] = []
-        for row in rows:
-            for i, col in enumerate(row):
-                wid = PrettyText.uniLen_approx(col)
-                if len(visWidths) <= i:
-                    visWidths.append(wid)
-                elif visWidths[i] is None or (wid > visWidths[i]):
-                    visWidths[i] = wid
-        for row in rows:
+        visWidths: list[int] = (
+            deepcopy(colVisWidths) if colVisWidths is not None else []
+        )
+
+        def row_review(row: list[str] | None):
+            if row:
+                for i, col in enumerate(row):
+                    wid = PrettyText.uniLen_approx(col)
+                    if len(visWidths) <= i:
+                        visWidths.append(wid)
+                    elif visWidths[i] is None or (wid > visWidths[i]):
+                        visWidths[i] = wid
+
+        def row_asText(row: list[str] | None) -> str:
             txtOut = ""
-            for i, col in enumerate(row):
-                if dividers is not None and i > 0:
-                    txtOut += dividers
-                visLen = PrettyText.uniLen_approx(col)
-                txtOut += f"{col}{' '*(visWidths[i]-visLen)}"
-            lines.append(txtOut)
+            if row:
+                for i, col in enumerate(row):
+                    if i >= len(visWidths):
+                        break
+                    if visWidths[i] > 0:
+                        if dividers is not None and (txtOut != ""):
+                            txtOut += dividers
+                        visLen = PrettyText.uniLen_approx(col)
+                        txtOut += f"{col}{' '*(visWidths[i]-visLen)}"
+            return txtOut
+
+        for row in rows:
+            row_review(row)
+
+        if colTitles:
+            for i, title in enumerate(colTitles or []):
+                if i < len(visWidths):
+                    if visWidths[i] > 0:
+                        visWidths[i] = max(
+                            visWidths[i], PrettyText.uniLen_approx(title)
+                        )
+            lines.append(row_asText(colTitles))
+
+        for row in rows:
+            lines.append(row_asText(row))
 
         return lines
 
@@ -876,12 +835,10 @@ class PrettyText:
     def tableDump(
         rows: list[list[str]],
         dividers: str | None = "|",
-        cols: list[str] | None = None,
-        colWidths: list[int] | None = None,
+        colTitles: list[str] | None = None,
+        colVisWidths: list[int] | None = None,
     ):
-        for line in PrettyText.tableAsLines(
-            rows, dividers=dividers, cols=cols, colWidths=colWidths
-        ):
+        for line in PrettyText.tableAsLines(rows, dividers, colTitles, colVisWidths):
             print(line)
 
     @staticmethod
@@ -1299,10 +1256,10 @@ class EscapeMgr:
         try:
             valueOut = json.loads(f'"{value}"')
         except Exception as e:
-            print_warning(
+            appLog.print_warning(
                 f"Error interpreting {json.dumps(str(value))} as escaped text: {e}"
             )
-        print_tediousDetail(
+        appLog.print_tediousDetail(
             f"Interpreting value as escaped text: '{value}' -> json {json.dumps(valueOut)}"
         )
         return valueOut
@@ -1360,7 +1317,7 @@ class EscapeMgr:
         else:
             resultTxt += "'" + valueTxt.replace("'", "'\\''") + "'"
 
-        print_tediousDetail(f"asBashParam({json.dumps(value)} -> {resultTxt})")
+        appLog.print_tediousDetail(f"asBashParam({json.dumps(value)} -> {resultTxt})")
         return resultTxt
 
     @staticmethod
@@ -1404,7 +1361,7 @@ class EscapeMgr:
         if (value < " ") or (value > "~"):
             result.add("requiresEscaping")
 
-        print_tediousDetail(
+        appLog.print_tediousDetail(
             f"Reviewing value for bash parameters: json:{json.dumps(value)} -> {result}"
         )
         return result

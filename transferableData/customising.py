@@ -14,18 +14,18 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic.simpleUtils import PrettyText, Utils
-from ukko_pylibs.basic.simpleUtils import DictUtils
-from ukko_pylibs.basic.simpleUtils import ImageInfo
-import ukko_pylibs.app.appSupport as app
-from ukko_pylibs.app.appSupport import appLog
-import ukko_pylibs.basic.fileUtils as fileUtils
-from ukko_pylibs.imageProcessing.class_PixelFormatData import PIXEL_FORMATS
+from ukko_pylibs.basic.simpleUtils import (
+    PrettyText,
+    Utils,
+    DictUtils,
+    ImageInfo,
+    appLog,
+)
 
+import ukko_pylibs.basic.fileUtils as fileUtils
 
 #
 ################################################################################
-
 
 CUSTOM_FORMAT_SUFFIXES_TO_IGNORE = [
     "/reply",
@@ -72,7 +72,7 @@ class CustomisedContents:
         values = self.headerFormat.loadHeaderFromBytes(rawData)
         if isinstance(values, str):
             appLog.print_warning(
-                f"Loading header from raw data[{rawData[:32].hex()}]...->⚠️  {Utils.asJsonStr(values,indent=2)}"
+                f"Loading header from raw data[{rawData[:32].hex()}]…->⚠️  {Utils.asJsonStr(values,indent=2)}"
             )
             self.addError(values)
         else:
@@ -203,6 +203,11 @@ class CustomisedContents:
 
             if self.expectImageData():
                 _imageSize_bytesOrNone = self.getAttr_imageSize_bytesOrNone()
+
+                from ukko_pylibs.imageProcessing.class_PixelFormatData import (
+                    PIXEL_FORMATS,
+                )  # <--- Import here to avoid circular import issues
+
                 if (
                     self.getAnnotationImage_width() < 1
                     or self.getAnnotationImage_width() > 8192
@@ -314,7 +319,7 @@ class DataHeaderFormat:
     def loadConversionFromBytes(
         self, definition: list[dict[str, Any]], rawDataStream: io.BytesIO
     ) -> dict[str, Any]:
-        """Returns: {'value':..., 'isEmpty':...} | {'errmsg':...}"""
+        """Returns: {'value':…, 'isEmpty':…} | {'errmsg':…}"""
         pos: int = rawDataStream.tell()
 
         funcResult: dict[str, Any] = {"value": {}, "isEmpty": True}
@@ -562,7 +567,7 @@ class DataHeaderFormat:
         rawDataStream = io.BytesIO(rawData)
         converted = self.loadConversionFromBytes(
             headerDataConversion, rawDataStream
-        )  # < Returns: {'value':..., 'isEmpty':...} | {'errmsg':...}
+        )  # < Returns: {'value':…, 'isEmpty':…} | {'errmsg':…}
 
         errMsg = converted.get("errmsg", None)
         if errMsg is not None:
@@ -585,7 +590,7 @@ class DataHeaderFormat:
 
             result = self.loadConversionFromBytes(
                 contents_dataConversion, rawDataStream
-            )  # < Returns: {'value':..., 'isEmpty':...} | {'errmsg':...}
+            )  # < Returns: {'value':…, 'isEmpty':…} | {'errmsg':…}
             errMsg = result.get("errmsg", None)
             if errMsg is not None:
                 return errMsg
@@ -685,7 +690,7 @@ class CustomContentsFormatDefinition:
         )
 
         clip = self.minTotalSize_bytes
-        return f"{self.KIND}: Expected one of {checkedList} headers.  Header=0x{dataIn[:16 if clip is None else clip].hex()}..."
+        return f"{self.KIND}: Expected one of {checkedList} headers.  Header=0x{dataIn[:16 if clip is None else clip].hex()}…"
 
     def ADD_STREAM_IN_HERE(self):
         pass  #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -778,7 +783,7 @@ def customFormat_get(
 
             result = CustomContentsFormatDefinition(definition)
         elif includeSpecialCases and (customFormatName == "image"):
-            samples_dir = os.path.abspath(f"{app.getMainDir()}/samples")
+            samples_dir = os.path.abspath(f"{app_getMainDir()}/samples")
             definition: dict[str, Any] = {
                 "note": "Special case for creating a raster image from a .png file",
                 "kind": "generic/image",
@@ -809,6 +814,13 @@ def customFormat_get(
             )
 
     return result
+
+
+def app_getMainDir() -> str:
+    """Get the main directory of the application, which is the directory containing the main script."""
+    import ukko_pylibs.app.appSupport as app  # <-- Import here to avoid circular import issues
+
+    return app.getMainDir()
 
 
 def relPathOrDefault(path: Any, default: str) -> str:
@@ -922,7 +934,7 @@ def _customFormatList_load() -> Tuple[
     ##################################################################
     # Step 1 - Generate list of 'dataFormats' directories to review
     #
-    appMainDir = app.getMainDir()
+    appMainDir = app_getMainDir()
     appMainParentDir = os.path.abspath(appMainDir + "/../")
     pathMain = os.path.abspath(appMainDir + "/dataFormats/")
 

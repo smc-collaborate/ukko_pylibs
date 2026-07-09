@@ -10,6 +10,8 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
+from ukko_pylibs.basic.logger import appLog
+
 #
 ################################################################################
 
@@ -24,8 +26,6 @@ class HandledException(Exception):
             msgText = "\n".join([str(m) for m in msg])
         else:
             msgText = str(msg)
-
-        from ukko_pylibs.app.appSupport import appLog
 
         self.origMsg = msgText
 

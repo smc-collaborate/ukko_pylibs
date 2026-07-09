@@ -17,10 +17,10 @@ if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 from ukko_pylibs.basic.simpleUtils import DictUtils, Utils
-from ukko_pylibs.basic.logger import SimpleLogger
-from ukko_pylibs.app.class_ParamSpec import ParamSpec
+from ukko_pylibs.basic.class_SimpleLogger import SimpleLogger
 from ukko_pylibs.basic.class_HandledException import HandledException
-import ukko_pylibs.app.appSupport as app
+from ukko_pylibs.app.class_ParamSpec import ParamSpec
+
 
 #
 ################################################################################
@@ -123,10 +123,12 @@ class Configuration:
         _value, _help = spec.convertArg_orGiveHelp(argValue)
 
         if _value is None:
+            from ukko_pylibs.app.appSupport import styleAsSuggestion
+
             if argValue == "":
-                _errmsg = f"Missing value for {app.styleAsSuggestion(argName)}\n{_help}"
+                _errmsg = f"Missing value for {styleAsSuggestion(argName)}\n{_help}"
             else:
-                _errmsg = f"Invalid value for {app.styleAsSuggestion(argName)}: {json.dumps(argValue)}\n{_help}"
+                _errmsg = f"Invalid value for {styleAsSuggestion(argName)}: {json.dumps(argValue)}\n{_help}"
             if not avoidThrowingError:
                 raise HandledException(_errmsg)
             else:

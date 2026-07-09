@@ -12,9 +12,8 @@ if shared_dir not in sys.path:
 #
 #
 import ukko_pylibs.app.appSupport as app
-from ukko_pylibs.app.appSupport import appLog
 import ukko_pylibs.basic.fileUtils as fileUtils
-from ukko_pylibs.basic.simpleUtils import Utils as Utils
+from ukko_pylibs.basic.simpleUtils import Utils as Utils, appLog
 from ukko_pylibs.schemaHandling.schemaProcessing import Schema, schema_list
 
 #

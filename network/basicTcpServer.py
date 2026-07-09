@@ -16,13 +16,10 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic import simpleUtils
-from ukko_pylibs.basic.simpleUtils import PrettyText
-from ukko_pylibs.app.appSupport import appLog
-from ukko_pylibs.basic.logger import SimpleLogger
-import ukko_pylibs.app.appSupport as app
-
-################################################################################
+from ukko_pylibs.basic.simpleUtils import PrettyText, appLog
+from ukko_pylibs.basic.class_SimpleLogger import SimpleLogger
+from ukko_pylibs.basic.simpleUtils import appLog
+import ukko_pylibs.network.appAccess as appAccess
 
 
 ##########################################################################################################
@@ -110,7 +107,7 @@ class BasicTcpServer(Interface_BasicServerOut):
         #
         # Step 1 - Bind and start listening
         #
-        while app.isRunning():
+        while appAccess.isRunning():
             try:
                 self.tcpServer_socket.bind(self.tcpServer_address)
                 break
@@ -118,14 +115,14 @@ class BasicTcpServer(Interface_BasicServerOut):
                 if e.errno != 98:
                     appLog.print_error(f"Error binding to port {self.tcpPort}: {e}")
                 appLog.print_warning(
-                    f"Port {self.tcpPort} is already in use .. waiting for it to be available ..."
+                    f"Port {self.tcpPort} is already in use .. waiting for it to be available …"
                 )
                 sleep(2)
             except KeyboardInterrupt:
-                app.doHalt("By user [a]")
+                appAccess.doHalt("By user [a]")
 
-        if not app.isRunning():
-            self._print_info("Server exiting  [a]")
+        if not appAccess.isRunning():
+            appLog.print_info("Server exiting  [a]")
 
         self.tcpServer_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         self.tcpServer_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 5)
@@ -141,10 +138,10 @@ class BasicTcpServer(Interface_BasicServerOut):
         #
         connectionId = 0
         infoChanged = True
-        while app.isRunning():
+        while appAccess.isRunning():
             try:
                 if infoChanged:
-                    self._print_verbose("Waiting for a client connection ...")
+                    self._print_verbose("Waiting for a client connection …")
                     infoChanged = False
 
                 try:
@@ -166,7 +163,7 @@ class BasicTcpServer(Interface_BasicServerOut):
                     self,
                 )
             except KeyboardInterrupt:
-                app.doHalt("By user [c]")
+                appAccess.doHalt("By user [c]")
 
         self._print_info("Server closing")
 
@@ -244,7 +241,7 @@ class BasicTcpServer(Interface_BasicServerOut):
             )
             sentCount += 1
 
-        if sentCount > 0:
+        if sentCount == 0:
             appLog.print_verbose("No connections to broadcast to")
         else:
             appLog.print_verbose(
@@ -340,9 +337,9 @@ class BasicTcpServer(Interface_BasicServerOut):
                 f"Monitorng connection from {self.client_address} : For commands"
             )
             try:
-                while app.isRunning():
+                while appAccess.isRunning():
                     try:
-                        self.print_info("Client checking ...")
+                        self.print_info("Client checking …")
                         data = self.client_connection.recv(1024)
                         if data is None:
                             self.print_info("Client disconnected(a)")
@@ -363,7 +360,7 @@ class BasicTcpServer(Interface_BasicServerOut):
                             self.print_info(f"Connection closed by client")
                             break
                         elif (isinstance(e, socket.timeout)) or (str(e) == "timed out"):
-                            self.print_info(f"Waiting for command ...")
+                            self.print_info(f"Waiting for command …")
                         else:
                             self.print_warning(
                                 f"Connection closed : errno:{e.errno} {e}"
@@ -371,7 +368,7 @@ class BasicTcpServer(Interface_BasicServerOut):
                             break
 
                     except Exception as e:
-                        app.doHalt(f"❌  Server error[c]: {e}")
+                        appAccess.doHalt(f"❌  Server error[c]: {e}")
                     except KeyboardInterrupt:
                         self.print_info("Server stopped by user  [c]")
             except Exception as e:

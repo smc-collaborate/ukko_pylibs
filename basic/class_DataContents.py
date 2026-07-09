@@ -15,11 +15,8 @@ if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 
-from ukko_pylibs.basic.simpleUtils import Utils
-from ukko_pylibs.basic.simpleUtils import DictUtils
-from ukko_pylibs.basic.simpleUtils import PrettyText
-from ukko_pylibs.basic.simpleUtils import EscapeMgr
-import ukko_pylibs.basic.simpleUtils as simpleUtils
+from ukko_pylibs.basic.simpleUtils import Utils, DictUtils, PrettyText, EscapeMgr
+from ukko_pylibs.basic.logger import appLog
 from ukko_pylibs.basic.class_HandledException import HandledException
 from ukko_pylibs._external.parseProtoBuf import decodeProtobuf_binToDict
 
@@ -101,13 +98,13 @@ class DataContents:
             resultTxt = "hex:" + self.asData.hex()
         else:
             resultTxt = "⚠️" + str(self.asProvided)
-            simpleUtils.print_warning(
+            appLog.print_warning(
                 f"DataContents.asParamText(): {self.asData} (type: {type(self.asData)})"
             )
-            simpleUtils.print_info("-----")
-            simpleUtils.print_info(f"asParamTxt: {resultTxt}")
-            simpleUtils.print_info(f"asProvided: {self.asProvided}")
-            simpleUtils.print_info("-----")
+            appLog.print_info("-----")
+            appLog.print_info(f"asParamTxt: {resultTxt}")
+            appLog.print_info(f"asProvided: {self.asProvided}")
+            appLog.print_info("-----")
 
         return resultTxt
 
@@ -323,13 +320,11 @@ class DataContents:
             raise HandledException(f"Error reading file {fname}", e)
 
     def doErrorExit(self, msg: str, e: Exception | None = None) -> NoReturn:
-        import ukko_pylibs.app.appSupport as app
+        from ukko_pylibs.app.appSupport import (
+            error_exit,
+        )  # < Not permitted to be imported at module-level
 
-        msg = f"DataContents -- {msg}"
-        if e is not None:
-            app.error_exit(msg, e)
-        else:
-            app.error_exit(msg)
+        error_exit(f"DataContents -- {msg}", e)
 
     def asBytes(self) -> bytes:
         if isinstance(self.asData, bytes):

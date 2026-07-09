@@ -15,10 +15,9 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic.simpleUtils import PrettyText
-import ukko_pylibs.app.appSupport as app
+from ukko_pylibs.basic.simpleUtils import PrettyText, Utils
+from ukko_pylibs.basic.logger import appLog
 from ukko_pylibs.basic.class_HandledException import HandledException
-from ukko_pylibs.basic.simpleUtils import Utils
 
 
 ################################################################################
@@ -68,6 +67,8 @@ def loadJsonFromFile(
     note_deprecation: bool = True,
 ) -> Any:
     if note_deprecation:
+        import ukko_pylibs.app.appSupport as app  # < Not permitted to be imported at module-level
+
         app.deprecationWarning(
             "The function 'loadJsonFromFile' is deprecated. Please use 'loadJsonDictFromFile' if appropriate"
         )
@@ -84,9 +85,14 @@ def loadJsonDictFromFile(
     fname_friendly = Utils.pathDisplay(inputJsonFile)
     errmsg = "Unknown Error"
     showWarning = True
+
+    from ukko_pylibs.app.appSupport import (
+        exitOnException,
+    )  # < Not permitted to be imported at module-level
+
     try:
         if inputJsonFile == "/dev/stdin":
-            app.appLog.print_verbose(f"Note: Reading {inputKind} from standard input")
+            appLog.print_verbose(f"Note: Reading {inputKind} from standard input")
         if not os.path.exists(inputJsonFile) and not giveWarningOnFileMissing:
             # Avoid throwing exception on missing file if we're not giving a warning about it.
             # This eases our debugging process when we halt on raised exceptions
@@ -106,12 +112,12 @@ def loadJsonDictFromFile(
         errmsg = f"The {inputKind} '{fname_friendly}' gave an exception: {e}"
 
     except KeyboardInterrupt as e:
-        app.exitOnException(e)
+        exitOnException(e)
     except SystemExit as e:
-        app.exitOnException(e)
+        exitOnException(e)
 
     if showWarning:
-        app.appLog.print_warning(errmsg)
+        appLog.print_warning(errmsg)
     if exceptionOnError:
         raiseHandledException(errmsg)
     else:
@@ -195,7 +201,7 @@ def loadBytesFromFile_orHandledException(
         if inputBinaryFile == "-":
             inputBinaryFile = "/dev/stdin"
         if inputBinaryFile == "/dev/stdin":
-            app.appLog.print_info(f"Note: Reading {what} from standard input")
+            appLog.print_info(f"Note: Reading {what} from standard input")
         with open(inputBinaryFile, "rb") as file:
             file_bytes = file.read()
         return file_bytes
@@ -211,7 +217,7 @@ def exportToFile_orHandledException(
     try:
         if (outputFilename == "-") or (outputFilename == "/dev/stdin"):
             outputFilename = "/dev/stdout"
-        app.appLog.print_verbose(
+        appLog.print_verbose(
             f"Exporting {format:<4} to {outputFilename} ({'None' if (fileContents is None) else PrettyText.pluralize(len(fileContents), 'byte')})"
         )
 
@@ -219,7 +225,7 @@ def exportToFile_orHandledException(
             return outputFilename, 0
         if fileContents is None:
             if not outputFilename.startswith("/dev/"):
-                app.appLog.print_verbose(
+                appLog.print_verbose(
                     f"Exporting {format:<4} -- erasing output file '{outputFilename}'"
                 )
                 if os.path.exists(outputFilename):
@@ -334,7 +340,7 @@ def doExportBitstream(
 
         if out_filename is not None:
             with open(out_filename, "wb") as fileout:
-                app.appLog.print_verbose(f"Exporting to {fileout.name}")
+                appLog.print_verbose(f"Exporting to {fileout.name}")
                 fileout.write(bitstream)
                 result["file"] = fileout.name
     return result

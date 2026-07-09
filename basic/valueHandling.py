@@ -14,8 +14,7 @@ if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 
-from ukko_pylibs.basic.simpleUtils import Utils
-from ukko_pylibs.app.appSupport import appLog
+from ukko_pylibs.basic.simpleUtils import Utils, appLog
 
 ################################################################################
 

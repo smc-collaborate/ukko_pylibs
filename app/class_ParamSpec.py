@@ -16,9 +16,8 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic.simpleUtils import PrettyText
-from ukko_pylibs.basic.simpleUtils import EscapeMgr
-
+from ukko_pylibs.basic.simpleUtils import PrettyText, EscapeMgr
+from ukko_pylibs.basic.logger import appLog
 from ukko_pylibs.basic.class_DataContents import DataContents
 import ukko_pylibs.app.appSupport as app
 
@@ -176,7 +175,6 @@ class ParamSpec:
             return None
 
     def defaultValue(self, withoutEnv: bool = False):
-        from ukko_pylibs.app.appSupport import appLog
 
         if self.spec is None:
             return None
@@ -222,8 +220,6 @@ class ParamSpec:
             elif result == "str":
                 return str
             else:
-                from ukko_pylibs.app.appSupport import appLog
-
                 appLog.print_warning(
                     f"Failed to get type for  {self.spec['name']}={self.spec['type']}"
                 )
@@ -333,10 +329,6 @@ class ParamSpec:
                 result = f"Expected a number in the range of {result}"
             elif style == ParamSpec.InfoStyle.TERSE_SUMMARY:
                 result = result.replace(" ", "")
-        elif self.type() is DataContents:
-            result = "Extended support, including 'file:file.bin', 'hex:12ab' & 'base64:MQ==' "
-        elif self.isEscaped():
-            result = "Supports escape characters (such as \\n, \\t)"
 
         if style == ParamSpec.InfoStyle.EXPECTED_SENTENCE and not noExample:
             example = self.getExample()
@@ -346,6 +338,38 @@ class ParamSpec:
                 )
 
         return result.strip()
+
+    EXTRA_HELP_SUBSCRIPTS = {
+        "⁺": "may be passed directly, without the option name",
+        "ⁿ": "support escape characters (such as \\n, \\t)",
+        "ꟳ": "support inputs such as 'file:file.bin', 'hex:12ab' & 'base64:MQ==' as well as escape characters",
+    }
+
+    def getValueHelpSubscripts(self) -> str:
+        """Returns a tuple of (annotation, description) for extra info about the parameter's value."""
+        result = ""
+
+        if self.type() is DataContents:
+            result += "ꟳ"
+        elif self.isEscaped():
+            result += "ⁿ"
+        if self.mayBeDirect():
+            result += "⁺"
+        return result
+
+    @staticmethod
+    def getValueHelpExtraInfoFromSubscripts(txt: str) -> list[str]:
+        """Returns a list of the extra info characters found in the given text."""
+        result = []
+
+        for key, help in ParamSpec.EXTRA_HELP_SUBSCRIPTS.items():
+            if key in txt:
+                result.append(f" • Options marked with {key} {help}")
+
+        if len(result) > 0:
+            result.insert(0, "Parameter Notes:")
+            result.insert(0, "")
+        return result
 
     def getExample(self) -> Any | None:
         return self.spec.get("example", None)
@@ -499,8 +523,8 @@ class ParamSpec:
         out_decoratedName = "--" + self.name()
         if self.hasValue():
             out_decoratedName += "="
-        if "mayBeDirect" in self.spec:
-            out_decoratedName += "⁺"
+
+        out_decoratedName += self.getValueHelpSubscripts()
 
         ##########
         #

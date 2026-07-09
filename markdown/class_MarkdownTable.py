@@ -13,8 +13,9 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.app.appSupport import appLog
-from ukko_pylibs.basic.simpleUtils import PrettyText, Utils
+
+from ukko_pylibs.basic.simpleUtils import Utils, PrettyText, appLog
+
 import ukko_pylibs.basic.fileUtils as fileUtils
 
 
@@ -606,7 +607,7 @@ class MarkdownTable(IMarkdownElement):
                 cellStr = self._asStr(cell)
                 visLen = PrettyText.uniLen_approx(cellStr)
                 if visLen > visWidth:
-                    cellStr = cellStr[: visWidth - 3] + "..."
+                    cellStr = cellStr[: visWidth - 3] + "…"
                 # if len(cellStr)!= visLen:cellStr=f"{cellStr} ({visLen} chars)"
                 return cellStr + " " * (visWidth - visLen)
 

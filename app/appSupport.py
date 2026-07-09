@@ -21,12 +21,8 @@ if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 from ukko_pylibs.basic import fileUtils
-from ukko_pylibs.basic.simpleUtils import Utils
-from ukko_pylibs.basic.simpleUtils import DictUtils
-from ukko_pylibs.basic.simpleUtils import PrettyText
-from ukko_pylibs.basic.simpleUtils import EscapeMgr
-
-from ukko_pylibs.basic.logger import SimpleLogger
+from ukko_pylibs.basic.simpleUtils import Utils, PrettyText, EscapeMgr, DictUtils
+from ukko_pylibs.basic.logger import appLog
 from ukko_pylibs.basic.class_HandledException import HandledException
 
 from ukko_pylibs.app.class_Configuration import Configuration
@@ -78,7 +74,7 @@ def appInfo_get(
                 _value = Utils.pathDisplay(fullname)
     elif name == "name+actions":
         _value = (
-            appInfo_getStr("exeFullName") + " " + appInfo_getStr("APP_AS_USED.post_exe")
+            appInfo_getStr("exeFullName") + appInfo_getStr("APP_AS_USED.post_exe")
         ).strip()
     elif name == "name+params":
         _value = (
@@ -192,52 +188,35 @@ def exeInfo_isInstalled():
     return "PYAPP_INSTALL_SOURCE" in os.environ
 
 
-def logger_traditional_set(loggLevel: int):
-    import logging
-
-    if loggLevel == SimpleLogger.MsgKind_ERROR:
-        logging.getLogger().setLevel(logging.ERROR)
-    elif loggLevel == SimpleLogger.MsgKind_WARNING:
-        logging.getLogger().setLevel(logging.WARNING)
-    elif loggLevel == SimpleLogger.MsgKind_INFO:
-        logging.getLogger().setLevel(logging.INFO)
-    elif loggLevel == SimpleLogger.MsgKind_DETAIL:
-        logging.getLogger().setLevel(logging.DEBUG)
-    elif loggLevel == SimpleLogger.MsgKind_TEDIOUS:
-        logging.getLogger().setLevel(logging.DEBUG - 1)
-
-
-appLog = SimpleLogger(getExeName(), onVerbosityThresholdChange=logger_traditional_set)
-
+appLog.setName(getExeName())
 appConfig = Configuration(logger=appLog)
 
 
 entries, default = appLog.get_thresholds()
 
 
-def isVerbose() -> bool:
-    return appLog.isVerbose()
-
-
 def getValue(name: str, default: Any | None = None) -> Any | None:
     global g_runningApp
 
     if g_runningApp is not None:
-        return g_runningApp.appParameters.choices_made.get(name, default)
+        return g_runningApp.options_chosen.get(name, default)
     else:
         return default
 
 
 class AppParameters:
-    def __init__(self, options: list[dict[str, Any]]):
-        self.orig_options = options
-        self.options = deepcopy(options)
+    def __init__(self, structWithOptions: dict[str, Any]):
+        self.orig_options = structWithOptions.get("options", [])
+        self.options = deepcopy(self.orig_options)
         self.avail = (
             ParamSpecList()
         )  # < Really 'availableParametersWithTheseParticularChoices' .. but that's too long a name
         self.choices_made = {}
-        self.customisedChoicesWalked: list[dict[str, Any]] = []
+        self.customisedChoicesWalked: list[dict[str, Any]] = [
+            deepcopy(structWithOptions)
+        ]
         self.parsedSettingsOut = {}
+        # |x|self.loadedParams = {}
 
     def optionInsert(self, spec: dict[str, Any] | None) -> Any | None:
         if spec is not None:
@@ -262,11 +241,15 @@ class AppParameters:
         return found
 
     def getOverviewAsText(self) -> str:
+        # print_extra(["getOverviewAsText(): Avail:",self.avail])
         param_info = ""
         for paramObj in self.avail:
             usage = paramObj.getHelpSummary()
             param_info += usage.summaryAdd_param if usage else ""
 
+        additionalParams = self.getWalkedValue("additional_parameters", None)
+        if additionalParams:
+            param_info += f" -- {additionalParams}"
         return param_info
 
     def getCustomisationChoicesAsText(self) -> str:
@@ -283,7 +266,7 @@ class AppParameters:
     # |x|    return directPrefixes
 
     class ProcessingPartialInfo:
-        def __init__(self, args: list[str]):
+        def __init__(self, app_definition: dict[str, Any], args: list[str]):
             self.escapeArguments: bool = False
             self.nextActionOptions = None
 
@@ -297,7 +280,7 @@ class AppParameters:
                     _addAll = True
 
             self.chosenActions = []
-            self.actionsWalked = []
+            self.actionsWalked = [app_definition]
             self.nextActionOptions: dict[str, Any] | None = None
 
     def doParsing(self, app_definition: dict[str, Any], args: list[str]):
@@ -314,8 +297,8 @@ class AppParameters:
         #
         # Build 'self.avail' - the list of available parameters, based on the app definition and the arguments provided
         #
-        _partialInfo = AppParameters.ProcessingPartialInfo(args)
-        self._groupInfoUpdate(app_definition, _partialInfo)
+        _partialInfo = AppParameters.ProcessingPartialInfo(app_definition, args)
+        self._groupInfoUpdate(_partialInfo)
 
         for x in self.options:
 
@@ -328,14 +311,13 @@ class AppParameters:
             else:
                 self.avail.append(ParamSpec((x)))
 
-        #######################################
-        #
-        # Build 'self.loadedParams'
-        self.loadedParams = {}
-        for x in self.avail:
-            self.loadedParams[x.name()] = x.cheatPeekAtValue(args)
+        # |x| ######################################
+        # |x|
+        # |x|  Build 'self.loadedParams'
+        # |x| self.loadedParams = {}
+        # |x| for x in self.avail:
+        # |x|     self.loadedParams[x.name()] = x.cheatPeekAtValue(args)
 
-        self.choices_made["params"] = self.loadedParams
         if len(_partialInfo.chosenActions) > 0:
             self.choices_made["customisedChoicesMade"] = _partialInfo.chosenActions
         if _partialInfo.nextActionOptions is not None:
@@ -363,8 +345,9 @@ class AppParameters:
 
             if chosenAction in _customisations:
 
-                self._groupInfoUpdate(_customisations[chosenAction], _partialInfo)
+                _partialInfo.actionsWalked.append(_customisations[chosenAction])
                 _partialInfo.chosenActions.append(chosenAction)
+                self._groupInfoUpdate(_partialInfo)
 
                 x["isChosen"] = True
                 x["usage"] = "isChosen"
@@ -378,7 +361,7 @@ class AppParameters:
                         _partialInfo.chosenActions
                     )
                 actionInfo = _customisations[chosenAction]
-                appInfo_appendStr("APP_AS_USED.post_exe", f"{chosenAction}")
+                appInfo_appendStr("APP_AS_USED.post_exe", f" {chosenAction}")
                 self.parsedSettingsOut.update(actionInfo.get("settings", {}))
 
                 extra_options = actionInfo.get("options", [])
@@ -403,9 +386,9 @@ class AppParameters:
 
     def _groupInfoUpdate(
         self,
-        groupInfo: dict[str, Any],
         updateThis: ProcessingPartialInfo,
     ):
+        groupInfo = updateThis.actionsWalked[-1]
         self.parsedSettingsOut.update(deepcopy(groupInfo.get("settings", {})))
         _bool = groupInfo.get("escapeArguments", None)
         if isinstance(_bool, bool):
@@ -439,7 +422,7 @@ class Define:
 
         ###############
         #
-        self.appParameters = AppParameters(self.app_definition.get("options", []))
+        self.appParameters = AppParameters(self.app_definition)
         self.appParameters.optionInsert(
             {
                 "name": "help",
@@ -472,28 +455,34 @@ class Define:
             _verbosityChoice, silentOnFailure=True
         )  # < Ensures we get the detailed logging during parameter review
 
-        if True:
-            stylingDisabled = False
+        #############################
+        #
+        # Styling
+        #
+        stylingDisabled = False
 
-            if self.app_definition.get("enableStyling", True):
-                stylingDisabled = (
-                    self.appParameters.optionInsert(
-                        {
-                            "name": "colour",
-                            "lookup": ["enable", "disable"],
-                            "group": "~appAuto",
-                            "shortName": "",
-                            "default": "enable",
-                            "defaultEnvVar": "UAPP_COLOUR",
-                            "description": "Select output colouring & styling",
-                        }
-                    )
-                    == "disable"
+        if self.app_definition.get("enableStyling", True):
+            stylingDisabled = (
+                self.appParameters.optionInsert(
+                    {
+                        "name": "colour",
+                        "lookup": ["enable", "disable"],
+                        "group": "~appAuto",
+                        "shortName": "",
+                        "default": "enable",
+                        "defaultEnvVar": "UAPP_COLOUR",
+                        "description": "Select output colouring & styling",
+                    }
                 )
+                == "disable"
+            )
 
-            # Ensures we get the styling correct of any error messages
-            styling_doDisable(stylingDisabled)
+        styling_doDisable(
+            stylingDisabled
+        )  # < Done early to ensure we get the correct styling for parameter error messages
 
+        #############################
+        #
         appConfig._reload(self.app_definition)
 
         self.orig_app_definition = deepcopy(self.app_definition)
@@ -537,7 +526,7 @@ class Define:
         # customisedChoicesNext
         if not _customisedChoiceNext:
             lines_out.append(
-                f"{PrettyText.padToWidth(exeNameDecorated, 32)} {PrettyText.padToWidth(verText, 13)} : {PrettyText.padToWidth(str(self.appParameters.parsedDescription), 90)}"
+                f"{PrettyText.padToWidth(exeNameDecorated, 32)} {PrettyText.padToWidth(verText, 13)} : {PrettyText.padToWidth(self.appParameters.parsedDescription, 90)}"
             )
             lines_out.append("")
             lines_out.append(
@@ -647,20 +636,23 @@ class Define:
         # Add:  ['~chosen']: 'Specific Options'
         #
         _nonDirect = [x for x in self.appParameters.avail if not (x.mustBeDirect())]
+        otherName = "Basic Options"
         for paramObj in _nonDirect:
             _g = paramObj.get("group")
-            if (_g != "") and (_g != "~appAuto"):
+            if _g and (_g != "~appAuto"):
                 optionSummaries.appendItem(f"{_g} Options", paramObj)
+                otherName = "Common Options"
 
         # < Ensure '~appAuto' are last
         for paramObj in _nonDirect:
             _g = paramObj.get("group", None)
-            if _g == "":
-                optionSummaries.appendItem("Other Options", paramObj)
+            if not _g:
+                optionSummaries.appendItem(otherName, paramObj)
+
         for paramObj in _nonDirect:
             _g = paramObj.get("group", None)
             if _g == "~appAuto":
-                optionSummaries.appendItem("Other Options", paramObj)
+                optionSummaries.appendItem("Tailoring Options", paramObj)
 
         ############################################
         #
@@ -668,10 +660,10 @@ class Define:
         #
         lines_out.extend(optionSummaries.asLines())
 
-        if any(d.mayBeDirect() for d in _nonDirect):
-            lines_out.append(
-                "Options marked with ⁺ may be passed directly, without the option name"
-            )
+        subscripts = ""
+        for d in _nonDirect:
+            subscripts += d.getValueHelpSubscripts()
+        lines_out.extend(ParamSpec.getValueHelpExtraInfoFromSubscripts(subscripts))
 
         ############################################
         #
@@ -679,13 +671,23 @@ class Define:
         #
 
         if self.appParameters.parsedExamples:
-            lines_out.append("")
-            lines_out.append("Examples:")
+            examplesOut: list[list[str]] = []
+
             for s in self.appParameters.parsedExamples:
                 txt = exeName.join(s.split("<exeName>"))
                 txt = exeNameDecorated.join(txt.split("<exeName+action>"))
-                lines_out.append(f" • {txt}")
-        lines_out.append("")
+                comment_suffix = ""
+                x = txt.split("#")
+                if len(x) > 1:
+                    comment_suffix = " # " + x.pop()
+                    txt = "#".join(x).strip()
+                examplesOut.append(
+                    [f" • {styleAsSuggestion(txt.strip())}", comment_suffix]
+                )
+
+            lines_out.append("")
+            lines_out.append("Examples:")
+            lines_out.extend(PrettyText.tableAsLines(examplesOut, dividers=" "))
 
         return lines_out
 
@@ -770,7 +772,7 @@ class Define:
         # Basic parameter review
         self._reviewParams(args)
 
-        return self.choices_made["params"]
+        return self.options_chosen
 
     def _reviewParams(
         self,
@@ -971,9 +973,8 @@ class Define:
         appLog.print_tediousDetail(f"Remaining Arguments: {remaining_args}")
 
         self.choices_made = {}
-        self.choices_made["params"] = options_chosen
         self.choices_made["default_parameters"] = _used_defaults
-
+        self.options_chosen = options_chosen
         appLog.print_tediousDetail(
             f"Choices made: {Utils.asJsonStr(self.choices_made, indent=2)}"
         )
@@ -1346,7 +1347,7 @@ def exec_cmd(
 
     if returnValue[1]:
         if len(returnValue[1]) > 100:
-            appLog.print_verbose(f" • STDOUT: {len(returnValue[1])} bytes ...")
+            appLog.print_verbose(f" • STDOUT: {len(returnValue[1])} bytes…")
         else:
             appLog.print_verbose(
                 f" • STDOUT: {returnValue[1].decode('utf-8', errors='replace')}"
@@ -1354,7 +1355,7 @@ def exec_cmd(
 
     if returnValue[2]:
         if len(returnValue[2]) > 2000:
-            appLog.print_verbose(f" • STDERR: {len(returnValue[2])} bytes ...")
+            appLog.print_verbose(f" • STDERR: {len(returnValue[2])} bytes…")
         else:
             appLog.print_verbose(
                 f" • STDERR: {returnValue[2].decode('utf-8', errors='replace')}"
@@ -1510,8 +1511,19 @@ def stylingIsSupported() -> bool:
 g_appColoursAreEnabled = True
 
 
-def print_extra(message: str) -> None | str:
-    print(styleAs(message, "cyan+bold"), file=sys.stderr)
+def print_extra(message: Any):
+    if message is None:
+        return
+    if isinstance(message, str):
+        messageTxt = message
+    elif isinstance(message, list):
+        for x in message:
+            print_extra(x)
+        return
+    else:
+        messageTxt = Utils.asJsonStr(message, indent=2)
+
+    print(styleAs(messageTxt, "cyan+bold"), file=sys.stderr)
 
 
 # First is always the colour, the rest are attributes (eg: bold, underline, etc)
@@ -1522,7 +1534,7 @@ def styleAs(value: Any | None, style: str) -> str:
         return ""
 
     if g_appColoursAreEnabled is False or (value == ""):
-        return value
+        return str(value)
 
     x = style.split("+")
 

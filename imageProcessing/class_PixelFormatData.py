@@ -10,7 +10,7 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-import ukko_pylibs.app.appSupport as app
+from ukko_pylibs.basic.class_HandledException import HandledException
 
 ################################################################################
 #
@@ -82,7 +82,7 @@ class PixelFormatData:
         outBitMax = (1 << self.bitDepth) - 1
 
         if not self.isGrayscale:
-            raise app.HandledException(f"Unsupported conversion format: {self}")
+            raise HandledException(f"Unsupported conversion format: {self}")
 
         if (inGreyscale) and (inNumPlanes == 1):
             gray_ratio = data[0] / inBitMax
@@ -96,7 +96,7 @@ class PixelFormatData:
                 data[0], data[1], data[2], inFormat.get("gamma", 1.0)
             )
         else:
-            raise app.HandledException(f"Unsupported PNG format[a]: {inFormat}")
+            raise HandledException(f"Unsupported PNG format[a]: {inFormat}")
 
         outMagnitude = gray_ratio * outBitMax
         return round(outMagnitude)

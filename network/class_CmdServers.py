@@ -18,11 +18,11 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-import ukko_pylibs.app.appSupport as app
-from ukko_pylibs.basic.simpleUtils import Utils as Utils
-from ukko_pylibs.transferableData.class_ITransferableData import ITransferableData
+
+from ukko_pylibs.basic.simpleUtils import appLog
 from ukko_pylibs.network.class_DataLink_ import DataLink
-from ukko_pylibs.app.appSupport import appLog
+from ukko_pylibs.transferableData.class_ITransferableData import ITransferableData
+import ukko_pylibs.network.appAccess as appAccess
 
 #
 ################################################################################
@@ -102,7 +102,7 @@ class ICmdServer:
         appLog.print_verbose(f"{self.dataType.__name__}: {msg}")
 
     def isRunning(self) -> bool:
-        return app.isRunning()
+        return appAccess.isRunning()
 
     def __init__(
         self, dataType: type[ITransferableData], commands: dict[str, Any] | str
@@ -167,7 +167,7 @@ class CmdServer_Tcp(ICmdServer):
                 if e.errno != 98:
                     self.print_error(f"Error binding to port {tcpPort}: {e}")
                 self.print_warning(
-                    f"Port {tcpPort} is already in use .. waiting for it to be available ..."
+                    f"Port {tcpPort} is already in use .. waiting for it to be available …"
                 )
                 time.sleep(2)
         server_socket.listen(1)
@@ -176,7 +176,7 @@ class CmdServer_Tcp(ICmdServer):
         while self.isRunning():
             connection = None
             try:
-                self.print_info("Waiting for a client connection ...")
+                self.print_info("Waiting for a client connection …")
                 connection, client_address = server_socket.accept()
                 dataLink = DataLink[self.dataType](
                     PhyConnection_Tcp(connection, f"from {client_address}")
@@ -195,7 +195,7 @@ class CmdServer_Tcp(ICmdServer):
             except Exception as e:
                 self.print_error(f"Server error: {e}")
             except KeyboardInterrupt:
-                app.doHalt("stopped by user")
+                appAccess.doHalt("stopped by user")
 
             if connection is not None:
                 connection.close()

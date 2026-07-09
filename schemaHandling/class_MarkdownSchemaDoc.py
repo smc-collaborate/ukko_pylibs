@@ -13,9 +13,7 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.app.appSupport import appLog
-from ukko_pylibs.basic.simpleUtils import Utils
-from ukko_pylibs.basic.simpleUtils import PrettyText
+from ukko_pylibs.basic.simpleUtils import Utils, PrettyText, appLog
 from ukko_pylibs.markdown.class_MarkdownTable import (
     IMarkdownElement,
     MarkdownTable,
@@ -405,7 +403,7 @@ def jsonSchemaAddEntry(
                     exactLength = minItems
                     out_type = f"[{out_type}] x {exactLength}"
                 else:
-                    out_type = f"[{out_type} ...]"
+                    out_type = f"[{out_type} …]"
                     notes += [Utils.rangeAsText(minItems, maxItems, "Array length: ")]
 
         except Exception as e:

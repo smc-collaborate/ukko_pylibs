@@ -14,12 +14,12 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-import ukko_pylibs.app.appSupport as app
-from ukko_pylibs.app.appSupport import appLog
-from ukko_pylibs.basic.simpleUtils import Utils as Utils
+
+from ukko_pylibs.basic.simpleUtils import Utils, appLog
 import ukko_pylibs.basic.fileUtils as fileUtils
-from ukko_pylibs.transferableData.class_ITransferableData import ITransferableData
 from ukko_pylibs.basic.simpleUtils import PrettyText
+
+from ukko_pylibs.transferableData.class_ITransferableData import ITransferableData
 
 #
 ################################################################################
@@ -39,6 +39,8 @@ def schema_getDir(kind: str = "commands") -> str:
     """
     global g_app_schemasDir
     if g_app_schemasDir == "":
+        import ukko_pylibs.app.appSupport as app  # < Import here to avoid circular import issues
+
         _dir = str(Path(app.getDir("schemas")).resolve(strict=False))
         _dir2 = _dir.removesuffix("/") + "/dataDefinitions"
         g_app_schemasDir = _dir2 if os.path.exists(_dir2) else _dir
@@ -58,7 +60,7 @@ def schema_list(kind: str = "commands") -> list[str]:
         appLog.print_warning(f"Schema directory {schema_dir} does not exist.")
         return []
 
-    appLog.print_verbose(f"Schema directory {schema_dir} : Reviewing ...")
+    appLog.print_verbose(f"Schema directory {schema_dir} : Reviewing …")
     cmds = []
     for cmd in os.listdir(schema_dir):
         cmd_path = os.path.join(schema_dir, cmd)
@@ -323,7 +325,7 @@ class Schema:
 
     def asDict(self) -> dict[str, Any]:
         """
-        Convert the schema to a dict[str,...] representation.
+        Convert the schema to a dict[str,…] representation.
         """
         result: dict[str, Any] = {"name": self.name}
         if self.jsonSchema is not None:
@@ -716,7 +718,7 @@ class MarkdownTable:
                 cellStr = self._asStr(cell)
                 visLen = PrettyText.uniLen_approx(cellStr)
                 if visLen > visWidth:
-                    cellStr = cellStr[: visWidth - 3] + "..."
+                    cellStr = cellStr[: visWidth - 3] + "…"
                 # if len(cellStr)!= visLen:cellStr=f"{cellStr} ({visLen} chars)"
                 return cellStr + " " * (visWidth - visLen)
 

@@ -17,8 +17,7 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic.simpleUtils import DictUtils
-from ukko_pylibs.basic.simpleUtils import Utils
+from ukko_pylibs.basic.simpleUtils import DictUtils, Utils, appLog
 
 from ukko_pylibs.basic.class_HandledException import HandledException
 
@@ -27,7 +26,6 @@ from ukko_pylibs.imageProcessing.class_PixelFormatData import (
     PIXEL_FORMATS,
     PixelFormatData,
 )
-from ukko_pylibs.app.appSupport import appLog
 
 
 ################################################################################
@@ -49,7 +47,7 @@ class ShuffleLookup:
             formattingOptions = {"count": formattingOptions}
         bitsource_in = DictUtils.get(formattingOptions, "bit_source", None)
         if isinstance(bitsource_in, list) and len(bitsource_in) > 0:
-            appLog.print_verbose(f"Shuffling : {formattingOptions} ...")
+            appLog.print_verbose(f"Shuffling : {formattingOptions} …")
             self.count = DictUtils.getInt(
                 formattingOptions, "count", 1 << len(bitsource_in)
             )
@@ -76,7 +74,7 @@ class ShuffleLookup:
                 ShuffleLookup.bit_exchange(x, bitsource) for x in range(self.count)
             ]
         else:
-            appLog.print_verbose(f"Skip: Shuffling : {formattingOptions} ...")
+            appLog.print_verbose(f"Skip: Shuffling : {formattingOptions} …")
             self.lookup = None
             self.count = DictUtils.getInt(formattingOptions, "count", nominalCount)
 
@@ -101,7 +99,7 @@ class ShuffleLookup:
             )
             return input_data
 
-        # appLog.print_info(f"Shuffling row data with lookup ...")
+        # appLog.print_info(f"Shuffling row data with lookup …")
         return [input_data[self.lookup[x]] for x in range(len(input_data))]
 
     def getLookup(self, index: int) -> int:
@@ -128,7 +126,7 @@ class RawImg:
         # appLog.print_info(f"Created {self}")
 
     def toCV2Image(self) -> np.ndarray:
-        appLog.print_info("Converting RawImg to OpenCV image format ...")
+        appLog.print_info("Converting RawImg to OpenCV image format …")
 
         np_image = np.array(self.imageRows, dtype=self.pixelFormat.asNpDtypeOrNone())
         leftShiftCount = self.pixelFormat.getLeftShiftCount()

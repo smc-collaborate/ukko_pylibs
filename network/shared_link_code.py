@@ -13,10 +13,9 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic.simpleUtils import Utils as Utils
-import ukko_pylibs.app.appSupport as app
-from ukko_pylibs.app.appSupport import appLog
+from ukko_pylibs.basic.simpleUtils import Utils, appLog
 from ukko_pylibs.basic.class_HandledException import HandledException
+
 from ukko_pylibs.transferableData.class_ITransferableData import ITransferableData
 from ukko_pylibs.network.class_IPhyConnection import IPhyConnection
 from ukko_pylibs.network.class_PhyConnection_Tcp import PhyConnection_Tcp
@@ -104,7 +103,7 @@ class LinkToDevice(Generic[T_LinkedDataType]):
         txtOut = ""
 
         appLog.print_verbose(
-            f"Transferring to {self.linkType_asText} device: {Utils.toHex(packed_bytes)} ..."
+            f"Transferring to {self.linkType_asText} device: {Utils.toHex(packed_bytes)} …"
         )
         try:
             self.phyConnection.sendAllBytes_orException(packed_bytes)  # Send data
@@ -114,7 +113,7 @@ class LinkToDevice(Generic[T_LinkedDataType]):
             )
 
         appLog.print_verbose(
-            f"Data sent to        {self.linkType_asText.replace('TransferableData_','')} device: {data} ..."
+            f"Data sent to        {self.linkType_asText.replace('TransferableData_','')} device: {data} …"
         )
 
         return txtOut
@@ -202,6 +201,9 @@ class LinkToDevice(Generic[T_LinkedDataType]):
         # |x| )
 
         if not (":" in self.link_via):
+
+            import ukko_pylibs.app.appSupport as app  # <--- Import here to avoid circular import issues
+
             DEFAULT_PORT_NUMBER = app.getValue("DEFAULT_PORT", 12302)
             appLog.print_verbose(
                 f"No port specified in link_via '{self.link_via}', using default port {DEFAULT_PORT_NUMBER}"
@@ -442,7 +444,7 @@ class LinkToDevice(Generic[T_LinkedDataType]):
 # |x|            )
 # |x|        else:
 # |x|            appLog.print_verbose(
-# |x|                f"Reply Binary: {binaryData[:50].hex()} ... ({PrettyText.pluralize(len(binaryData), 'byte')} total)"
+# |x|                f"Reply Binary: {binaryData[:50].hex()} … ({PrettyText.pluralize(len(binaryData), 'byte')} total)"
 # |x|            )
 # |x|
 # |x|        md5_hash = hashlib.md5(binaryData).hexdigest()

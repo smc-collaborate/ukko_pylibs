@@ -13,15 +13,15 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic.simpleUtils import Utils
-from ukko_pylibs.basic.simpleUtils import DictUtils
-from ukko_pylibs.basic.simpleUtils import ImageInfo
+from ukko_pylibs.basic.simpleUtils import (
+    Utils,
+    DictUtils,
+    ImageInfo,
+    appLog,
+    timestampObj_from_ns,
+)
 
-import ukko_pylibs.basic.simpleUtils as simpleUtils
 from ukko_pylibs.basic.class_HandledException import HandledException
-
-import ukko_pylibs.app.appSupport as app
-from ukko_pylibs.app.appSupport import appLog
 
 #
 ################################################################################
@@ -183,7 +183,11 @@ class ITransferableData:
         extras: dict[str, Any] | None = None,
     ) -> "ITransferableData":
         json_dict = {} if extras is None else dict(extras)
-        if app.getValue("includeErrorCodesInResponses", True) and (errCode != ""):
+        from ukko_pylibs.app.appSupport import (
+            getValue as app_getValue,
+        )  # < Not permitted at module Level
+
+        if app_getValue("includeErrorCodesInResponses", True) and (errCode != ""):
             json_dict["errCode"] = errCode
             prefix = f"[{errCode}]"
         else:
@@ -322,7 +326,7 @@ class ITransferableData:
             _noteValue(
                 json_dict,
                 "timestamp",
-                simpleUtils.timestampObj_from_ns(timestamp_or_zero),
+                timestampObj_from_ns(timestamp_or_zero),
                 prev,
             )
 
@@ -371,7 +375,9 @@ class ITransferableData:
             return None
 
         if withSizeEtc:
-            from ukko_pylibs.imageProcessing.rawimgProcess import RawImg
+            from ukko_pylibs.imageProcessing.rawimgProcess import (
+                RawImg,
+            )  # <--- Import here to avoid circular import issues
 
             img_format += f"_{img_width}x{img_height}"
             if imgData.get("offset", 0) != 0:
@@ -405,8 +411,12 @@ class ITransferableData:
     def _toImgUncached_orHandledException(self) -> Any:  #    -> RawImg:
         try:
             import png
-            from ukko_pylibs.imageProcessing.class_PixelFormatData import PIXEL_FORMATS
-            from ukko_pylibs.imageProcessing.rawimgProcess import RawImg
+            from ukko_pylibs.imageProcessing.class_PixelFormatData import (
+                PIXEL_FORMATS,
+            )  # <--- Import here to avoid circular import issues
+            from ukko_pylibs.imageProcessing.rawimgProcess import (
+                RawImg,
+            )  # <--- Import here to avoid circular import issues
 
             pixelFormat = self.imageGetFormat()
             if pixelFormat is None:
