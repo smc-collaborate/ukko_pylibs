@@ -24,6 +24,9 @@ from ukko_pylibs.basic.class_HandledException import HandledException
 #
 
 
+FileUtils = sys.modules[__name__]
+
+
 def raiseHandledException(errmsg: str) -> NoReturn:
     raise HandledException(errmsg)
 
@@ -67,9 +70,7 @@ def loadJsonFromFile(
     note_deprecation: bool = True,
 ) -> Any:
     if note_deprecation:
-        import ukko_pylibs.app.appSupport as app  # < Not permitted to be imported at module-level
-
-        app.deprecationWarning(
+        appLog.deprecationWarning(
             "The function 'loadJsonFromFile' is deprecated. Please use 'loadJsonDictFromFile' if appropriate"
         )
 

@@ -1,5 +1,6 @@
 from enum import Enum
 import errno
+import inspect
 import json
 import sys
 import traceback
@@ -368,6 +369,31 @@ class SimpleLogger:
 
     def had_error(self) -> bool:
         return self.lastErrorMsg is not None
+
+    def deprecationWarning(self, message: str):
+        try:
+            msg = f"Deprecation Warning: {message}"
+            stack_lines = []
+            if not self.isVerbose():
+                msg += " (Use --verbosity=details for more information)"
+            else:
+                from basic.simpleUtils import PrettyText
+
+                caller_frame = inspect.stack().copy()[
+                    2:
+                ]  # Skip the first two frames (current function and its caller)
+                top_frame = True
+                for x in caller_frame:
+                    stack_lines.insert(
+                        0,
+                        f"{'└── ' if top_frame else '│   '} {PrettyText.padToWidth('' if x.code_context is None else x.code_context[0].strip(), 120)} | {PrettyText.padToWidth(x.filename.split('/')[-1], 30)} : {x.lineno}",
+                    )
+                    top_frame = False
+            self.print_warning(msg + "\n" + ("\n".join(stack_lines)))
+        except Exception as e:
+            self.print_warning(
+                f"Deprecation Warning: {message} (Also failed to get caller info: {e})"
+            )
 
 
 MsgKind.add(SimpleLogger.MsgKind_ERROR, "Error", "❌", "quiet", isDefaultLevel=True)

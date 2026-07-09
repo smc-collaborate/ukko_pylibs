@@ -43,7 +43,8 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs import app, BasicTcpServer, appLog, Utils, PrettyText
+from ukko_pylibs import app, appLog, Utils, PrettyText
+from ukko_pylibs.network import BasicTcpServer
 
 #
 ################################################################################

@@ -1475,30 +1475,6 @@ def getDir(subDirName: str = "") -> str:
     return dirPath
 
 
-def deprecationWarning(message: str):
-    try:
-        msg = f"Deprecation Warning: {message}"
-        stack_lines = []
-        if not appLog.isVerbose():
-            msg += " (Use --verbosity=details for more information)"
-        else:
-            caller_frame = inspect.stack().copy()[
-                2:
-            ]  # Skip the first two frames (current function and its caller)
-            top_frame = True
-            for x in caller_frame:
-                stack_lines.insert(
-                    0,
-                    f"{'└── ' if top_frame else '│   '} {PrettyText.padToWidth('' if x.code_context is None else x.code_context[0].strip(), 120)} | {PrettyText.padToWidth(x.filename.split('/')[-1], 30)} : {x.lineno}",
-                )
-                top_frame = False
-        appLog.print_warning(msg + "\n" + ("\n".join(stack_lines)))
-    except Exception as e:
-        appLog.print_warning(
-            f"Deprecation Warning: {message} (Also failed to get caller info: {e})"
-        )
-
-
 ##################################
 # Styling
 #

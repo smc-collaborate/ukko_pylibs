@@ -14,8 +14,8 @@ from ukko_pylibs.basic.simpleUtils import EscapeMgr
 from ukko_pylibs.basic.simpleUtils import DictUtils
 from ukko_pylibs.basic.simpleUtils import Utils
 from ukko_pylibs.basic.class_DataContents import DataContents
-from ukko_pylibs.network.basicTcpServer import BasicTcpServer
 from ukko_pylibs.app.appSupport import app
+from ukko_pylibs.basic.fileUtils import FileUtils
 
 __all__ = [
     "appLog",
@@ -23,7 +23,7 @@ __all__ = [
     "EscapeMgr",
     "DictUtils",
     "Utils",
+    "FileUtils",
     "DataContents",
     "app",
-    "BasicTcpServer",
 ]
