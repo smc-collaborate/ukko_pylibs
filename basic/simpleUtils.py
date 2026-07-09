@@ -52,6 +52,13 @@ def get_cwdOnStartup():
 
 class Utils:
     @staticmethod
+    def removePrefix(value: str, prefix: str) -> tuple[bool, str]:
+        if not value.startswith(prefix):
+            return False, value
+        else:
+            return True, value[len(prefix) :]
+
+    @staticmethod
     def is_iterable(obj) -> bool:
         try:
             iter(obj)

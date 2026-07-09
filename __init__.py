@@ -16,6 +16,7 @@ from ukko_pylibs.basic.simpleUtils import Utils
 from ukko_pylibs.basic.class_DataContents import DataContents
 from ukko_pylibs.app.appSupport import app
 from ukko_pylibs.basic.fileUtils import FileUtils
+from ukko_pylibs.basic import styling
 
 __all__ = [
     "appLog",
@@ -26,4 +27,5 @@ __all__ = [
     "FileUtils",
     "DataContents",
     "app",
+    "styling",
 ]

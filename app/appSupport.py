@@ -5,7 +5,6 @@
 #
 from copy import deepcopy
 import errno
-import inspect
 import json
 import os
 import sys
@@ -24,7 +23,7 @@ from ukko_pylibs.basic import fileUtils
 from ukko_pylibs.basic.simpleUtils import Utils, PrettyText, EscapeMgr, DictUtils
 from ukko_pylibs.basic.logger import appLog
 from ukko_pylibs.basic.class_HandledException import HandledException
-
+from ukko_pylibs.basic import styling
 from ukko_pylibs.app.class_Configuration import Configuration
 from ukko_pylibs.app.class_ParamSpec import (
     ParamSpec,
@@ -461,10 +460,8 @@ class Define:
         #
         # Styling
         #
-        stylingDisabled = False
-
-        if self.app_definition.get("enableStyling", True):
-            stylingDisabled = (
+        if self.app_definition.get("enableStyling", True) and styling.isSupported():
+            styling.doDisable(
                 self.appParameters.optionInsert(
                     {
                         "name": "colour",
@@ -478,10 +475,8 @@ class Define:
                 )
                 == "disable"
             )
-
-        styling_doDisable(
-            stylingDisabled
-        )  # < Done early to ensure we get the correct styling for parameter error messages
+        else:
+            styling.doDisable(True)
 
         #############################
         #
@@ -684,7 +679,7 @@ class Define:
                     comment_suffix = " # " + x.pop()
                     txt = "#".join(x).strip()
                 examplesOut.append(
-                    [f" • {styleAsSuggestion(txt.strip())}", comment_suffix]
+                    [f" • {styling.asSuggestion(txt.strip())}", comment_suffix]
                 )
 
             lines_out.append("")
@@ -924,7 +919,7 @@ class Define:
                     if exampleOrNone is not None:
                         try:
                             error_exit(
-                                f"Missing required parameter: {styleAsError(spec.getParamFormat())}",
+                                f"Missing required parameter: {styling.asError(spec.getParamFormat())}",
                                 withSuggestion=appInfo_cmdWithVariant(
                                     spec, exampleOrNone
                                 ),
@@ -937,7 +932,7 @@ class Define:
                         valueHelp = spec.getParamFormat()
 
                     error_exit(
-                        f"Missing required parameter: {styleAsError(valueHelp)}",
+                        f"Missing required parameter: {styling.asError(valueHelp)}",
                         withSuggestion=True,
                     )
         if len(_used_defaults) > 0:
@@ -1129,14 +1124,14 @@ def getPrettyExceptionInfo(e: BaseException) -> Tuple[str, list[str]]:
         kind = str(e)
         source = ""
 
-    msg = f"Unexpected Error `{styleAsError(kind)}`"
+    msg = f"Unexpected Error `{styling.asError(kind)}`"
     if source:
         msg += " from `"
         prefix = PrettyText.asSpaces(msg)
-        msg += styleAsError(source) + "`"
+        msg += styling.asError(source) + "`"
 
         for x in sourceLeft:
-            msg += "\n" + prefix + styleAsError(x)
+            msg += "\n" + prefix + styling.asError(x)
 
     return msg, traceLines[:-3]
 
@@ -1186,7 +1181,7 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
             msg += "\n".join([f"   [trace]: {x}" for x in traceLines])
 
         elif g_runningApp is not None:
-            msg += f"Suggestion: {styleAsSuggestion(appInfo_cmdWithVariant(g_runningApp.appParameters.avail.get('verbosity'),'details'))} for more information"
+            msg += f"Suggestion: {styling.asSuggestion(appInfo_cmdWithVariant(g_runningApp.appParameters.avail.get('verbosity'),'details'))} for more information"
         error_exit(msg, withSuggestion=False)
 
 
@@ -1264,7 +1259,7 @@ def error_exit(
         if suggestionTxt != "":
 
             print(
-                f"{prefixOrNone}Suggestion: {styleAsSuggestion(suggestionTxt)}",
+                f"{prefixOrNone}Suggestion: {styling.asSuggestion(suggestionTxt)}",
                 file=sys.stderr,
             )
 
@@ -1475,20 +1470,6 @@ def getDir(subDirName: str = "") -> str:
     return dirPath
 
 
-##################################
-# Styling
-#
-
-
-def stylingIsSupported() -> bool:
-    return (
-        styleAs("test", "bold+blue") != "test"
-    )  # < These are safe, known options that should always work. If this doesn't give different text - styling is not supported in this environment
-
-
-g_appColoursAreEnabled = True
-
-
 def print_extra(message: Any):
     if message is None:
         return
@@ -1501,123 +1482,4 @@ def print_extra(message: Any):
     else:
         messageTxt = Utils.asJsonStr(message, indent=2)
 
-    print(styleAs(messageTxt, "cyan+bold"), file=sys.stderr)
-
-
-# First is always the colour, the rest are attributes (eg: bold, underline, etc)
-#
-def styleAs(value: Any | None, style: str) -> str:
-    global g_appColoursAreEnabled
-    if value is None:
-        return ""
-
-    text = str(value)
-    if g_appColoursAreEnabled is False or (value == ""):
-        return text
-
-    x = style.split("+")
-
-    color: str | None = ""
-    on_color: str | None = ""
-    attrs: list[str] | None = []
-
-    try:
-        import termcolor
-
-        color = x.pop(0)
-
-        while len(x) > 0:
-            attr = x.pop(0)
-            if attr.startswith("on_"):
-                on_color = attr
-            else:
-                attrs.append(attr)
-
-        return termcolor.colored(
-            PrettyText.removeAnsiCodes(text),  # < Remove existing styling
-            color=color or None,
-            on_color=on_color or None,
-            attrs=attrs or None,
-        )
-    except Exception as e:
-        print(
-            f"⚠️  Unable to style  text: {value} (style:{style}) {e}", file=sys.stderr
-        )  # Don't use appLog here as appLog may choose to use styling at some point in the future
-        return str(value)
-
-
-def styleAsSuggestion(value: Any | None) -> str:
-    return styleAs(value, "blue+bold")
-
-
-def styleAsExceptFor(
-    value: Any | None,
-    styleName: str,
-    exceptFor: list[str],
-    prefix: str = "{",
-    suffix: str = "}",
-) -> str:
-
-    txtOut = styleAs(value, styleName)
-
-    if exceptFor:
-
-        styleOn, styleOff = styleAs(f"|", styleName).split("|")
-
-        if styleOn != "" or styleOff != "":
-            subst: dict[str, str] = {}
-            for x in exceptFor:
-                subst[x] = styleOff + prefix + x + suffix + styleOn
-
-            txtOut = PrettyText.withSubstitutions(txtOut, subst, prefix, suffix)
-
-    return txtOut
-
-
-def styleAsSuggestionExceptFor(
-    txt: str, exceptFor: list[str], prefix: str = "{", suffix: str = "}"
-) -> str:
-    return styleAsExceptFor(txt, "blue+bold", exceptFor, prefix, suffix)
-
-
-def styleAsUnderline(value: Any | None) -> str:
-    return styleAs(value, "+underline")
-
-
-def styleAsBoldUnderline(value: Any | None) -> str:
-    return styleAs(value, "+underline+bold")
-
-
-def styleAsBold(value: Any | None) -> str:
-    return styleAs(value, "+bold")
-
-
-def styleAsSuggestionList(values: list[Any], quoteIfNeeded: bool = False) -> str:
-
-    if quoteIfNeeded:
-        return ", ".join(
-            [styleAsSuggestion(EscapeMgr.escapeIfNeeded(str(x))) for x in values]
-        )
-    else:
-        return ", ".join([styleAsSuggestion(str(x)) for x in values])
-
-
-def styleAsError(value: Any | None) -> str:
-    return styleAs(value, "red+bold")
-
-
-def styleAsErrorList(values: list[Any], singularUnit: str = "") -> str:
-    if len(values) == 0:
-        return styleAsError(PrettyText.pluralize(len(values), singularUnit))
-    else:
-        return (
-            PrettyText.pluralizeName(len(values), singularUnit)
-            + ": "
-            + ", ".join([styleAsError(str(x)) for x in values])
-        )
-
-
-def styling_doDisable(disable: bool | None):
-    global g_appColoursAreEnabled
-    if disable:
-        g_appColoursAreEnabled = False
+    print(styling.apply(messageTxt, "cyan+bold"), file=sys.stderr)

@@ -20,6 +20,7 @@ from ukko_pylibs.basic.simpleUtils import PrettyText, EscapeMgr
 from ukko_pylibs.basic.logger import appLog
 from ukko_pylibs.basic.class_DataContents import DataContents
 import ukko_pylibs.app.appSupport as app
+import ukko_pylibs.basic.styling as styling
 
 #
 ################################################################################
@@ -167,7 +168,7 @@ class ParamSpec:
         if "lookup" in self.spec:
             return self.spec["lookup"]
         elif "permitted" in self.spec:
-            app.deprecationWarning(
+            appLog.deprecationWarning(
                 "Spec uses 'permitted' instead of 'lookup' - please update to use 'lookup'"
             )
             return self.spec["permitted"]
@@ -322,7 +323,7 @@ class ParamSpec:
             if style == ParamSpec.InfoStyle.TERSE_SUMMARY:
                 result = ("/".join(_values)).replace(" ", "")
             elif style == ParamSpec.InfoStyle.EXPECTED_SENTENCE:
-                result = f"Expected one of [{app.styleAsSuggestionList(_values)}]"
+                result = f"Expected one of [{styling.asSuggestionList(_values)}]"
         elif ("min" in self.spec) or ("max" in self.spec):
             result = f"{self.spec.get('min','')} … {self.spec.get('max','')}"
             if style == ParamSpec.InfoStyle.EXPECTED_SENTENCE:
@@ -425,7 +426,7 @@ class ParamSpec:
                 from ukko_pylibs.app.appSupport import error_exit
 
                 if but_is_this_value is not None:
-                    msg += f" -- but is {app.styleAsError(but_is_this_value)}"
+                    msg += f" -- but is {styling.asError(but_is_this_value)}"
                 error_exit(f"Parameter {_name}: {msg}", e, withSuggestion=True)
 
         _name = self.spec.get("name", "<Unnamed>")
@@ -789,13 +790,13 @@ class ValueHelpSummaries(list[ValueHelpSummary]):
                 if prevGroup is not None:
                     results.append("")
 
-                titleLine = "   " + app.styleAsUnderline(group)
+                titleLine = "   " + styling.asUnderline(group)
 
                 if self.maxLenOfGroupCol(group, 3) > 0:
                     titleLine += " " * (
                         self._cumulativeWidthIncludingPadding(3)
                         - PrettyText.uniLen_approx(titleLine)
-                    ) + app.styleAsUnderline(col3Caption)
+                    ) + styling.asUnderline(col3Caption)
                     # col3Caption='' #< If we want this only on the topmost line
                 results.append(titleLine)
 
