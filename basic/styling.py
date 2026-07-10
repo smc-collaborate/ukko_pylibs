@@ -23,7 +23,7 @@ g_appColoursAreEnabled = True
 
 def isSupported() -> bool:
     # These are safe, known options that should always work. If this doesn't give different text - styling is not supported in this environment
-    output, error = _applyAlways("test", "silent:bold+blue")
+    output, error = _applyAlways("test", "silent:blue")
 
     def disableReason(reason: str) -> bool:
         appLog.print_info(
