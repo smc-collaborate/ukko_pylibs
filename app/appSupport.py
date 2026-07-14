@@ -281,20 +281,30 @@ class AppChoices:
     def __getitem__(self, key):
         return self.paramChoice(key)
 
+    def asStr(self, name) -> str:
+        _value = self.paramChoice(name)
+        return "" if _value is None else str(_value)
+
+    def asInt(self, name) -> int:
+        _value = self.paramChoice(name)
+        return 0 if _value is None else int(_value)
+
     def get(self, key, default=None):
         return self.paramChoice(key, default)
 
-    def getOverviewAsText(self) -> str:
-        # print_extra(["getOverviewAsText(): Avail:",self.avail])
+    def getOverviewAsTextAndParams(self) -> tuple[str, list[str]]:
         param_info = ""
+        summarisedParams: list[str] = []
         for spec in self.getOptions():
             usage = spec.getHelpSummary()
-            param_info += usage.summaryAdd_param if usage else ""
+            if usage and usage.summaryAdd_param:
+                param_info += usage.summaryAdd_param
+                summarisedParams.append(spec.name())
 
         additionalParams = self.appValues.get("additional_parameters", None)
         if additionalParams:
             param_info += f" -- {additionalParams}"
-        return param_info
+        return param_info.strip(), summarisedParams
 
     def getOptions(self) -> ParamSpecList:
         return ParamSpecList(self.appValues.get("options", []))
@@ -901,30 +911,28 @@ class Define:
 
         exeName = str(appChoices.appValue("exeName"))
         exeNameDecorated = (
-            exeName + " " + appChoices.customisingChoices_asText()
+            exeName + " " + appChoices.customisingChoices_asText().strip()
         ).strip()
 
         verText = f"v{appChoices.appValue('version')}"
 
-        params_txt = f" {appChoices.getOverviewAsText()}".strip()
+        params_txt, _mentioned = appChoices.getOverviewAsTextAndParams()
 
         #########################################
         #  Calculate: `mentionOtherOptions`  (to use with 'params_txt' in the usage line)
         #
-        _mentioned = [x.name() for x in appChoices.getOptions()]
         _unmentioned = [
             x
             for x in visibleParams
             if not x.name() in _mentioned and (x.get("group") != "~appAuto")
         ]
 
-        mentionOtherOptions = "" if len(_unmentioned) == 0 else " [options]"
-
         #########################################
         #
         _customisedChoiceNext: dict[str, Any] | None = appChoices.nextCustomisationAvail
 
         if not _customisedChoiceNext:
+            mentionOtherOptions = "" if len(_unmentioned) == 0 else " [options]"
             lines_out.append(
                 f"{PrettyText.padToWidth(exeNameDecorated, 32)} {PrettyText.padToWidth(verText, 13)} : {PrettyText.padToWidth(appChoices.appValue('description'), 90)}"
             )
@@ -1041,9 +1049,11 @@ class Define:
         for paramObj in visibleParams:
             _g = paramObj.get("group")
             if _g and (_g != "~appAuto"):  # < First: Non blank & non-auto entries
-                optionSummaries.appendItem(
-                    f"{str(_g).title().replace('_', ' ')} Options", paramObj
-                )
+                titlePrefix = str(_g).title().replace("_", " ")
+                if " " in titlePrefix or ":" in titlePrefix:
+                    titlePrefix = "Basic"
+
+                optionSummaries.appendItem(f"{titlePrefix} Options", paramObj)
                 otherName = "Common Options"
 
         # < Ensure '~appAuto' are last

@@ -178,7 +178,9 @@ class ParamSpec:
         else:
             return None
 
-    def defaultValue_orNoneType(self, withoutEnv: bool = False) -> Any | NoneType:
+    def defaultValue_orNoneType(
+        self, withoutEnv: bool = False, withoutLookup: bool = False
+    ) -> Any | NoneType:
 
         if self.spec is None:
             return NoneType
@@ -207,9 +209,14 @@ class ParamSpec:
             return NoneType
         else:
             value = self.spec["default"]
-            _lookup = self.getLookup()
-            if _lookup is not None and isinstance(_lookup, dict) and (value in _lookup):
-                value = _lookup[value]
+            if not withoutLookup:
+                _lookup = self.getLookup()
+                if (
+                    _lookup is not None
+                    and isinstance(_lookup, dict)
+                    and (value in _lookup)
+                ):
+                    value = _lookup[value]
             return value
 
     def type_orNone(self):
@@ -265,9 +272,9 @@ class ParamSpec:
         if not self.hasValue():
             return None
 
-        _defValue = self.defaultValue_orNoneType()
+        _defValue = self.defaultValue_orNoneType(withoutLookup=True)
         if _defValue is NoneType:
-            if ("type" in self.spec) or ("lookup" in self.spec):
+            if "type" in self.spec:
                 return requiredMarker
             else:
                 return ""
