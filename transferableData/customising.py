@@ -236,7 +236,6 @@ class CustomisedContents:
                         )
 
         if not self.hasErrors():
-            # |Logging| appLog.print_info(f"{self.name}: {self}")
             return True
         else:
             appLog.print_error(f"{self.name}: {self.errorMsgs(' | ')}")
@@ -916,7 +915,6 @@ def _customFormatList_load() -> Tuple[
     def __getCustomFormatsInDir(
         dirToSearch: str, prefix: str = "", lookForDefaults: bool = False
     ) -> dict[str, CustomContentsFormatDefinition]:
-        # |Logging| appLog.print_info(f"__getCustomFormatsInDir: Scanning directory: {dirToSearch}")
 
         results = {}
         if os.path.isdir(dirToSearch):

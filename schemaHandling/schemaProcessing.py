@@ -87,7 +87,6 @@ def schema_cleanElement(
     """
     Clean up the schema by removing unnecessary fields and ensuring it is well-formed.
     """
-    # |Logging| appLog.print_verbose(f"Schema cleanElement: {Utils.asJsonStr(schemaElement)}")
     if schemaElementIn is None or (not isinstance(schemaElementIn, dict)):
         return schemaElementIn
     schemaElement = schemaElementIn.copy()
@@ -400,7 +399,6 @@ class Schema:
         #
         # ######################################################################
 
-        # |Logging|
         appLog.print_verbose(
             f"Schema({self.name}): Loading schema from {self.jsonSchemaFilename}"
         )

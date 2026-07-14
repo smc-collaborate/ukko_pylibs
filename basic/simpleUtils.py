@@ -150,10 +150,6 @@ class Utils:
             options.append(path)
 
         path = min(options, key=lambda x: len(x))
-
-        # |Logging| print(f"----------")
-        # |Logging| print(f"pathConvert[{kind}] {extra}\n: {pathName}\n→ {path}")
-        # |Logging| print(f"----------")
         return path
 
     @staticmethod
@@ -1229,14 +1225,10 @@ class DictUtils:
                                 array.array,
                                 np.ndarray,
                             ]:
-                                # |x| print(f"ℹ️ DictUtils.doCleanup[{key}] = Type {type(value)}: a   ")
                                 if len(value) > 0:
-                                    # |x| print(f"ℹ️ DictUtils.doCleanup[{key}] = Type {type(value)}: ab    {type(value[0])}")
-
                                     if isinstance(value[0], int) or isinstance(
                                         value[0], np.integer
-                                    ):  # |x| or isinstance(value[0],np.uint8):
-                                        # |x| print(f"ℹ️ DictUtils.doCleanup[{key}] = Type {type(value)}: abc   ")
+                                    ):
                                         valueAsText = (
                                             bytes(value)
                                             .decode("utf-8", errors="replace")
@@ -1248,11 +1240,7 @@ class DictUtils:
                             )
                             valueAsText = None
 
-                        # |x| print(f"ℹ️ DictUtils.doCleanup[{key}] = Type {type(value)}: {value} = {valueAsText}")
-
-                        # |Logging| print("!!! DictUtils.doCleanup(" + key + "): " + str(value))
                         if key.startswith("diag_json_") and (valueAsText is not None):
-                            # |Logging| print("!! Interpreting diag_json: " + key + " = " + value)
                             if (valueAsText != "") and (valueAsText != "null"):
                                 contents["diag_" + key.removeprefix("diag_json_")] = (
                                     Utils.json_loads(valueAsText)
@@ -1276,7 +1264,6 @@ class DictUtils:
                         sys.stderr.write(f"⚠️ DictUtils.doCleanup({key}): {e}\n")
             except Exception as e:
                 sys.stderr.write(f"⚠️ DictUtils.doCleanup({contents}): {e}\n")
-        # |x| print(f"ℹ️ DictUtils.doCleanup[{__file__}] -> {contents}")
 
         return contents
 

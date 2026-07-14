@@ -291,7 +291,6 @@ class RawImg:
             streamOut.write(bytes([0] * self.skipRawBytes))
 
         for this_row in self.imageRows:
-            # |Logging| appLog.print_verbose(f"Writing row: {len(this_row)}{format_kind} pixels: {type(this_row)}")
             for x in this_row:
                 if not isinstance(x, int):
                     raise HandledException(
@@ -456,7 +455,6 @@ def shiftRow(row, dx: int = 0):
     :param dx: Number of pixels to shift (positive for right, negative for left)
     :return: New row with shifted pixel values
     """
-    # |Logging| appLog.print_verbose(f"shift dx:{dx}")
     row_len = len(row)
     if (dx != 0) and (len(row) == 0):
         raise HandledException("RawImg.shiftRow(): Row is empty, cannot shift.")
@@ -468,7 +466,6 @@ def shiftRow(row, dx: int = 0):
         # No horizontal shift
         new_row = row
 
-    # |Logging| appLog.print_verbose(f"Row shifted({dx}): {row_len}->{len(new_row)}")
     if row_len != len(new_row):
         raise HandledException(
             f"RawImg.shiftRow(): Row length changed from {row_len} to {len(new_row)} after shifting."

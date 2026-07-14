@@ -314,7 +314,6 @@ def doExportBitstream(
     if format != "unknown" and format != "bitstream":
         result["format"] = format
 
-    # |Logging| appLog.print_verbose(f"!!!!!! doExportBitstream: exportOption:{exportOption} format:{format} ext:{ext}")
     if exportOption != "overview":
         result["md5"] = hashlib.md5(bitstream).hexdigest()
         out_filename = None

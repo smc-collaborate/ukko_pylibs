@@ -193,8 +193,6 @@ class SimpleLogger:
         self.kindCounts = {}
         self.printThreshold = self.MsgKind_WARNING
 
-        # |x|sys.stderr.write(f"⚠️  self.printThreshold ={self.printThreshold}\n")
-
     def setName(self, name: str):
         self.name = name
 
@@ -205,7 +203,7 @@ class SimpleLogger:
     ) -> int:
         if setValue is not None and setValue is not NoneType:
             oldThreshold = self.printThreshold
-            # |x| sys.stderr.write(f"⚠️  setVerbosity({json.dumps(setValue)}): From {oldThreshold}\n")
+
             if isinstance(setValue, bool):
                 self.printThreshold = (
                     self.MsgKind_DETAIL if setValue else self.MsgKind_INFO

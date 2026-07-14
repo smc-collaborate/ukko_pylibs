@@ -106,7 +106,6 @@ def appInfo_get(
 
 def appInfo_set(name: str | list[str], value: Any):
     global g_appInfo
-    # |x| print(f"appInfo_set({name})={value}")
     return DictUtils.set(g_appInfo, name, value)
 
 
@@ -379,7 +378,6 @@ class _AppParameterParser:
             self.appChoicesBeingBuilt = AppChoices({}, {}, [], None)
             self._mergedAppInfo = self.appChoicesBeingBuilt.appValues
 
-            # |x| self.actionsWalked = []
             self.nextActionOptions: dict[str, Any] | None = None
 
             self.availParamsFromAppInfo = availParamsFromAppInfo or ParamSpecList([])
@@ -673,11 +671,8 @@ class _AppParameterParser:
 
             # Update:
             #   * self._mergedAppInfo
-            # |x| #   * self.actionsWalked
             #   * self.nextActionOptions -> null
             #   * self.availParamsFromAppInfo
-
-            # |x| self.actionsWalked.append(actionInfo)
 
             self.nextActionOptions = None
 
@@ -836,20 +831,6 @@ class _AppParameterParser:
 
             return True
 
-        # |x| appInfo_set("APP_AS_USED.paramsArray", args)
-        # |x| appInfo_set("APP_AS_USED.allParams", " ".join([EscapeMgr.asBashParam(x) for x in args]))
-
-    # |x|
-    # |x| for x in app_definition.get('options',[]):
-    # |x|     self._partialInfo.appendParamSpec(x)
-
-    # |?| if len(_partialInfo.chosenActions) > 0:
-    # |?|     self.choices_made["customisedChoicesMade"] = _partialInfo.chosenActions
-    # |?| if _partialInfo.nextActionOptions is not None:
-    # |?|     self.choices_made["customisedChoicesNext"] = _partialInfo.nextActionOptions
-    # |x| # |?| self.customisedChoicesWalked = _partialInfo.actionsWalked
-    # |?| self.paramOptionsAfterParsing= _partialInfo.mergedAppInfo
-
     def optionInsert_orNoneType(self, spec: dict[str, Any] | None) -> Any | NoneType:
         """Returns the value of the spec - or NoneType if no spec provided.
         Note, due to lookups, 'None' is a valid value, so we cannot use None to indicate no spec provided - hence the use of NoneType
@@ -890,22 +871,6 @@ class Define:
             "appParamsChoices": self.appChoices.asDict(),
         }
         return obj
-
-    # |x|    def getCallbackAndParams(self, args) -> Tuple[Any, dict[str, Any]]:
-    # |x|        params = self.parseParams(args)
-    # |x|
-    # |x|        _actionFunction = self.appParamParser.choices_made.get("functionCallback", None)
-    # |x|
-    # |x|        if _actionFunction is None:
-    # |x|            error_exit(
-    # |x|                f"No action function found for the given arguments (AppDefinition appears to be incorrectly configured)"
-    # |x|            )
-    # |x|
-    # |x|        appLog.print_info(
-    # |x|            f"Running {self.appParamParser.choices_made.get('functionCallback_Reason',None)}"
-    # |x|        )
-    # |x|
-    # |x|        return _actionFunction, params
 
     def giveHelp(self, file_dest=sys.stdout):
         for x in self.getHelp():
@@ -1211,9 +1176,6 @@ class Define:
         paramParser = self._createAppParamParser()
 
         parseResults = paramParser.doParsing(args)
-        # self.paramSpec_chosen = paramSpec_chosen
-        # self.errors = errors
-        # self.usedDefaults = usedDefaults
 
         self.availParams = parseResults.paramSpec_avail
         self.appChoices = parseResults.appChoices
@@ -1221,9 +1183,6 @@ class Define:
         appInfo_appendStr(
             "APP_AS_USED.post_exe", self.appChoices.customisingChoices_asText()
         )
-
-        # |x| #self.customisedChoicesWalked = self._partialInfo.actionsWalked
-        # self.paramOptionsAfterParsing = self.appChoices.appValues
 
         for name, obj in parseResults.paramSpec_chosen.items():
             self.appChoices.params[name] = obj.value
@@ -1233,8 +1192,6 @@ class Define:
 
         ####################################
         #
-
-        # |x|print_extra(["appChoices()", self.appChoices])
 
         if self.appChoices.params.pop("help", None):
             self.giveHelp()
@@ -1418,8 +1375,6 @@ def getPrettyExceptionInfo(e: BaseException) -> Tuple[str, list[str]]:
 
 
 def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
-
-    # |Logging| sys.stderr.write(f"\n⚠️  {type(e)}:{e} {e}\n")
     """
     Exit the program with an error message if an exception occurs.
     :param ex: The exception that occurred
@@ -1518,32 +1473,6 @@ def returnJsonData(resultFull: Any, elementNameIfNotFull: str | None = None):
         if success == False:
             exitCode = 1
     doExit(exitCode)
-
-
-# |x|
-# |x|class ErrorDetails:
-# |x|    def __init__(self, msg: str, exception: Exception | None = None, errorWithSuggestion: str|bool =False):
-# |x|        self.msg = msg
-# |x|        self.exception= exception
-# |x|        self.errorWithSuggestion = errorWithSuggestion
-# |x|
-# |x|    def doErrorExit(self):
-# |x|        from ukko_pylibs.app.appSupport import error_exit
-# |x|        error_exit(self.msg, self.exception, withSuggestion=self.errorWithSuggestion)
-# |x|
-# |x|    def asDict(self) -> dict[str, Any]|str:
-# |x|        result: dict[str, Any] = {
-# |x|            "msg": self.msg,
-# |x|        }
-# |x|        if self.exception is not None:
-# |x|            result["exception"] = str(self.exception)
-# |x|        if self.errorWithSuggestion:
-# |x|            result["errorWithSuggestion"] = self.errorWithSuggestion
-# |x|
-# |x|        if result.keys() != {"msg"}:
-# |x|            return result
-# |x|        else:
-# |x|            return self.msg
 
 
 def error_exit(

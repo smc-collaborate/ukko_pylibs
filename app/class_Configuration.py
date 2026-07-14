@@ -50,7 +50,6 @@ class Configuration:
         for key, value in self._settingsSpec.items():
             if "default" in value:
                 DictUtils.set(self._defaults, ["settings", key], value["default"])
-                # |x| DictUtils.get(settings, [key, "default"])
 
         _loadedFromFile = {}
 

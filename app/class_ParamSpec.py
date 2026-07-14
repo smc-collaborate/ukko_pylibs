@@ -44,7 +44,6 @@ class ValueHelpSummary:
         summaryAdd_directPrefixes: list[dict[str, str]] | None = None,
     ):
         self.group = group
-        # |x| self.id = decoratedNamePlusExtras.removeprefix('--').removesuffix('=').removesuffix('⁺')
         self.shortName = shortName  # "" if not shortName else f"{shortName},"
         self.decoratedNamePlusExtras = decoratedNamePlusExtras
         self.defaultInfo = defaultInfo
@@ -318,11 +317,9 @@ class ParamSpec:
 
     def getMatchedValue(self, arg: str) -> tuple[bool, str | None]:
         """matched, value"""
-        # |Logging| print(f"Matching {arg} against {self.longNameWithHyphens()} and {self.shortNameWithHyphen()}")
         for _prefix in [self.longNameWithHyphens(), self.shortNameWithHyphen()]:
             if _prefix:
                 if arg == _prefix:
-                    # |Logging| print(f"Matched {arg} to {_prefix} with value {self.hasValue()}")
                     return (True, None if self.hasValue() else "true")
                 if self.hasValue() and arg.startswith(f"{_prefix}="):
                     return (True, arg.split("=", 1)[1])
@@ -653,9 +650,6 @@ class ParamSpec:
     def mayBeDirect(self) -> bool:
         return (self.spec.get("mayBeDirect", False)) and self.isNotHidden()
 
-    # |x|    def isVisiblyChosen(self) -> bool:
-    # |x|        return self.spec.get("isChosen", False) and not self.isNotHidden()
-
 
 class ParamSpecAndValue:
     def __init__(
@@ -804,7 +798,7 @@ class ValueHelpSummaries(list[ValueHelpSummary]):
 
         if cols[0] != "":
             cols[0] += ","
-        txt = f"{PrettyText.padToWidth(cols[0], self._colWidth(0))}{PrettyText.padToWidth(cols[1], self._colWidth(1))}"  # |x| {' ' if self.maxWidths[1] == 0 else '|'}"
+        txt = f"{PrettyText.padToWidth(cols[0], self._colWidth(0))}{PrettyText.padToWidth(cols[1], self._colWidth(1))}"
 
         for n in self.COLUMNS:
             if n <= 1 or (self.maxWidths[n] <= 0):
