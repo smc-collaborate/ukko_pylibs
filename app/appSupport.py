@@ -566,8 +566,12 @@ class _AppParameterParser:
             #   * errors              : list[Tuple[str, str|None]]
             #   * _usedDefaults       : list[str]
             #
+            for x in paramSpec_chosen.values():
+                for y in x.errorNotes:
+                    _errors.append((y, None))
 
             appLog.print_tediousDetail(f"argv: " + Utils.asJsonStr(args, indent=2))
+            appLog.print_tediousDetail(f"errors: " + Utils.asJsonStr(_errors, indent=2))
             appLog.print_tediousDetail(
                 f"AS LOADED: " + Utils.asJsonStr(paramSpec_chosen, indent=2)
             )
@@ -863,12 +867,13 @@ class _AppParameterParser:
             _customisations = self.availParamsFromAppInfo[availParam_index].get(
                 "customising", None
             )
+            if _customisations is None:
+                return False
 
-            if (
-                not isinstance(_customisations, dict)
-                or chosenAction not in _customisations
-            ):
+            if not isinstance(_customisations, dict):
                 appLog.print_warning(f"Internal Error: Customising option not valid")
+                return False
+            if chosenAction not in _customisations:
                 return False
 
             actionInfo = _customisations[chosenAction]
