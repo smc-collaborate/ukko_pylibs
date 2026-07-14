@@ -287,7 +287,7 @@ class ParamSpec:
         return True
 
     def isNotHidden(self) -> bool:
-        return not self.spec.get("hidden", False)
+        return not self.spec.get("hidden", False) and self.isUsable()
 
     def isCustomising(self) -> bool:
         return (self.spec.get("customising", None) is not None) and self.isNotHidden()
@@ -528,22 +528,33 @@ class ParamSpec:
 
     def getHelpSummary(self) -> ValueHelpSummary | None:
         """Returns: HelpSummary object or None"""
-        if self.spec.get("hidden", False) or self.spec.get("isChosen", False):
+        if self.spec.get("hidden", False) or self.spec.get("isChosen", None):
             return None
 
         _name = self.name()
+        _formattedName = (
+            f"{self.get('paramFormat', _name)}{self.getValueHelpSubscripts()}"
+        )
+        if self.type_orNone() is list or self.get("supportMultiple", None):
+            _formattedName += " …"
 
         ##########
         #
-        out_shortName = self.shortNameWithHyphen() or ""
+        if self.mustBeDirect():
+            out_shortName = ""
+        else:
+            out_shortName = self.shortNameWithHyphen() or ""
 
         ##########
         #
-        out_decoratedName = "--" + self.name()
-        if self.hasValue():
-            out_decoratedName += "="
+        if self.mustBeDirect():
+            out_decoratedName = f"[{_formattedName}]"
 
-        out_decoratedName += self.getValueHelpSubscripts()
+        else:
+            out_decoratedName = "--" + self.name()
+            out_decoratedName += self.getValueHelpSubscripts()
+            if self.hasValue():
+                out_decoratedName += "="
 
         ##########
         #
@@ -583,9 +594,6 @@ class ParamSpec:
         #
         summaryAdd_param = ""
         summaryAdd_directPrefixes = []
-        _formattedName = (
-            f"{self.get('paramFormat', _name)}{self.getValueHelpSubscripts()}"
-        )
 
         if self.get("mustBeDirect", None):
             if "descriptions" in self.spec:
@@ -593,16 +601,10 @@ class ParamSpec:
                     summaryAdd_directPrefixes.append(
                         {"name": name, "description": value}
                     )
-            elif self.type_orNone() is list or self.get("supportMultiple", False):
-                summaryAdd_param = f"[{_formattedName} …] "
             else:
                 summaryAdd_param = f"[{_formattedName}] "
-
         elif self.get("mayBeDirect", None):
-            if self.type_orNone() is list:
-                summaryAdd_param = f"[{_formattedName} …] "
-            else:
-                summaryAdd_param = f"[{_formattedName}] "
+            summaryAdd_param = f"[{_formattedName}] "
 
         ##########
         #

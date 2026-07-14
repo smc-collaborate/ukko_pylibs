@@ -232,7 +232,10 @@ class AppChoices:
         self.customisingChoicesMade: list[Tuple[str, str]] = []
 
     def customisingChoices_asText(self, separator: str = " ") -> str:
-        return separator.join([str(x[1]) for x in self.customisingChoicesMade])
+        result = separator.join([str(x[1]) for x in self.customisingChoicesMade])
+        if result != "" and separator == " ":
+            result = " " + result
+        return result
 
     def appValue(self, name: str) -> Any | None:
         if name in self.appValues:
@@ -285,14 +288,17 @@ class AppChoices:
     def getOverviewAsText(self) -> str:
         # print_extra(["getOverviewAsText(): Avail:",self.avail])
         param_info = ""
-        for paramObj in self.appValues.get("options", []):
-            usage = ParamSpec(paramObj).getHelpSummary()
+        for spec in self.getOptions():
+            usage = spec.getHelpSummary()
             param_info += usage.summaryAdd_param if usage else ""
 
         additionalParams = self.appValues.get("additional_parameters", None)
         if additionalParams:
             param_info += f" -- {additionalParams}"
         return param_info
+
+    def getOptions(self) -> ParamSpecList:
+        return ParamSpecList(self.appValues.get("options", []))
 
 
 class AppParamParseResults:
@@ -513,7 +519,7 @@ class _AppParameterParser:
                             )
                     elif _defValue is not NoneType:
                         _usedDefaults.append(_name)
-                        _loadIntoSpec_direct(spec, f"{_defValue}")
+                        _loadIntoSpec_direct(spec, _defValue)
                     elif spec.hasBoolValueForPresence():
                         # Special case - the existance of it is the value - so if it is included we set it to True (eg: --help)
                         # but if it is not included, we set it to False
@@ -717,7 +723,7 @@ class _AppParameterParser:
             # Remove the parent customisation if provided
             optionList_index = len(_optionList)
             availParams_index = len(self.availParamsFromAppInfo)
-
+            chosenAction = None
             if _parentToReplace is not None:
                 availParams_index, optionList_index, chosenAction = _parentToReplace
 
@@ -731,7 +737,8 @@ class _AppParameterParser:
             else:
                 for xx in actionInfo.get("options", []):
                     self.cleanEntry(xx)
-
+                    if chosenAction and not xx.get("group", ""):
+                        xx["group"] = chosenAction
                     self.availParamsFromAppInfo.insert(
                         availParams_index,
                         ParamSpec(
@@ -934,13 +941,30 @@ class Define:
         params_txt = f" {appChoices.getOverviewAsText()}".strip()
 
         _customisedChoiceNext: dict[str, Any] | None = appChoices.nextCustomisationAvail
+
+        _mentioned = [x.name() for x in appChoices.getOptions()]
+        _unmentioned = [
+            x
+            for x in availParams
+            if not x.name() in _mentioned
+            and x.isNotHidden()
+            and (x.get("group") != "~appAuto")
+        ]
+
+        mentionOtherOptions = "" if len(_unmentioned) == 0 else " [options]"
+
+        print(
+            Utils.asJsonStr(
+                {"unmentioned": _unmentioned, "mentioned": _mentioned}, indent=2
+            )
+        )
         if not _customisedChoiceNext:
             lines_out.append(
                 f"{PrettyText.padToWidth(exeNameDecorated, 32)} {PrettyText.padToWidth(verText, 13)} : {PrettyText.padToWidth(appChoices.appValue('description'), 90)}"
             )
             lines_out.append("")
             lines_out.append(
-                f"Usage: {styling.asSuggestion(exeNameDecorated+' [options] '+params_txt)}"
+                f"Usage: {styling.asSuggestion(exeNameDecorated+mentionOtherOptions+' '+params_txt)}"
             )  # + {appChoices.getCustomisationChoicesAsText()}
         else:
             # |eg:|  "send": {
@@ -1050,25 +1074,28 @@ class Define:
         #
         # Add:  ['~chosen']: 'Specific Options'
         #
-        _nonDirect = [x for x in availParams if not (x.mustBeDirect())]
+        _optionsToSummarise = (
+            availParams  # [x for x in availParams if not (x.mustBeDirect())]
+        )
+
         otherName = "Basic Options"
-        for paramObj in _nonDirect:
+        for paramObj in _optionsToSummarise:
             _g = paramObj.get("group")
-            if _g and (_g != "~appAuto"):
+            if _g and (_g != "~appAuto"):  # < First: Non blank & non-auto entries
                 optionSummaries.appendItem(
                     f"{str(_g).title().replace('_', ' ')} Options", paramObj
                 )
                 otherName = "Common Options"
 
         # < Ensure '~appAuto' are last
-        for paramObj in _nonDirect:
+        for paramObj in _optionsToSummarise:
             _g = paramObj.get("group", None)
             if not _g:
-                optionSummaries.appendItem(otherName, paramObj)
+                optionSummaries.appendItem(otherName, paramObj)  # < Then: Blank Entries
 
-        for paramObj in _nonDirect:
+        for paramObj in _optionsToSummarise:
             _g = paramObj.get("group", None)
-            if _g == "~appAuto":
+            if _g == "~appAuto":  # < Then: Auto entries
                 optionSummaries.appendItem("Tailoring Options", paramObj)
 
         ############################################
@@ -1078,7 +1105,7 @@ class Define:
         lines_out.extend(optionSummaries.asLines())
 
         subscripts = ""
-        for d in _nonDirect:
+        for d in _optionsToSummarise:
             subscripts += d.getValueHelpSubscripts()
         lines_out.extend(ParamSpec.getValueHelpExtraInfoFromSubscripts(subscripts))
 

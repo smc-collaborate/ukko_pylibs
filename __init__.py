@@ -16,7 +16,7 @@ from ukko_pylibs.basic.simpleUtils import Utils
 from ukko_pylibs.basic.simpleUtils import ImageInfo
 
 from ukko_pylibs.basic.class_DataContents import DataContents
-from ukko_pylibs.app.appSupport import app
+from ukko_pylibs.app.appSupport import app, AppChoices
 from ukko_pylibs.app.appSupport import Define as AppDefinition
 
 from ukko_pylibs.basic.fileUtils import FileUtils
@@ -38,4 +38,5 @@ __all__ = [
     "HandledException",
     "ImageInfo",
     "timestampObj_from_ns",
+    "AppChoices",
 ]
