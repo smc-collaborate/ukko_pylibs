@@ -286,6 +286,10 @@ class AppChoices:
         _value = self.paramChoice(name)
         return "" if _value is None else str(_value)
 
+    def asList(self, name) -> list[Any]:
+        _value = self.paramChoice(name)
+        return [] if _value is None else list(_value)
+
     def asInt(self, name) -> int:
         _value = self.paramChoice(name)
         return 0 if _value is None else int(_value)
