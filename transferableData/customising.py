@@ -899,6 +899,13 @@ def getCustomFormat_fromFile(fname: str) -> CustomContentsFormatDefinition | Non
             k: [os.path.abspath(v.replace("<definition_dir>", dirname)) for v in vs]
             for k, vs in examples.items()
         }
+
+        for example_kind, example_files in jsonData["examples"].items():
+            for example_file in example_files:
+                if not os.path.isfile(example_file):
+                    appLog.print_warning(
+                        f"CustomFormat[{Utils.pathDisplay(fname)}].examples[{example_kind}]: Missing file: {Utils.pathDisplay(example_file)}"
+                    )
     return CustomContentsFormatDefinition(jsonData, fname)
 
 

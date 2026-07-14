@@ -1079,6 +1079,37 @@ class Define:
                     prefix = PrettyText.asSpaces(prefix)
 
             lines_out.extend(PrettyText.tableAsLines(tableOut, dividers=" "))
+
+            ###############
+            #
+            # Add to examples
+            #
+            extraExamples: list[list[str]] = []
+
+            for action, entry in _customisedChoiceNext.items():
+
+                topSuggestion = entry.get("topSuggestion", None)
+                if topSuggestion is None:
+                    kindExamples = entry.get("examples", [])
+                    if len(kindExamples) > 0:
+                        topSuggestion = (
+                            kindExamples[0]
+                            .replace(
+                                "<exeName+action>",
+                                "<exeName+action> " + EscapeMgr.escapeIfNeeded(action),
+                            )
+                            .split()
+                        )
+
+                if topSuggestion:
+                    extraExamples.append(topSuggestion)
+
+            _examplesOut = appChoices.appValue("examples")
+            if not _examplesOut:
+                _examplesOut = []
+                appChoices.appValues["examples"] = _examplesOut
+            _examplesOut += PrettyText.tableAsLines(extraExamples, dividers=" ")
+
         lines_out.append("")
 
         optionSummaries = ValueHelpSummaries()
