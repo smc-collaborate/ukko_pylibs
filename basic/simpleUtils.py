@@ -1314,12 +1314,12 @@ class EscapeMgr:
 
     @staticmethod
     def asBashParam(
-        value: Any, name_optional: str = "", withEscaping: bool = True
+        value: Any, name_optional: str = "", withExtraEscaping: bool = False
     ) -> str:
         if value is None:
             return ""
         valueTxt = str(value)
-        if withEscaping:
+        if withExtraEscaping:
             valueTxt = EscapeMgr.asEscapedText(valueTxt)
         if name_optional == "":
             resultTxt = ""
@@ -1333,10 +1333,14 @@ class EscapeMgr:
             resultTxt += f"'{valueTxt}'"
         elif not (bashIssues & {"backticks", "dollarSigns", "doubleQuotes"}):
             resultTxt += f'"{valueTxt}"'
+
         else:
+
             resultTxt += "'" + valueTxt.replace("'", "'\\''") + "'"
 
-        appLog.print_tediousDetail(f"asBashParam({json.dumps(value)} -> {resultTxt})")
+        appLog.print_tediousDetail(
+            f"asBashParam({json.dumps(value)} -> {resultTxt}) [issues: {bashIssues}]"
+        )
         return resultTxt
 
     @staticmethod

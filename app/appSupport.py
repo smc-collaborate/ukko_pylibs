@@ -1084,31 +1084,43 @@ class Define:
             #
             # Add to examples
             #
-            extraExamples: list[list[str]] = []
-
+            extraExamplesReformat: list[list[str]] = []
+            extraExamplesDirect: list[str] = []
             for action, entry in _customisedChoiceNext.items():
 
                 topSuggestion = entry.get("topSuggestion", None)
+                _restyle = False
                 if topSuggestion is None:
                     kindExamples = entry.get("examples", [])
                     if len(kindExamples) > 0:
-                        topSuggestion = (
-                            kindExamples[0]
-                            .replace(
-                                "<exeName+action>",
-                                "<exeName+action> " + EscapeMgr.escapeIfNeeded(action),
-                            )
-                            .split()
-                        )
+                        topSuggestion = kindExamples[0]
+                        _restyle = topSuggestion.startswith("<exeName+action>")
 
-                if topSuggestion:
-                    extraExamples.append(topSuggestion)
+                if topSuggestion is not None:
+                    topSuggestion = topSuggestion.replace(
+                        "<exeName+action>",
+                        "<exeName+action> " + EscapeMgr.escapeIfNeeded(action),
+                    ).strip()
+                    if _restyle:
+                        comment_suffix = ""
+                        x = topSuggestion.split("#")
+                        if len(x) > 1:
+                            comment_suffix = " # " + x.pop()
+                            topSuggestion = "#".join(x).strip()
+
+                        topSuggestion = topSuggestion.split(" ") + [comment_suffix]
+
+                if isinstance(topSuggestion, str):
+                    extraExamplesDirect.append(topSuggestion)
+                elif isinstance(topSuggestion, list):
+                    extraExamplesReformat.append(topSuggestion)
 
             _examplesOut = appChoices.appValue("examples")
             if not _examplesOut:
                 _examplesOut = []
                 appChoices.appValues["examples"] = _examplesOut
-            _examplesOut += PrettyText.tableAsLines(extraExamples, dividers=" ")
+            _examplesOut += extraExamplesDirect
+            _examplesOut += PrettyText.tableAsLines(extraExamplesReformat, dividers=" ")
 
         lines_out.append("")
 
@@ -1185,7 +1197,7 @@ class Define:
                 comment_suffix = ""
                 x = txt.split("#")
                 if len(x) > 1:
-                    comment_suffix = " # " + x.pop()
+                    comment_suffix = " # " + x.pop().strip()
                     txt = "#".join(x).strip()
                 examplesOut.append(
                     [f" • {styling.asSuggestion(txt.strip())}", comment_suffix]
@@ -1195,6 +1207,8 @@ class Define:
             lines_out.append("Examples:")
             lines_out.extend(PrettyText.tableAsLines(examplesOut, dividers=" "))
 
+        for line in lines_out:
+            line = line.replace("\xa0", " ")
         return lines_out
 
     def getExeName_decorated(self, decorated=True):
