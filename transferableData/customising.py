@@ -818,7 +818,9 @@ def customFormat_get(
 
 def app_getMainDir() -> str:
     """Get the main directory of the application, which is the directory containing the main script."""
-    import ukko_pylibs.app.appSupport as app  # <-- Import here to avoid circular import issues
+    from ukko_pylibs.app.appSupport import (
+        app,
+    )  # <-- Import here to avoid circular import issues
 
     return app.getMainDir()
 

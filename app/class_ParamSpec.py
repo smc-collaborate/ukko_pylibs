@@ -6,6 +6,7 @@
 import json
 import os
 import sys
+from types import NoneType
 from typing import Any, Tuple
 
 ################################################################################
@@ -16,10 +17,11 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
+from ukko_pylibs.basic.class_HandledException import HandledException
 from ukko_pylibs.basic.simpleUtils import PrettyText, EscapeMgr
 from ukko_pylibs.basic.logger import appLog
 from ukko_pylibs.basic.class_DataContents import DataContents
-import ukko_pylibs.app.appSupport as app
+
 import ukko_pylibs.basic.styling as styling
 
 #
@@ -87,7 +89,10 @@ class ValueHelpSummary:
 
         return (
             PrettyText.textWrapWithPrefixes(self.shortName),
-            PrettyText.textWrapWithPrefixes(self.decoratedNamePlusExtras, 72),
+            PrettyText.textWrapWithPrefixes(
+                self.decoratedNamePlusExtras,
+                50,
+            ),
             PrettyText.textWrapWithPrefixes(self.extraInfo, 72),
             PrettyText.textWrapWithPrefixes(self.defaultInfo),
             PrettyText.textWrapWithPrefixes(self.description, 102, [" • "]),
@@ -118,8 +123,8 @@ class ParamSpec:
         self.spec = spec
         self._isEscaped = self._calcIsEscaped(defaultSupportEscaping)
 
-    def isEscaped(self) -> bool:
-        return self._isEscaped
+    def __clone__(self) -> "ParamSpec":
+        return ParamSpec(self.spec, self.defaultSupportEscaping)
 
     def _calcIsEscaped(self, defaultSupportEscaping: bool) -> bool:
         if not self.type() is str:
@@ -175,10 +180,10 @@ class ParamSpec:
         else:
             return None
 
-    def defaultValue(self, withoutEnv: bool = False):
+    def defaultValue_orNoneType(self, withoutEnv: bool = False) -> Any | NoneType:
 
         if self.spec is None:
-            return None
+            return NoneType
 
         if not withoutEnv:
             envVarName = self.spec.get("defaultEnvVar", None)
@@ -201,7 +206,7 @@ class ParamSpec:
                         return value
 
         if not ("default" in self.spec):
-            return None
+            return NoneType
         else:
             value = self.spec["default"]
             _lookup = self.getLookup()
@@ -226,9 +231,9 @@ class ParamSpec:
                 )
                 return None
 
-        typeOfDefault = type(self.defaultValue())
-        if (typeOfDefault is not None) and (typeOfDefault is not type(None)):
-            return typeOfDefault
+        _defValue = self.defaultValue_orNoneType()
+        if _defValue is not NoneType:
+            return type(_defValue)
 
         _lookup = self.getLookup()
         if _lookup is not None:
@@ -240,13 +245,13 @@ class ParamSpec:
                     first_value = {}
                 return type(first_value)
 
-        return type(None)
+        return NoneType
 
     def hasBoolValueForPresence(self):
         return not self.hasValue()
 
     def hasValue(self):
-        return self.type() is not type(None)
+        return self.type() is not NoneType
 
     def defaultQuotedTxt(self):
         txt = self._defaultTxt()
@@ -262,23 +267,37 @@ class ParamSpec:
         if not self.hasValue():
             return None
 
-        if not ("default" in self.spec):
+        _defValue = self.defaultValue_orNoneType()
+        if _defValue is NoneType:
             if ("type" in self.spec) or ("lookup" in self.spec):
                 return "••Required••"
             else:
                 return ""
-        _default = self.defaultValue()
-        if (type(_default) is list) and (len(_default) > 0):
-            _default = _default[0]
-        if _default is None:
+        if (type(_defValue) is list) and (len(_defValue) > 0):
+            _defValue = _defValue[0]
+        if _defValue is None:
             return None
         else:
-            return str(_default)
+            return str(_defValue)
 
+    #######################################
+    #
     def isUsable(self) -> bool:
         if self.spec.get("skip", False):
             return False
         return True
+
+    def isNotHidden(self) -> bool:
+        return not self.spec.get("hidden", False)
+
+    def isCustomising(self) -> bool:
+        return (self.spec.get("customising", None) is not None) and self.isNotHidden()
+
+    def isEscaped(self) -> bool:
+        return self._isEscaped
+
+    #
+    #######################################
 
     def shortNameWithHyphen(self) -> str:
         if not self.isUsable():
@@ -298,13 +317,14 @@ class ParamSpec:
         else:
             return ""
 
-    def getMatchedValue(self, arg: str) -> tuple[bool, Any]:
+    def getMatchedValue(self, arg: str) -> tuple[bool, str | None]:
         """matched, value"""
-
+        # |Logging| print(f"Matching {arg} against {self.longNameWithHyphens()} and {self.shortNameWithHyphen()}")
         for _prefix in [self.longNameWithHyphens(), self.shortNameWithHyphen()]:
             if _prefix:
                 if arg == _prefix:
-                    return (True, None if self.hasValue() else True)
+                    # |Logging| print(f"Matched {arg} to {_prefix} with value {self.hasValue()}")
+                    return (True, None if self.hasValue() else "true")
                 if self.hasValue() and arg.startswith(f"{_prefix}="):
                     return (True, arg.split("=", 1)[1])
         return (False, None)
@@ -313,15 +333,27 @@ class ParamSpec:
 
     class InfoStyle(Enum):
         EXPECTED_SENTENCE = 1
-        TERSE_SUMMARY = 2
+        TERSE_SUMMARY = (2,)
+        PARAM_FORMAT_OR_EXAMPLE = (3,)
 
     def getValueHelp(self, style: InfoStyle, noExample: bool = False) -> str:
         result = ""
+
+        if style == ParamSpec.InfoStyle.PARAM_FORMAT_OR_EXAMPLE:
+            exampleOrNone = self.getExample()
+            if exampleOrNone is not None:
+                return self.getParamFormat()
+            else:
+                return (
+                    self.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)
+                    or self.getParamFormat()
+                )
+
         _lookup = self.getLookup()
         if _lookup is not None:
             _values = list(_lookup.keys()) if isinstance(_lookup, dict) else _lookup
             if style == ParamSpec.InfoStyle.TERSE_SUMMARY:
-                result = ("/".join(_values)).replace(" ", "")
+                result = styling.asOption(_values)
             elif style == ParamSpec.InfoStyle.EXPECTED_SENTENCE:
                 result = f"Expected one of [{styling.asSuggestionList(_values)}]"
         elif ("min" in self.spec) or ("max" in self.spec):
@@ -383,31 +415,6 @@ class ParamSpec:
         else:
             return ""
 
-    def load(
-        self,
-        arg: str | int | float | bool,
-        currentValue=None,
-        returnNoneInsteadOfThrowingError: bool = False,
-    ):
-
-        value = self.convertArg(
-            arg, returnNoneInsteadOfThrowingError=returnNoneInsteadOfThrowingError
-        )
-
-        if not (self.spec.get("supportMultiple", False)):
-            return value
-
-        if currentValue is None:
-            valueList = []
-        elif not isinstance(currentValue, list):
-            valueList = [currentValue]
-        else:
-            valueList = list(currentValue)
-
-        valueList.append(value)
-
-        return valueList
-
     def convertArg_orGiveHelp(self, arg) -> tuple[Any | None, str | None]:
         valueOrNone = self.convertArg(arg, True)
         if valueOrNone is None:
@@ -415,33 +422,29 @@ class ParamSpec:
         else:
             return valueOrNone, None
 
-    def convertArg(self, arg, returnNoneInsteadOfThrowingError: bool = False) -> Any:
+    def _convertArg(self, arg) -> Tuple[Any, str | None]:
+        """Returns value/None and error info if any (msg, exception, errorWithSuggestion)"""
 
         def _error(
             msg: str, e: Exception | None = None, but_is_this_value: Any | None = None
         ):
-            if returnNoneInsteadOfThrowingError:
-                return None
-            else:
-                from ukko_pylibs.app.appSupport import error_exit
-
-                if but_is_this_value is not None:
-                    msg += f" -- but is {styling.asError(but_is_this_value)}"
-                error_exit(f"Parameter {_name}: {msg}", e, withSuggestion=True)
+            if but_is_this_value is not None:
+                msg += f" -- but is {styling.asError(but_is_this_value)}"
+            return None, f"Parameter {_name}: {msg}"
 
         _name = self.spec.get("name", "<Unnamed>")
         _lookup = self.getLookup()
         if _lookup is not None:
             if isinstance(_lookup, dict):
                 if arg in _lookup:
-                    return _lookup[arg]
+                    return _lookup[arg], None
                 else:
                     return _error(
                         f"{self.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)}",
                         but_is_this_value=arg,
                     )
             elif arg in _lookup:
-                return arg
+                return arg, None
             else:
                 #
                 # Also support 'count=13' for 'count=<integer>'
@@ -449,7 +452,7 @@ class ParamSpec:
                 if len(parts) == 2:
                     for humanFormatted in _lookup:
                         if humanFormatted.startswith(parts[0] + "=<"):
-                            return arg
+                            return arg, None
             return _error(
                 f"{self.getValueHelp(ParamSpec.InfoStyle.EXPECTED_SENTENCE)}",
                 but_is_this_value=arg,
@@ -457,17 +460,19 @@ class ParamSpec:
 
         _type = self.type()
 
-        if _type is type(None):
+        if _type is NoneType:
             if arg is None:
-                return True  # Just return True for 'Yes - it is included'
+                return True, None  # Just return True for 'Yes - it is included'
+            elif isinstance(arg, bool):
+                return arg, None
             else:
                 return _error(f"No type defined, cannot parse value: '{arg}'")
 
         if _type == bool:
             if arg.lower() in ("true", "yes", "1"):
-                return True
+                return True, None
             elif arg.lower() in ("false", "no", "0"):
-                return False
+                return False, None
             else:
                 return _error(f"Expects a boolean value", but_is_this_value=arg)
         elif (_type is int) or (_type is float):
@@ -485,7 +490,7 @@ class ParamSpec:
                         f"Must be at most {self.spec['max']}", but_is_this_value=value
                     )
 
-                return value
+                return value, None
             except ValueError:
                 return _error(
                     f"Parameter {_name} expects {PrettyText.withAOrAn( _type.__name__)} value",
@@ -493,20 +498,31 @@ class ParamSpec:
                 )
         elif _type is str:
             if self.isEscaped():
-                return EscapeMgr.fromEscapedText(arg)
+                return EscapeMgr.fromEscapedText(arg), None
             else:
-                return arg
+                return arg, None
         elif _type is DataContents:
             try:
-                return DataContents(
-                    arg,
-                    formatIn=self.spec.get("format", "default"),
-                    optionalNameSuggestion=_name,
+                return (
+                    DataContents(
+                        arg,
+                        formatIn=self.spec.get("format", "default"),
+                        optionalNameSuggestion=_name,
+                    ),
+                    None,
                 )
             except Exception as e:
                 return _error(f"Provided with `{arg}` which gave error", e)
         else:
             return _error(f"Unsupported type: {str(_type)}")
+
+    def convertArg(self, arg, returnNoneInsteadOfThrowingError: bool = False) -> Any:
+        _value, _errorInfo = self._convertArg(arg)
+
+        if _errorInfo is None or (returnNoneInsteadOfThrowingError):
+            return _value
+        else:
+            raise HandledException(_errorInfo)
 
     def getHelpSummary(self) -> ValueHelpSummary | None:
         """Returns: HelpSummary object or None"""
@@ -540,8 +556,8 @@ class ParamSpec:
             if envValue is not None:
                 _envNote += f"={EscapeMgr.escapeIfNeeded(envValue)}"
 
-                otherDefault = self.defaultValue(withoutEnv=True)
-                if (otherDefault != envValue) and otherDefault is not None:
+                otherDefault = self.defaultValue_orNoneType(withoutEnv=True)
+                if (otherDefault != envValue) and otherDefault is not NoneType:
                     _envNote += f" (overwrites {otherDefault})"
 
         ##########
@@ -598,7 +614,9 @@ class ParamSpec:
             summaryAdd_directPrefixes=summaryAdd_directPrefixes,
         )
 
-    def cheatPeekAtValue(self, args: list[str] | None = None) -> Any | None:
+    def cheatPeekAtValue_orNoneType(
+        self, args: list[str] | None = None
+    ) -> Any | NoneType:
         # This is a cheat function to peek at the value of a parameter from the command line arguments.
         # It is not intended for normal use, but can be useful for debugging or testing.
         # Limitations:
@@ -606,7 +624,7 @@ class ParamSpec:
         #   * Only the full name is supported (e.g. --param=value), not the short name (e.g. -p value).
         #   * It returns the first matching value it finds, and does not support multiple values for the same parameter.
         #
-        arg = None
+        arg = NoneType
         if args is None:
             args = sys.argv[1:]
         for x in args:
@@ -621,16 +639,10 @@ class ParamSpec:
                 )
                 break
 
-        if arg is None:
-            arg = self.defaultValue()
-
-        return arg
+        return arg if arg is not NoneType else self.defaultValue_orNoneType()
 
     def mustBeDirect(self) -> bool:
         return self.spec.get("mustBeDirect", False)
-
-    def isNotHidden(self) -> bool:
-        return not self.spec.get("hidden", False)
 
     def mayBeDirect(self) -> bool:
         return (self.spec.get("mayBeDirect", False)) and self.isNotHidden()
@@ -638,8 +650,56 @@ class ParamSpec:
     # |x|    def isVisiblyChosen(self) -> bool:
     # |x|        return self.spec.get("isChosen", False) and not self.isNotHidden()
 
-    def isCustomising(self) -> bool:
-        return (self.spec.get("customising", None) is not None) and self.isNotHidden()
+
+class ParamSpecAndValue:
+    def __init__(
+        self,
+        spec: ParamSpec,
+        value: Any | list[Any] | None = None,
+        convert: str | None = None,
+    ):
+        self.spec = spec.__clone__()
+        self.value = value
+        self.errorNotes: list[str] = []
+        if convert is not None:
+            self.value = self.load_withConvert(convert)
+
+    def throwIfErrorNotes(self):
+        if self.errorNotes:
+            raise Exception(self.errorNotes[0])
+
+    def name(self) -> str:
+        return self.spec.name()
+
+    def asDict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {"name": self.name(), "spec": self.spec.asDict()}
+        if self.value is not None:
+            result["value"] = self.value
+        if self.errorNotes:
+            result["errorNotes"] = self.errorNotes
+        return result
+
+    def load_withConvert(self, arg: str) -> str | None:
+        errmsg: str | None = None
+        _value, _errorNote = self.spec._convertArg(arg)
+
+        if _errorNote is not None:
+            self.errorNotes.append(_errorNote)
+        elif not (self.spec.get("supportMultiple", False)):
+            if self.value is None:
+                self.value = _value
+
+            elif not self.errorNotes:
+
+                self.errorNotes.append(
+                    f"Parameter {self.spec.name()} does not support multiple values, but was provided with multiple values: {self.value} and {arg}"
+                )
+        else:
+            if self.value is None or not isinstance(self.value, list):
+                self.value = []
+            self.value.append(_value)
+
+        return errmsg
 
 
 class ParamSpecList(list[ParamSpec]):
@@ -673,7 +733,7 @@ class ParamSpecList(list[ParamSpec]):
                 return True
         return False
 
-    def getMatchedSpecAndValue(self, arg: str) -> tuple[ParamSpec | None, Any | None]:
+    def getMatchedSpecAndValue(self, arg: str) -> tuple[ParamSpec | None, str | None]:
         for spec in self:
             if not spec.get("mustBeDirect", False):
                 argMatched, _value = spec.getMatchedValue(arg)

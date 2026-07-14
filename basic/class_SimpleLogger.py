@@ -4,6 +4,7 @@ import inspect
 import json
 import sys
 import traceback
+from types import NoneType
 from typing import Any, Callable, TextIO, Tuple
 import os
 
@@ -198,9 +199,11 @@ class SimpleLogger:
         self.name = name
 
     def setVerbosity(
-        self, setValue: None | bool | int | str, silentOnFailure: bool = False
+        self,
+        setValue: None | NoneType | bool | int | str,
+        silentOnFailure: bool = False,
     ) -> int:
-        if setValue is not None:
+        if setValue is not None and setValue is not NoneType:
             oldThreshold = self.printThreshold
             # |x| sys.stderr.write(f"⚠️  setVerbosity({json.dumps(setValue)}): From {oldThreshold}\n")
             if isinstance(setValue, bool):

@@ -157,6 +157,13 @@ def asSuggestionList(values: list[Any], quoteIfNeeded: bool = False) -> str:
         return ", ".join([asSuggestion(str(x)) for x in values])
 
 
+def asOption(value: Any) -> str:
+    if not isinstance(value, str) and isinstance(value, (list, tuple)):
+        return "/".join([asOption(x) for x in value])
+    else:
+        return asBold(EscapeMgr.escapeIfNeeded(str(value)))
+
+
 def asError(value: Any | None) -> str:
     return apply(value, "red+bold")
 

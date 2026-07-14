@@ -761,6 +761,8 @@ class PrettyText:
 
         prefixToAppend = ""
         otherPrefixes = ""
+        if prefixes is None and ("=" in txt):
+            prefixes = [txt.split("=")[0] + "="]
 
         if prefixes is not None:
             for prefix in prefixes:
@@ -775,7 +777,19 @@ class PrettyText:
         if maxWidth is None or maxWidth <= 0:
             return [prefixToAppend.rstrip()] if prefixToAppend else [""]
 
-        parts = textwrap.wrap(txt, width=maxWidth)
+        class SlashTextWrapper(textwrap.TextWrapper):
+            """Custom wrapper that treats slashes as breaking boundaries."""
+
+            # Overriding the default word-splitting regex to include slashes
+            wordsep_re = re.compile(
+                r"(\s+|"  # Whitespace
+                r"(?<=[\w\!\"\'\&\.\,\?])-{2,}(?=\w)|"  # Em-dash
+                r"(?<=\w)-(?=\w)|"  # Hyphenated words
+                #        r'(?<=[/])|(?=[/]))'                       # Break right before or after a slash
+                r"(?<=[/]))"  # Break immediately after a slash
+            )
+
+        parts = SlashTextWrapper(width=maxWidth).wrap(txt)
         if not parts:
             return [prefixToAppend.rstrip()] if prefixToAppend else [""]
 

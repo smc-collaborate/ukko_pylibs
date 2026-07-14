@@ -5,7 +5,7 @@
 import json
 import os
 import sys
-from typing import Any
+from typing import Any, Tuple
 from copy import deepcopy
 
 ################################################################################
@@ -20,7 +20,7 @@ from ukko_pylibs.basic.simpleUtils import DictUtils, Utils
 from ukko_pylibs.basic.class_SimpleLogger import SimpleLogger
 from ukko_pylibs.basic.class_HandledException import HandledException
 from ukko_pylibs.app.class_ParamSpec import ParamSpec
-
+from ukko_pylibs.basic import styling
 
 #
 ################################################################################
@@ -108,36 +108,43 @@ class Configuration:
 
         return result
 
-    def setting_applyIfMatches(
+    def setting_applyOnMatch(
         self,
         name_valueTuple: tuple[str, str] | list[str],
-        avoidThrowingError: bool = False,
     ) -> bool:
+        resultWithErrMsg = self.setting_applyIfMatchesWithErrMsg(name_valueTuple)
+
+        if resultWithErrMsg[1] is not None:
+            _errmsg = resultWithErrMsg[1]
+            raise HandledException(_errmsg)
+
+        return resultWithErrMsg[0]
+
+    def setting_applyIfMatchesWithErrMsg(
+        self,
+        name_valueTuple: tuple[str, str] | list[str],
+    ) -> Tuple[bool, str | None]:
         argName, argValue = name_valueTuple[0], name_valueTuple[1]
 
         setting_params = DictUtils.getDict(self._settingsSpec, argName)
         if not setting_params:
-            return False
+            return False, None
         spec = ParamSpec(setting_params)
 
         _value, _help = spec.convertArg_orGiveHelp(argValue)
 
         if _value is None:
-            from ukko_pylibs.app.appSupport import styleAsSuggestion
 
             if argValue == "":
-                _errmsg = f"Missing value for {styleAsSuggestion(argName)}\n{_help}"
+                _errmsg = f"Missing value for {styling.asSuggestion(argName)}\n{_help}"
             else:
-                _errmsg = f"Invalid value for {styleAsSuggestion(argName)}: {json.dumps(argValue)}\n{_help}"
-            if not avoidThrowingError:
-                raise HandledException(_errmsg)
-            else:
-                self.log_warning(_errmsg)
-            return False
+                _errmsg = f"Invalid value for {styling.asSuggestion(argName)}: {json.dumps(argValue)}\n{_help}"
+
+            return True, _errmsg
         else:
             self._setting_value_direct(argName, _value)
 
-            return True
+            return True, None
 
     def _setting_value_direct(self, key: str, value: Any):
         if not "settings" in self.CONFIG_USED:

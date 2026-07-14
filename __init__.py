@@ -13,13 +13,20 @@ from ukko_pylibs.basic.simpleUtils import PrettyText
 from ukko_pylibs.basic.simpleUtils import EscapeMgr
 from ukko_pylibs.basic.simpleUtils import DictUtils
 from ukko_pylibs.basic.simpleUtils import Utils
+from ukko_pylibs.basic.simpleUtils import ImageInfo
+
 from ukko_pylibs.basic.class_DataContents import DataContents
 from ukko_pylibs.app.appSupport import app
+from ukko_pylibs.app.appSupport import Define as AppDefinition
+
 from ukko_pylibs.basic.fileUtils import FileUtils
 from ukko_pylibs.basic import styling
+from ukko_pylibs.basic.class_HandledException import HandledException
+from ukko_pylibs.basic.simpleUtils import timestampObj_from_ns
 
 __all__ = [
     "appLog",
+    "AppDefinition",
     "PrettyText",
     "EscapeMgr",
     "DictUtils",
@@ -28,4 +35,7 @@ __all__ = [
     "DataContents",
     "app",
     "styling",
+    "HandledException",
+    "ImageInfo",
+    "timestampObj_from_ns",
 ]
