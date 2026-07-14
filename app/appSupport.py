@@ -453,22 +453,23 @@ class _AppParameterParser:
                             _loadIntoSpec_fromArg(specToUse, arg)
                         else:
                             _errors.append((f"Unexpected direct argument: {arg}", None))
-                elif (
-                    configOptions is not None
-                    and (arg.startswith("--"))
-                    and ("=" in arg)
-                ):
+                else:
+                    _done = False
+                    if (
+                        configOptions is not None
+                        and (arg.startswith("--"))
+                        and ("=" in arg)
+                    ):
 
-                    _success, errMsg = configOptions.setting_applyIfMatchesWithErrMsg(
-                        arg.removeprefix("--").split("=", 1)
-                    )
+                        _done, errMsg = configOptions.setting_applyIfMatchesWithErrMsg(
+                            arg.removeprefix("--").split("=", 1)
+                        )
 
-                    if errMsg:
-                        _errors.append((errMsg, None))
-                    elif _success:
-                        # Handled as a config option
-                        pass
-                    else:
+                        if errMsg:
+                            _errors.append((errMsg, None))
+                            _done = True
+
+                    if not _done:
                         foundSpec, _value = self.getParamMatch(arg)
 
                         if foundSpec is None:
@@ -487,7 +488,6 @@ class _AppParameterParser:
                             _loadIntoSpec_fromArg(foundSpec, _value)
                         else:
                             _chosenSpec = foundSpec
-
             if _chosenSpec is not None:
                 _errors.append(
                     (f"Missing value for option: {_chosenSpec.name()}", None)
@@ -506,15 +506,20 @@ class _AppParameterParser:
                 _name: str = spec.name()
                 if _name not in paramSpec_chosen:
                     _defValue = spec.defaultValue_orNoneType()
-                    if _defValue is not NoneType:
+                    if spec.isCustomising():
+                        if self.appChoicesBeingBuilt.nextCustomisationAvail is None:
+                            self.appChoicesBeingBuilt.nextCustomisationAvail = spec.get(
+                                "customising", None
+                            )
+                    elif _defValue is not NoneType:
                         _usedDefaults.append(_name)
-                        _loadIntoSpec_direct(spec, f"{_defValue}:a")
-                    elif spec.type() is NoneType:
-                        # Special case - the existance of it is the value - so if it is included we set it to True (eg: --verbosity=details)
+                        _loadIntoSpec_direct(spec, f"{_defValue}")
+                    elif spec.hasBoolValueForPresence():
+                        # Special case - the existance of it is the value - so if it is included we set it to True (eg: --help)
                         # but if it is not included, we set it to False
                         if spec.isNotHidden():
                             _usedDefaults.append(_name)
-                            _loadIntoSpec_direct(spec, f"False:b")
+                            _loadIntoSpec_direct(spec, False)
                     elif spec.isNotHidden():
 
                         _errmsg = f"Missing required parameter: {styling.asError(spec.getValueHelp(ParamSpec.InfoStyle.PARAM_FORMAT_OR_EXAMPLE))}"
@@ -603,7 +608,10 @@ class _AppParameterParser:
                         "name": "version",
                         "group": "~appAuto",
                         "shortName": "",
-                        "description": f"Gives version information for this app: v{self.appChoicesBeingBuilt.appValue('version')}",
+                        "description": "Gives version information for this app: "
+                        + styling.asBold(
+                            f"v{self.appChoicesBeingBuilt.appValue('version')}"
+                        ),
                     }
                 )
             )
@@ -722,8 +730,6 @@ class _AppParameterParser:
                 )
             else:
                 for xx in actionInfo.get("options", []):
-                    print("Adding option: ", xx, " @ index: ", optionList_index)
-
                     self.cleanEntry(xx)
 
                     self.availParamsFromAppInfo.insert(
@@ -748,8 +754,8 @@ class _AppParameterParser:
         ):
 
             if not "group" in entry:
-                entry["group"] = (
-                    "!!" + self.appChoicesBeingBuilt.customisingChoices_asText("+")
+                entry["group"] = self.appChoicesBeingBuilt.customisingChoices_asText(
+                    "+"
                 )
 
             _customisations = entry.get("customising", None)
@@ -934,7 +940,7 @@ class Define:
             )
             lines_out.append("")
             lines_out.append(
-                f"Usage: {exeNameDecorated} [options] {params_txt}"
+                f"Usage: {styling.asSuggestion(exeNameDecorated+' [options] '+params_txt)}"
             )  # + {appChoices.getCustomisationChoicesAsText()}
         else:
             # |eg:|  "send": {
@@ -1009,7 +1015,12 @@ class Define:
                         suffix = " | " + _value
 
                     lines_out.append(
-                        f"{prefix} {PrettyText.padToWidth(_nameToUse, maxLen)} {PrettyText.padToWidth(_params_out, extrasLen)}{suffix}"
+                        prefix
+                        + " "
+                        + styling.asSuggestion(
+                            f"{PrettyText.padToWidth(_nameToUse, maxLen)} {PrettyText.padToWidth(_params_out, extrasLen)}"
+                        )
+                        + suffix
                     )
                     prefix = " " * len(prefix)
 
@@ -1044,7 +1055,9 @@ class Define:
         for paramObj in _nonDirect:
             _g = paramObj.get("group")
             if _g and (_g != "~appAuto"):
-                optionSummaries.appendItem(f"{_g} Options", paramObj)
+                optionSummaries.appendItem(
+                    f"{str(_g).title().replace('_', ' ')} Options", paramObj
+                )
                 otherName = "Common Options"
 
         # < Ensure '~appAuto' are last
@@ -1196,10 +1209,11 @@ class Define:
 
         for name, value in self.appChoices.customisingChoicesMade:
             self.appChoices.params[name] = value
+
         ####################################
         #
 
-        print_extra(["appChoices()", self.appChoices])
+        # |x|print_extra(["appChoices()", self.appChoices])
 
         if self.appChoices.params.pop("help", None):
             self.giveHelp()
@@ -1222,7 +1236,6 @@ class Define:
             )
 
         self.appChoices.appValues.pop("options", None)
-        print_extra(["appChoices()", self.appChoices])
         return self.appChoices
 
 

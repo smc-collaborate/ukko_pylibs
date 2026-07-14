@@ -208,7 +208,7 @@ def loadBytesFromFile_orHandledException(
         return file_bytes
     except Exception as e:
         raiseHandledException(
-            f"Unable to load {what} from file '{Utils.pathDisplay(inputBinaryFile)}': A [{type(e).__name__}] exception occurred: {e}"
+            f"Unable to load {what} from file '{Utils.pathDisplay(inputBinaryFile)}'\nA [{type(e).__name__}] exception occurred: {e}"
         )
 
 

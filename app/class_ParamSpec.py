@@ -18,7 +18,7 @@ if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 from ukko_pylibs.basic.class_HandledException import HandledException
-from ukko_pylibs.basic.simpleUtils import PrettyText, EscapeMgr
+from ukko_pylibs.basic.simpleUtils import PrettyText, EscapeMgr, Utils
 from ukko_pylibs.basic.logger import appLog
 from ukko_pylibs.basic.class_DataContents import DataContents
 
@@ -86,7 +86,6 @@ class ValueHelpSummary:
         return result
 
     def asWrapped(self) -> "ValueHelpSummary.Columns":
-
         return (
             PrettyText.textWrapWithPrefixes(self.shortName),
             PrettyText.textWrapWithPrefixes(
@@ -127,7 +126,7 @@ class ParamSpec:
         return ParamSpec(self.spec, self.defaultSupportEscaping)
 
     def _calcIsEscaped(self, defaultSupportEscaping: bool) -> bool:
-        if not self.type() is str:
+        if not self.type_orNone() is str:
             return False
 
         if not defaultSupportEscaping:
@@ -214,7 +213,7 @@ class ParamSpec:
                 value = _lookup[value]
             return value
 
-    def type(self):
+    def type_orNone(self):
         if "type" in self.spec:
             result = self.spec["type"]
             if not isinstance(result, str):
@@ -245,19 +244,19 @@ class ParamSpec:
                     first_value = {}
                 return type(first_value)
 
-        return NoneType
+        return None
 
     def hasBoolValueForPresence(self):
         return not self.hasValue()
 
     def hasValue(self):
-        return self.type() is not NoneType
+        return self.type_orNone() is not None
 
     def defaultQuotedTxt(self):
         txt = self._defaultTxt()
         if txt is None:
             txt = ""
-        elif (self.type() is DataContents) and txt == "":
+        elif (self.type_orNone() is DataContents) and txt == "":
             txt = ""
         elif txt == "":
             txt = "''"
@@ -382,13 +381,13 @@ class ParamSpec:
         """Returns a tuple of (annotation, description) for extra info about the parameter's value."""
         result = ""
 
-        if self.type() is DataContents:
+        if self.type_orNone() is DataContents:
             result += "ꟳ"
         elif self.isEscaped():
             result += "ⁿ"
         if self.mayBeDirect():
             result += "⁺"
-        return result
+        return styling.asBold(result)
 
     @staticmethod
     def getValueHelpExtraInfoFromSubscripts(txt: str) -> list[str]:
@@ -397,7 +396,7 @@ class ParamSpec:
 
         for key, help in ParamSpec.EXTRA_HELP_SUBSCRIPTS.items():
             if key in txt:
-                result.append(f" • Options marked with {key} {help}")
+                result.append(f" • Options marked with {styling.asBold(key)} {help}")
 
         if len(result) > 0:
             result.insert(0, "Parameter Notes:")
@@ -458,21 +457,24 @@ class ParamSpec:
                 but_is_this_value=arg,
             )
 
-        _type = self.type()
+        _type = self.type_orNone()
 
-        if _type is NoneType:
+        if _type is None:
             if arg is None:
                 return True, None  # Just return True for 'Yes - it is included'
-            elif isinstance(arg, bool):
-                return arg, None
+
+            _result = Utils.toBool(arg)
+            if _result is not None:
+                return _result, None
             else:
-                return _error(f"No type defined, cannot parse value: '{arg}'")
+                return _error(
+                    f"Expects a boolean presence value", but_is_this_value=arg
+                )
 
         if _type == bool:
-            if arg.lower() in ("true", "yes", "1"):
-                return True, None
-            elif arg.lower() in ("false", "no", "0"):
-                return False, None
+            _result = Utils.toBool(arg)
+            if _result is not None:
+                return _result, None
             else:
                 return _error(f"Expects a boolean value", but_is_this_value=arg)
         elif (_type is int) or (_type is float):
@@ -581,7 +583,9 @@ class ParamSpec:
         #
         summaryAdd_param = ""
         summaryAdd_directPrefixes = []
-        _formattedName = self.get("paramFormat", _name)
+        _formattedName = (
+            f"{self.get('paramFormat', _name)}{self.getValueHelpSubscripts()}"
+        )
 
         if self.get("mustBeDirect", None):
             if "descriptions" in self.spec:
@@ -589,16 +593,16 @@ class ParamSpec:
                     summaryAdd_directPrefixes.append(
                         {"name": name, "description": value}
                     )
-            elif self.type() is list or self.get("supportMultiple", False):
+            elif self.type_orNone() is list or self.get("supportMultiple", False):
                 summaryAdd_param = f"[{_formattedName} …] "
             else:
                 summaryAdd_param = f"[{_formattedName}] "
 
         elif self.get("mayBeDirect", None):
-            if self.type() is list:
-                summaryAdd_param = f"[{_formattedName}⁺ …] "
+            if self.type_orNone() is list:
+                summaryAdd_param = f"[{_formattedName} …] "
             else:
-                summaryAdd_param = f"[{_formattedName}⁺] "
+                summaryAdd_param = f"[{_formattedName}] "
 
         ##########
         #

@@ -52,6 +52,17 @@ def get_cwdOnStartup():
 
 class Utils:
     @staticmethod
+    def toBool(value: Any) -> bool | None:
+        if isinstance(value, bool):
+            return value
+        txt = str(value).strip().lower()
+        if txt in ["true", "1", "yes", "y", "on"]:
+            return True
+        elif txt in ["false", "0", "no", "n", "off"]:
+            return False
+        return None
+
+    @staticmethod
     def removePrefix(value: str, prefix: str) -> tuple[bool, str]:
         if not value.startswith(prefix):
             return False, value
