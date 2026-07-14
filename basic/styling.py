@@ -4,7 +4,7 @@
 
 
 import sys, os
-from typing import Any, Tuple
+from typing import Any, Iterable, Tuple
 
 
 ################################################################################
@@ -147,7 +147,7 @@ def asBold(value: Any | None) -> str:
     return apply(value, "+bold")
 
 
-def asSuggestionList(values: list[Any], quoteIfNeeded: bool = False) -> str:
+def asSuggestionList(values: Iterable[Any], quoteIfNeeded: bool = False) -> str:
 
     if quoteIfNeeded:
         return ", ".join(

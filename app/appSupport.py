@@ -384,12 +384,8 @@ class _AppParameterParser:
             app_definition: dict[str, Any],
             availParamsFromAppInfo: ParamSpecList | None = None,
         ):
-            self.nextActionOptions = None
-
             self.appChoicesBeingBuilt = AppChoices({}, {}, [], None)
             self._mergedAppInfo = self.appChoicesBeingBuilt.appValues
-
-            self.nextActionOptions: dict[str, Any] | None = None
 
             self.availParamsFromAppInfo = availParamsFromAppInfo or ParamSpecList([])
 
@@ -576,6 +572,13 @@ class _AppParameterParser:
                 f"AS LOADED: " + Utils.asJsonStr(paramSpec_chosen, indent=2)
             )
 
+            if self.appChoicesBeingBuilt.nextCustomisationAvail is not None:
+                _errors.append(
+                    (
+                        f"Expected one of {styling.asSuggestionList(self.appChoicesBeingBuilt.nextCustomisationAvail.keys())}",
+                        None,
+                    )
+                )
             self.appChoicesBeingBuilt.defaultsUsed = _usedDefaults
             return AppParamParseResults(
                 paramSpec_chosen,
@@ -726,10 +729,7 @@ class _AppParameterParser:
 
             # Update:
             #   * self._mergedAppInfo
-            #   * self.nextActionOptions -> null
             #   * self.availParamsFromAppInfo
-
-            self.nextActionOptions = None
 
             #########################
             # Update: _mergedAppInfo
