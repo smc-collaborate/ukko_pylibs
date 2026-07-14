@@ -249,6 +249,7 @@ class AppChoices:
             "escapeArguments": None,
             "additional_parameters": "",
             "exeName": getExeName(),
+            "enableStyling": True,
         }
         if name in APP_OPTION_DEFAULTS:
             return APP_OPTION_DEFAULTS[name]
@@ -396,7 +397,17 @@ class _AppParameterParser:
 
         def doParsing(self, args: list[str]) -> AppParamParseResults:
 
-            #
+            ####################################################################################
+            # Ensures we get the detailed logging (and colours) during parameter review
+            _entries = self.getAvailParamsAll()
+            appLog.setVerbosity(
+                _entries.cheatPeekAtValue_orNoneType("verbosity"), silentOnFailure=True
+            )
+            styling.doDisable(
+                _entries.cheatPeekAtValue_orNoneType("colour") == "disable"
+            )
+
+            ####################################################################################
             # Uses:
             #   * self.appChoicesBeingBuilt
             #   * self.getAvailParamsAll()
@@ -602,6 +613,40 @@ class _AppParameterParser:
             #
             # Default options that might be available based on the current configuration
             #
+            _all.append(
+                ParamSpec(
+                    {
+                        "name": "verbosity",
+                        "group": "~appAuto",
+                        "lookup": entries,
+                        "default": default,
+                        "defaultEnvVar": "UAPP_VERBOSITY",
+                        "description": "Set verbosity of messaging",
+                    }
+                )
+            )
+
+            #############################
+            #
+            # Styling
+            #
+            if (
+                self.appChoicesBeingBuilt.appValue("enableStyling")
+                and styling.isSupported()
+            ):
+                _all.append(
+                    ParamSpec(
+                        {
+                            "name": "colour",
+                            "lookup": ["enable", "disable"],
+                            "group": "~appAuto",
+                            "shortName": "",
+                            "default": "enable",
+                            "defaultEnvVar": "UAPP_COLOUR",
+                            "description": "Select output colouring & styling",
+                        }
+                    )
+                )
             if self.appChoicesBeingBuilt.appValue("show-config"):
                 _all.append(
                     ParamSpec(
@@ -841,15 +886,16 @@ class _AppParameterParser:
 
             return True
 
-    def optionInsert_orNoneType(self, spec: dict[str, Any] | None) -> Any | NoneType:
-        """Returns the value of the spec - or NoneType if no spec provided.
-        Note, due to lookups, 'None' is a valid value, so we cannot use None to indicate no spec provided - hence the use of NoneType
-        """
-        if spec is not None:
-            _spec = ParamSpec(spec)
-            self.availParamsFromAppInfo.insert(0, _spec)
-            return _spec.cheatPeekAtValue_orNoneType()
-        return NoneType
+
+# |x|    def optionInsert_orNoneType(self, spec: dict[str, Any] | None) -> Any | NoneType:
+# |x|        """Returns the value of the spec - or NoneType if no spec provided.
+# |x|        Note, due to lookups, 'None' is a valid value, so we cannot use None to indicate no spec provided - hence the use of NoneType
+# |x|        """
+# |x|        if spec is not None:
+# |x|            _spec = ParamSpec(spec)
+# |x|            self.availParamsFromAppInfo.insert(0, _spec)
+# |x|            return _spec.cheatPeekAtValue_orNoneType()
+# |x|        return NoneType
 
 
 class Define:
@@ -1131,42 +1177,6 @@ class Define:
         #
         _appParamParser = _AppParameterParser(self.app_definition)
 
-        _verbosityChoice = _appParamParser.optionInsert_orNoneType(
-            {
-                "name": "verbosity",
-                "group": "~appAuto",
-                "lookup": entries,
-                "default": default,
-                "defaultEnvVar": "UAPP_VERBOSITY",
-                "description": "Set verbosity of messaging",
-            }
-        )
-        appLog.setVerbosity(
-            _verbosityChoice, silentOnFailure=True
-        )  # < Ensures we get the detailed logging during parameter review
-
-        #############################
-        #
-        # Styling
-        #
-        if self.app_definition.get("enableStyling", True) and styling.isSupported():
-            styling.doDisable(
-                _appParamParser.optionInsert_orNoneType(
-                    {
-                        "name": "colour",
-                        "lookup": ["enable", "disable"],
-                        "group": "~appAuto",
-                        "shortName": "",
-                        "default": "enable",
-                        "defaultEnvVar": "UAPP_COLOUR",
-                        "description": "Select output colouring & styling",
-                    }
-                )
-                == "disable"
-            )
-        else:
-            styling.doDisable(True)
-
         return _appParamParser
 
     def parseParams(self, args: list[str] | None = None) -> AppChoices:
@@ -1183,9 +1193,7 @@ class Define:
             doHalt("Version Info - Exiting", suggestSilent=True)
             exit(0)
 
-        paramParser = self._createAppParamParser()
-
-        parseResults = paramParser.doParsing(args)
+        parseResults = self._createAppParamParser().doParsing(args)
 
         self.availParams = parseResults.paramSpec_avail
         self.appChoices = parseResults.appChoices

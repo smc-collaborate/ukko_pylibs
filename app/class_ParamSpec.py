@@ -734,6 +734,10 @@ class ParamSpecList(list[ParamSpec]):
                 return spec
         return None
 
+    def cheatPeekAtValue_orNoneType(self, name: str) -> Any | NoneType:
+        spec = self.get(name)
+        return NoneType if spec is None else spec.cheatPeekAtValue_orNoneType()
+
     def containsShortName(self, shortName: str) -> bool:
         for spec in self:
             if spec.shortNameWithHyphen() == shortName:
