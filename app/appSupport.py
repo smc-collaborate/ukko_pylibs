@@ -8,7 +8,6 @@ import errno
 import json
 import os
 import sys
-import traceback
 from typing import Any, Callable, NoReturn, Tuple
 from types import NoneType
 
@@ -23,7 +22,10 @@ if shared_dir not in sys.path:
 from ukko_pylibs.basic import fileUtils
 from ukko_pylibs.basic.simpleUtils import Utils, PrettyText, EscapeMgr, DictUtils
 from ukko_pylibs.basic.logger import appLog
-from ukko_pylibs.basic.class_HandledException import HandledException
+from ukko_pylibs.basic.class_HandledException import (
+    HandledException,
+    getPrettyExceptionInfo,
+)
 from ukko_pylibs.basic import styling
 from ukko_pylibs.app.class_Configuration import Configuration
 from ukko_pylibs.app.class_ParamSpec import (
@@ -572,7 +574,7 @@ class _AppParameterParser:
             #
             for x in paramSpec_chosen.values():
                 for y in x.errorNotes:
-                    _errors.append((y, None))
+                    _errors.insert(0, (y, None))
 
             appLog.print_tediousDetail(f"argv: " + Utils.asJsonStr(args, indent=2))
             appLog.print_tediousDetail(f"errors: " + Utils.asJsonStr(_errors, indent=2))
@@ -1360,47 +1362,6 @@ def printVerbose_sysInfo():
         appLog.print_tediousDetail(f"Modules:\n" + "\n".join(lines))
 
 
-def getPrettyExceptionInfo(e: BaseException) -> Tuple[str, list[str]]:
-    """summaryText,TraceLines"""
-    traceLines = (
-        "\n".join(traceback.format_exception(type(e), e, e.__traceback__))
-    ).split(
-        "\n"
-    )  # < Some of the lines already have newlines, so we split them into separate lines
-
-    summary = []
-    for _line in traceLines:
-        line = _line.strip()
-        if line.startswith('File "'):
-            summary = []
-        elif line:
-            summary.append(_line)
-
-    sourceLeft = []
-    if len(summary) >= 2:
-        kind = summary[-1]
-        _untrimmed = summary[0].rstrip()
-
-        source = _untrimmed.lstrip()
-        prefixToStrip = _untrimmed[: (len(_untrimmed) - len(source))]
-        for x in summary[1:-1]:
-            sourceLeft.append(x.removeprefix(prefixToStrip))
-    else:
-        kind = str(e)
-        source = ""
-
-    msg = f"Unexpected Error `{styling.asError(kind)}`"
-    if source:
-        msg += " from `"
-        prefix = PrettyText.asSpaces(msg)
-        msg += styling.asError(source) + "`"
-
-        for x in sourceLeft:
-            msg += "\n" + prefix + styling.asError(x)
-
-    return msg, traceLines[:-3]
-
-
 def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
     """
     Exit the program with an error message if an exception occurs.
@@ -1432,12 +1393,7 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
         # sys.stderr.write(f"\n⚠️  Exiting with code: {e.code}\n")
         doHalt("System Exit - Exiting")
         sys.exit(e.code)
-    elif isHandled:
-        error_exit(
-            f"{action}{emsgSuffix}", withSuggestion=action.startswith("Missing value")
-        )
-    else:
-
+    elif not isHandled:
         msg, traceLines = getPrettyExceptionInfo(e)
         msg += "\n"
         if appLog.isVerbose() or [x for x in os.environ if x.startswith("VSCODE_")]:
@@ -1446,6 +1402,21 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
         elif g_runningApp is not None:
             msg += f"Suggestion: {styling.asSuggestion(appInfo_cmdWithVariant(g_runningApp.availParams.get('verbosity'),'details'))} for more information"
         error_exit(msg, withSuggestion=False)
+    elif e.srcException is not None:
+        if appLog.isVerbose() or [x for x in os.environ if x.startswith("VSCODE_")]:
+            msg = "\n".join(
+                [f"   [trace]: {x}" for x in getPrettyExceptionInfo(e.srcException)[1]]
+            )
+        elif g_runningApp is not None:
+            msg = f"Suggestion: {styling.asSuggestion(appInfo_cmdWithVariant(g_runningApp.availParams.get('verbosity'),'details'))} for more information"
+        else:
+            msg = ""
+        error_exit(f"{action}{emsgSuffix}\n{msg}", withSuggestion=False)
+
+    else:
+        error_exit(
+            f"{action}{emsgSuffix}", withSuggestion=action.startswith("Missing value")
+        )
 
 
 def returnJsonData(resultFull: Any, elementNameIfNotFull: str | None = None):
