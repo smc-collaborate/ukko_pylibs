@@ -621,7 +621,7 @@ class _AppParameterParser:
                         "lookup": entries,
                         "default": default,
                         "defaultEnvVar": "UAPP_VERBOSITY",
-                        "description": "Set verbosity of messaging",
+                        "description": "Set verbosity of messaging       ",
                     }
                 )
             )
