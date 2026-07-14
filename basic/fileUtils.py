@@ -32,7 +32,10 @@ def raiseHandledException(errmsg: str) -> NoReturn:
 
 
 def loadJsonWithExtras(
-    string_or_path: str, inputKind: str = "JSON", exceptionOnError: bool = True
+    string_or_path: str,
+    inputKind: str = "JSON",
+    exceptionOnError: bool = True,
+    assumeDict: bool = False,
 ) -> tuple[str | None, dict[str, Any]]:
     jParams_ = string_or_path
     if jParams_ == "-":
@@ -42,7 +45,7 @@ def loadJsonWithExtras(
         if (jParams_.startswith("@") and not jParams_.startswith("@/dev/"))
         else None
     )
-    inputJson = loadJson(jParams_)
+    inputJson = loadJson(jParams_, assumeDict=assumeDict)
     if inputJson is None:
         inputJson = {}
     return (jParams_filePath, inputJson)
