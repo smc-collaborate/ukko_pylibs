@@ -825,6 +825,10 @@ class _AppParameterParser:
                     "+"
                 )
 
+            if "const" in entry:
+                entry["default"] = entry["const"]
+                entry["hidden"] = True
+
             _customisations = entry.get("customising", None)
             if _customisations is not None:
                 if not isinstance(_customisations, dict):
