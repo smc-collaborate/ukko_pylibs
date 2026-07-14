@@ -262,14 +262,14 @@ class ParamSpec:
             txt = "''"
         return f"{txt}"
 
-    def _defaultTxt(self) -> str | None:
+    def _defaultTxt(self, requiredMarker: str = "••Required••") -> str | None:
         if not self.hasValue():
             return None
 
         _defValue = self.defaultValue_orNoneType()
         if _defValue is NoneType:
             if ("type" in self.spec) or ("lookup" in self.spec):
-                return "••Required••"
+                return requiredMarker
             else:
                 return ""
         if (type(_defValue) is list) and (len(_defValue) > 0):

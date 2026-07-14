@@ -928,6 +928,9 @@ class Define:
         #   * self.availParams
 
         #
+        visibleParams = [
+            x for x in availParams if x.isNotHidden() and not x.isCustomising()
+        ]
 
         lines_out: list[str] = []
 
@@ -940,24 +943,22 @@ class Define:
 
         params_txt = f" {appChoices.getOverviewAsText()}".strip()
 
-        _customisedChoiceNext: dict[str, Any] | None = appChoices.nextCustomisationAvail
-
+        #########################################
+        #  Calculate: `mentionOtherOptions`  (to use with 'params_txt' in the usage line)
+        #
         _mentioned = [x.name() for x in appChoices.getOptions()]
         _unmentioned = [
             x
-            for x in availParams
-            if not x.name() in _mentioned
-            and x.isNotHidden()
-            and (x.get("group") != "~appAuto")
+            for x in visibleParams
+            if not x.name() in _mentioned and (x.get("group") != "~appAuto")
         ]
 
         mentionOtherOptions = "" if len(_unmentioned) == 0 else " [options]"
 
-        print(
-            Utils.asJsonStr(
-                {"unmentioned": _unmentioned, "mentioned": _mentioned}, indent=2
-            )
-        )
+        #########################################
+        #
+        _customisedChoiceNext: dict[str, Any] | None = appChoices.nextCustomisationAvail
+
         if not _customisedChoiceNext:
             lines_out.append(
                 f"{PrettyText.padToWidth(exeNameDecorated, 32)} {PrettyText.padToWidth(verText, 13)} : {PrettyText.padToWidth(appChoices.appValue('description'), 90)}"
@@ -999,7 +1000,6 @@ class Define:
                 }
             )
 
-            maxLen = 30
             for _entry in directPrefixes:
                 if not _entry.get("blankLine", False):
                     _name = _entry.get("name", "")
@@ -1009,45 +1009,42 @@ class Define:
                         else exeNameDecorated
                     )
                     _entry["nameToUse"] = exeNameToUse + " " + _name
-                    _len = len(_entry["nameToUse"])
-                    if _len > maxLen:
-                        maxLen = _len
-            extrasLen = len(params_txt)
-            lines_out.append(
-                PrettyText.padToWidth(
-                    exeNameDecorated, maxLen + len(prefix) + 2 + extrasLen
-                )
-                + " │ "
-                + PrettyText.padToWidth(appChoices.appValue("description"), 90)
+
+            tableOut: list[list[str]] = []
+
+            tableOut.append(
+                [exeNameDecorated, "", f"| {appChoices.appValue("description")}"]
             )
-            lines_out.append("")
+            tableOut.append([])
+
             for _entry in directPrefixes:
                 if _entry.get("blankLine", False):
-                    lines_out.append("")
+                    tableOut.append([])
                 else:
-                    _nameToUse = _entry.get("nameToUse", "")
+                    _name = _entry.get("name", "")
+                    exeNameToUse = (
+                        exeName
+                        if _entry.get("noDecoration", False)
+                        else exeNameDecorated
+                    )
+                    _nameToUse = exeNameToUse + " " + _name
+
                     _value = _entry.get("description", "")
                     includeOptions = _entry.get("options", True)
 
-                    _params_out = (
-                        params_txt if includeOptions else ""
-                    )  # (' '*len(params_txt))
+                    params_txt = "[options …]"
+                    _params_out = params_txt if includeOptions else ""
 
-                    if _value == "":
-                        suffix = ""
-                    else:
-                        suffix = " | " + _value
-
-                    lines_out.append(
-                        prefix
-                        + " "
-                        + styling.asSuggestion(
-                            f"{PrettyText.padToWidth(_nameToUse, maxLen)} {PrettyText.padToWidth(_params_out, extrasLen)}"
-                        )
-                        + suffix
+                    tableOut.append(
+                        [
+                            f"{prefix}{styling.asSuggestion(_nameToUse)}",
+                            styling.asSuggestion(_params_out),
+                            "" if _value == "" else f"| {_value}",
+                        ]
                     )
-                    prefix = " " * len(prefix)
+                    prefix = PrettyText.asSpaces(prefix)
 
+            lines_out.extend(PrettyText.tableAsLines(tableOut, dividers=" "))
         lines_out.append("")
 
         optionSummaries = ValueHelpSummaries()
@@ -1074,12 +1071,9 @@ class Define:
         #
         # Add:  ['~chosen']: 'Specific Options'
         #
-        _optionsToSummarise = (
-            availParams  # [x for x in availParams if not (x.mustBeDirect())]
-        )
 
         otherName = "Basic Options"
-        for paramObj in _optionsToSummarise:
+        for paramObj in visibleParams:
             _g = paramObj.get("group")
             if _g and (_g != "~appAuto"):  # < First: Non blank & non-auto entries
                 optionSummaries.appendItem(
@@ -1088,12 +1082,12 @@ class Define:
                 otherName = "Common Options"
 
         # < Ensure '~appAuto' are last
-        for paramObj in _optionsToSummarise:
+        for paramObj in visibleParams:
             _g = paramObj.get("group", None)
             if not _g:
                 optionSummaries.appendItem(otherName, paramObj)  # < Then: Blank Entries
 
-        for paramObj in _optionsToSummarise:
+        for paramObj in visibleParams:
             _g = paramObj.get("group", None)
             if _g == "~appAuto":  # < Then: Auto entries
                 optionSummaries.appendItem("Tailoring Options", paramObj)
@@ -1105,7 +1099,7 @@ class Define:
         lines_out.extend(optionSummaries.asLines())
 
         subscripts = ""
-        for d in _optionsToSummarise:
+        for d in visibleParams:
             subscripts += d.getValueHelpSubscripts()
         lines_out.extend(ParamSpec.getValueHelpExtraInfoFromSubscripts(subscripts))
 
