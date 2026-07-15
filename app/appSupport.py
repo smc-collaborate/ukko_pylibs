@@ -1268,10 +1268,6 @@ class Define:
                 for line in examplesOut.asLines(render_colVisWidths=tableColWidths):
                     lines_out.append(f" • {line}")
 
-                # |x|for x in _examplesRaw:
-                # |x|    lines_out.append(
-                # |x|        f" • {styling.asError(str(x))}"
-                # |x|    )
         for line in lines_out:
             line = line.replace("\xa0", " ")
         return lines_out

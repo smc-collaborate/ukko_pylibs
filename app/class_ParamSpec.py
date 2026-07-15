@@ -433,6 +433,10 @@ class ParamSpec:
         ):
             if but_is_this_value is not None:
                 msg += f" -- but is {styling.asError(but_is_this_value)}"
+            if isinstance(e, HandledException):
+                msg += f"\nCaused by: {styling.asError(e.origMsg)}"
+            elif e is not None:
+                msg += f"\nCaused by: {styling.asError(str(e))}"
             return None, f"Parameter {_name}: {msg}"
 
         _name = self.spec.get("name", "<Unnamed>")
@@ -518,7 +522,7 @@ class ParamSpec:
                     None,
                 )
             except Exception as e:
-                return _error(f"Provided with `{arg}` which gave error", e)
+                return _error(f"Provided with `{arg}` which gave an error", e)
         else:
             return _error(f"Unsupported type: {str(_type)}")
 
