@@ -1371,26 +1371,28 @@ class Define:
             doHalt("Version Info - Exiting", suggestSilent=True)
             exit(0)
 
+        exitWithOk = False
+        if self.appChoices.params.pop("help", None):
+            self.giveHelp(shorterVersion=bool(parseResults.errors))
+            doHalt("Help Info - Exiting", suggestSilent=True)
+
+            exitWithOk = True
+
         if parseResults.errors:
             error_exit(
                 parseResults.errors[0][0], None, parseResults.errors[0][1] or True
             )
 
-        if self.appChoices.params.pop("help", None):
-            self.giveHelp()
-            doHalt("Help Info - Exiting", suggestSilent=True)
-            if parseResults.errors:
-                error_exit(
-                    parseResults.errors[0][0], None, parseResults.errors[0][1] or True
-                )
-            exit(0)
-
         if self.appChoices.params.pop("debug-option", None) == "app-info":
             obj = {"appDefinition": self.app_definition}
             print(Utils.asJsonStr(obj, indent=2))
-            exit(0)
+            exitWithOk = True
 
         self.appChoices.appValues.pop("options", None)
+
+        if exitWithOk:
+            doHalt("Exiting", suggestSilent=True)
+            exit(0)
         return self.appChoices
 
 
