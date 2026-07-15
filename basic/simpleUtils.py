@@ -658,10 +658,20 @@ class PrettyText:
     @staticmethod
     def withSubstitutions(
         src: str,
-        substitutions: dict[str, Any],
+        substitutions_: dict[str, Any],
         prefix: str = "{",
         suffix: str = "}",  # < These defaults make it compatible with python's 'parse' function
     ) -> str:
+        substitutions = deepcopy(substitutions_)
+        warning_format = substitutions.pop(
+            "[warning_format]", "PrettyText.withSubstitutions({keyNote}): {msg}"
+        )
+
+        def giveWarning(key: str, msg: str):
+            appLog.print_warning(
+                warning_format.format(keyNote=prefix + key + suffix, key=key, msg=msg)
+            )
+
         """Replaces all occurrences of prefix+key{:xxx}+suffix in src with the corresponding value from substitutions"""
         if prefix == "":
             raise ValueError("Prefix cannot be empty")
@@ -674,24 +684,25 @@ class PrettyText:
             _n = txt.find(suffix)
             substText: str | None = None
             if _n < 0:
-                appLog.print_warning(
-                    f"PrettyText.withSubstitutions({prefix}…{suffix}): Found prefix '{prefix}' without matching suffix '{suffix}'"
+                giveWarning(
+                    "…Missing:",
+                    f"Found prefix '{prefix}' without matching suffix '{suffix}'",
                 )
             else:
-                keyAndFormatting = txt[0:_n].split(":", 1)
+                keySource = txt[0:_n]
+                keyAndFormatting = keySource.split(":", 1)
                 key = keyAndFormatting[0]
 
                 if not (key in substitutions):
-                    appLog.print_warning(
-                        f"PrettyText.withSubstitutions({prefix}{':'.join(keyAndFormatting)}{suffix}): No substitution '{key}' found in: {substitutions}"
-                    )
+                    giveWarning(keySource, f"{key} not in {substitutions}")
                 elif len(keyAndFormatting) > 1:
                     formatSpec = keyAndFormatting[1]
                     try:
                         substText = format(substitutions[key], formatSpec)
                     except Exception as e:
-                        appLog.print_warning(
-                            f"PrettyText.withSubstitutions({prefix}{':'.join(keyAndFormatting)}{suffix}): Error formatting value '{substitutions[key]}' with format spec '{formatSpec}': {e}"
+                        giveWarning(
+                            keySource,
+                            f"Error formatting value '{substitutions[key]}' with format spec '{formatSpec}': {e}",
                         )
                 else:
                     substText = str(substitutions[key])
