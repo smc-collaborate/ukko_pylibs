@@ -11,6 +11,8 @@ import sys
 from typing import Any, Callable, NoReturn, Tuple
 from types import NoneType
 
+from ukko_pylibs.basic.class_DataContents import DataContents
+
 ################################################################################
 #
 # Shared Libraries
@@ -304,6 +306,9 @@ class AppChoices:
 
     def get(self, key, default=None):
         return self.paramChoice(key, default)
+
+    def getDataContents_orNone(self, key) -> DataContents | None:
+        return self.paramChoice(key, None)
 
     def getOverviewAsTextAndParams(self) -> tuple[str, list[str]]:
         param_info = ""
