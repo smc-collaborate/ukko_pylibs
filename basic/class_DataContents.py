@@ -316,7 +316,7 @@ class DataContents:
         if self.getFormat() == "default":
             self.formatting = self.getSuggestedFormatting()
         try:
-            with open(fname, "r+b") as f:
+            with open(fname, "rb") as f:
                 self.asData = f.read()
         except Exception as e:
             raise HandledException(f"Error reading file {json.dumps(fname)}", e)
