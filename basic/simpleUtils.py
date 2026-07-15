@@ -760,6 +760,11 @@ class PrettyText:
             return text
 
     @staticmethod
+    def containsAnsiCode(text: str) -> bool:
+        ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+        return bool(ansi_escape.search(text))
+
+    @staticmethod
     def textWrapWithPrefixes(
         txt: str, maxWidth: int | None = None, prefixes: list[str] | None = None
     ) -> list[str]:

@@ -101,6 +101,10 @@ def apply(value: Any | None, styleText: str) -> str:
     return _applyAlways(str(value), styleText)[0] if isEnabled() else str(value)
 
 
+def isStyled(text: str) -> bool:
+    return PrettyText.containsAnsiCode(text)
+
+
 def asSuggestion(value: Any | None) -> str:
     return apply(value, "blue+bold")
 
