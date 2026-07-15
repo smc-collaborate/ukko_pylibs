@@ -129,7 +129,10 @@ def appInfo_appendStr(
         appInfo_set(name, oldValue + valueToAppend)
 
 
-def appInfo_cmdWithVariant(spec: ParamSpec | None, value: Any) -> str:
+def appInfo_cmdWithVariant(
+    spec: ParamSpec | None, value: Any, blankIfUnchanged: bool = True
+) -> str:
+    """Returns: (cmd,isModified) - the command line to run the app with the given spec/value, and whether it is materially different from the current appInfo_get("APP_AS_USED.allParams")"""
 
     # return f"{appInfo_getStr("name+actions")} {valuePrefixOrBlank}{paramValue}"
 
@@ -137,16 +140,16 @@ def appInfo_cmdWithVariant(spec: ParamSpec | None, value: Any) -> str:
         "APP_AS_USED.paramsArray", []
     )  # pyright: ignore[reportAssignmentType]
 
-    newList: list[Any] = [appInfo_getStr("exeFullName")]
+    newParams: list[Any] = [appInfo_getStr("exeFullName")]
 
     if spec is None:
-        newList.extend(oldParams)
+        newParams.extend(oldParams)
     elif spec.get("mustBeDirect"):
-        newList.extend(oldParams)
-        if str(value).startswith("-") and not ("--" in newList):
-            newList.append("--")
+        newParams.extend(oldParams)
+        if str(value).startswith("-") and not ("--" in newParams):
+            newParams.append("--")
 
-        newList.append(str(value))
+        newParams.append(str(value))
     else:
         if spec.hasValue():
             newEntry = f"--{spec.name()}={value}"
@@ -160,21 +163,26 @@ def appInfo_cmdWithVariant(spec: ParamSpec | None, value: Any) -> str:
             if not forcingDirect:
                 if x == "--":
                     if newEntry != "":
-                        newList.append(newEntry)
+                        newParams.append(newEntry)
                     forcingDirect = True
                 elif spec.getMatchedValue(x)[0]:
                     if newEntry != "":
-                        newList.append(newEntry)
+                        newParams.append(newEntry)
                     addExisting = False
                     forcingDirect = True
 
             if addExisting:
-                newList.append(x)
+                newParams.append(x)
 
         if not forcingDirect and newEntry != "":
-            newList.append(newEntry)
+            newParams.append(newEntry)
 
-    return " ".join([EscapeMgr.asBashParam(x) for x in newList])
+    if blankIfUnchanged and newParams == oldParams:
+        return ""
+
+    newParams.insert(0, appInfo_getStr("exeFullName"))
+
+    return " ".join([EscapeMgr.asBashParam(x) for x in newParams])
 
 
 def getExeName() -> str:
@@ -559,7 +567,7 @@ class _AppParameterParser:
                         if spec.isNotHidden():
                             _usedDefaults.append(_name)
                             _loadIntoSpec_direct(spec, False)
-                    elif spec.isNotHidden():
+                    elif spec.isNotHidden() and not "help" in paramSpec_chosen:
 
                         _errmsg = f"Missing required parameter: {styling.asError(spec.getValueHelp(ParamSpec.InfoStyle.PARAM_FORMAT_OR_EXAMPLE))}"
 
@@ -568,7 +576,9 @@ class _AppParameterParser:
                         if exampleOrNone is None:
                             _suggestion = None
                         else:
-                            _suggestion = appInfo_cmdWithVariant(spec, exampleOrNone)
+                            _suggestion = (
+                                appInfo_cmdWithVariant(spec, exampleOrNone) or None
+                            )
 
                         _errors.append((_errmsg, _suggestion))
 
