@@ -154,7 +154,9 @@ def loadJson(
             loadedJson = json.loads(inputJson)
         return loadedJson
     except json.JSONDecodeError:
-        errmsg = f"Unable to load {inputKind}: {sourceDescription} wasn't valid JSON"
+        errmsg = (
+            f"Unable to interpret {inputKind}: {sourceDescription} wasn't valid JSON"
+        )
     except Exception as e:
         errmsg = f"Unable to load {inputKind} from '{Utils.pathDisplay(inputJson)}': A [{type(e).__name__}] exception occurred: {e}"
 
