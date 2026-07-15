@@ -658,6 +658,12 @@ class ParamSpec:
     def mustBeDirect(self) -> bool:
         return self.spec.get("mustBeDirect", False)
 
+    def mayBeUsedDirectly(self) -> bool:
+        # Don't include the 'isCustomising()' element as that is used quite differently
+        return not self.isCustomising() and (
+            (self.spec.get("mayBeDirect", False)) or self.mustBeDirect()
+        )
+
     def mayBeDirect(self) -> bool:
         return (self.spec.get("mayBeDirect", False)) and self.isNotHidden()
 

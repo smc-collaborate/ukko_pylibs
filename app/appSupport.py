@@ -470,13 +470,13 @@ class _AppParameterParser:
                 elif (arg == "--") and not (_force_non_options):
                     _force_non_options = True
                 elif not arg.startswith("-") or (_force_non_options):
-                    if not self._processCustomisingEntry(arg):
+                    if not self._processCustomisingEntry(arg, _errors):
 
                         specToUse = next(
                             (
                                 _spec
                                 for _spec in self.getAvailParamsAll()
-                                if (_spec.mayBeDirect() or _spec.mustBeDirect())
+                                if _spec.mayBeUsedDirectly()
                                 and (
                                     not (_spec.name() in paramSpec_chosen)
                                     or _spec.get("supportMultiple", False)
@@ -593,7 +593,10 @@ class _AppParameterParser:
                 f"AS LOADED: " + Utils.asJsonStr(paramSpec_chosen, indent=2)
             )
 
-            if self.appChoicesBeingBuilt.nextCustomisationAvail is not None:
+            if (
+                self.appChoicesBeingBuilt.nextCustomisationAvail is not None
+                and "help" not in paramSpec_chosen
+            ):
                 _errors.append(
                     (
                         f"Expected one of {styling.asSuggestionList(self.appChoicesBeingBuilt.nextCustomisationAvail.keys())}",
@@ -855,8 +858,7 @@ class _AppParameterParser:
                 entry["lookup"] = list(_customisations.keys())
 
         def _processCustomisingEntry(
-            self,
-            param: str,
+            self, param: str, _errors: list[Tuple[str, str | None]]
         ) -> bool:
             chosenAction = param.strip()
 
@@ -895,7 +897,13 @@ class _AppParameterParser:
                 appLog.print_warning(f"Internal Error: Customising option not valid")
                 return False
             if chosenAction not in _customisations:
-                return False
+                _errors.append(
+                    (
+                        f"Expected one of {styling.asSuggestionList(_customisations.keys())} but have {styling.asError(EscapeMgr.asBashParam(chosenAction))}",
+                        None,
+                    )
+                )
+                return True  # < Failed - but still handled as a customisation, so we don't want to treat it as a normal option
 
             actionInfo = _customisations[chosenAction]
 
@@ -1336,17 +1344,6 @@ class Define:
 
         ####################################
         #
-
-        if self.appChoices.params.pop("help", None):
-            self.giveHelp()
-            doHalt("Help Info - Exiting", suggestSilent=True)
-            exit(0)
-
-        if self.appChoices.params.pop("debug-option", None) == "app-info":
-            obj = {"appDefinition": self.app_definition}
-            print(Utils.asJsonStr(obj, indent=2))
-            exit(0)
-
         if self.appChoices.params.pop("version", None):
             self.dumpVersion()
             doHalt("Version Info - Exiting", suggestSilent=True)
@@ -1356,6 +1353,20 @@ class Define:
             error_exit(
                 parseResults.errors[0][0], None, parseResults.errors[0][1] or True
             )
+
+        if self.appChoices.params.pop("help", None):
+            self.giveHelp()
+            doHalt("Help Info - Exiting", suggestSilent=True)
+            if parseResults.errors:
+                error_exit(
+                    parseResults.errors[0][0], None, parseResults.errors[0][1] or True
+                )
+            exit(0)
+
+        if self.appChoices.params.pop("debug-option", None) == "app-info":
+            obj = {"appDefinition": self.app_definition}
+            print(Utils.asJsonStr(obj, indent=2))
+            exit(0)
 
         self.appChoices.appValues.pop("options", None)
         return self.appChoices
