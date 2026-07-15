@@ -128,6 +128,23 @@ def loadJsonDictFromFile(
         return {"error": errmsg}
 
 
+def fileExceptionToString(fname: str, e: Exception, what: str = "file") -> str:
+    msg = f"Unable to load {what} from file '{Utils.pathDisplay(fname)}'\n"
+    if not (isinstance(e, HandledException)):
+        msg += f"A [{type(e).__name__}] exception occurred: "
+
+    msg += str(e)
+
+    fullPath = os.path.abspath(fname)
+    if fullPath != Utils.pathDisplay(fname):
+        msg += f"\nFull path  : {fullPath}"
+        msg += f"\nCurrent dir: {os.getcwd()}"
+        if get_cwdOnStartup() != os.getcwd():
+            msg += f"\nOnStartup  : {get_cwdOnStartup()}"
+
+    return msg
+
+
 def loadJson(
     inputJson: str,
     inputKind: str = "JSON",
@@ -145,20 +162,35 @@ def loadJson(
             inputJson = "@/dev/stdin"
         loadedJson: dict[str, Any] = {}
         if inputJson.startswith("@"):
-            if assumeDict:
-                return loadJsonDictFromFile(inputJson[1:], inputKind, exceptionOnError)
-            else:
-                return loadJsonFromFile(inputJson[1:], inputKind, exceptionOnError)
+            try:
+                if assumeDict:
+                    return loadJsonDictFromFile(
+                        inputJson[1:], inputKind, exceptionOnError
+                    )
+                else:
+                    return loadJsonFromFile(inputJson[1:], inputKind, exceptionOnError)
+            except Exception as e:
+                errmsg = fileExceptionToString(inputJson[1:], e, inputKind)
+
+                if exceptionOnError:
+                    raiseHandledException(errmsg)
+                else:
+                    return {"error": errmsg}
         else:
             sourceDescription = f"'{inputJson}'"
             loadedJson = json.loads(inputJson)
         return loadedJson
+    except HandledException as e:
+        if exceptionOnError:
+            raise
+        else:
+            errmsg = f"Unable to load {inputKind} from '{Utils.pathDisplay(inputJson)}': A [{type(e).__name__}] exception occurred: {e}"
     except json.JSONDecodeError:
         errmsg = (
             f"Unable to interpret {inputKind}: {sourceDescription} wasn't valid JSON"
         )
     except Exception as e:
-        errmsg = f"Unable to load {inputKind} from '{Utils.pathDisplay(inputJson)}': A [{type(e).__name__}] exception occurred: {e}"
+        errmsg = fileExceptionToString(inputJson, e, inputKind)
 
     if exceptionOnError:
         raiseHandledException(errmsg)
@@ -211,19 +243,9 @@ def loadBytesFromFile_orHandledException(
         with open(inputBinaryFile, "rb") as file:
             file_bytes = file.read()
         return file_bytes
-    except FileNotFoundError as e:
-        msg = f"Unable to load {what}.  File not found: {Utils.pathDisplay(inputBinaryFile)}"
-        fullPath = os.path.abspath(inputBinaryFile)
-        if fullPath != Utils.pathDisplay(inputBinaryFile):
-            msg += f"\nFull path  : {fullPath}"
-            msg += f"\nCurrent dir: {os.getcwd()}"
-            if get_cwdOnStartup() != os.getcwd():
-                msg += f"\nOnStartup  : {get_cwdOnStartup()}"
-        raiseHandledException(msg)
+
     except Exception as e:
-        raiseHandledException(
-            f"Unable to load {what} from file '{Utils.pathDisplay(inputBinaryFile)}'\nA [{type(e).__name__}] exception occurred: {e}"
-        )
+        raiseHandledException(fileExceptionToString(inputBinaryFile, e, what))
 
 
 def exportToFile_orHandledException(
