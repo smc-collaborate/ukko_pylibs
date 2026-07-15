@@ -96,8 +96,10 @@ class DataContents:
             resultTxt = self.asData
         elif isinstance(self.asData, bytes):
             resultTxt = "hex:" + self.asData.hex()
+        elif isinstance(self.asData, int):
+            resultTxt = str(self.asData)
         else:
-            resultTxt = "⚠️" + str(self.asProvided)
+            resultTxt = "⚠️  " + str(self.asProvided)
             appLog.print_warning(
                 f"DataContents.asParamText(): {self.asData} (type: {type(self.asData)})"
             )
@@ -317,7 +319,7 @@ class DataContents:
             with open(fname, "r+b") as f:
                 self.asData = f.read()
         except Exception as e:
-            raise HandledException(f"Error reading file {fname}", e)
+            raise HandledException(f"Error reading file {json.dumps(fname)}", e)
 
     def doErrorExit(self, msg: str, e: Exception | None = None) -> NoReturn:
         from ukko_pylibs.app.appSupport import (
@@ -361,11 +363,12 @@ class DataContents:
 
     def getProvidedFilenamePlus(self) -> Tuple[str, str]:
         """Returns a tuple of (prefix, filename) if the asProvided value indicates a file reference, otherwise ['','']"""
-        if isinstance(self.asProvided, str):
-            prefixes = ["file:", "@"]
-            for prefix in prefixes:
-                if self.asProvided.startswith(prefix):
-                    return prefix, self.asProvided.removeprefix(prefix)
+        if self.asProvided:
+            if isinstance(self.asProvided, str):
+                prefixes = ["file:", "@"]
+                for prefix in prefixes:
+                    if self.asProvided.startswith(prefix):
+                        return prefix, self.asProvided.removeprefix(prefix)
         return ("", "")
 
     def _doLoadExtendedData(
