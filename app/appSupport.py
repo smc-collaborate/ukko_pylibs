@@ -1631,19 +1631,18 @@ def error_exit(
 
     prefixOrNone = appLog.print_error(msg, noPrefix=True)
     if prefixOrNone is not None:
-        if not withSuggestion:
+        if withSuggestion:
             suggestionTxt = ""
-        elif isinstance(withSuggestion, str):
-            suggestionTxt = withSuggestion.removeprefix("Suggest:").strip()
-        else:
-            suggestionTxt = appInfo_getStr("name+actions") + " --help"
+            if isinstance(withSuggestion, str):
+                suggestionTxt = withSuggestion.removeprefix("Suggest:").strip()
+            elif not "--help" in sys.argv:
+                suggestionTxt = appInfo_getStr("name+actions") + " --help"
 
-        if suggestionTxt != "":
-
-            print(
-                f"{prefixOrNone}Suggestion: {styling.asSuggestion(suggestionTxt)}",
-                file=sys.stderr,
-            )
+            if suggestionTxt != "":
+                print(
+                    f"{prefixOrNone}Suggestion: {styling.asSuggestion(suggestionTxt)}",
+                    file=sys.stderr,
+                )
 
     printVerbose_sysInfo()
     doHalt("Exiting with error")
