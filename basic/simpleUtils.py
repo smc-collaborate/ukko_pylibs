@@ -1,5 +1,6 @@
 import array
 import base64
+import codecs
 from collections import OrderedDict
 from copy import deepcopy
 import hashlib
@@ -1324,7 +1325,7 @@ class EscapeMgr:
     def fromEscapedText(value: str) -> str:
         valueOut: str = str(value)
         try:
-            valueOut = json.loads(f'"{value}"')
+            valueOut = codecs.decode(value, "unicode_escape")
         except Exception as e:
             appLog.print_warning(
                 f"Error interpreting {json.dumps(str(value))} as escaped text: {e}"
@@ -1346,7 +1347,9 @@ class EscapeMgr:
 
     @staticmethod
     def asEscapedText(value: Any) -> str:
-        return json.dumps(value, ensure_ascii=False).removeprefix('"').removesuffix('"')
+        return value.encode("unicode_escape").decode(
+            "utf-8"
+        )  # json.dumps(value, ensure_ascii=False).removeprefix('"').removesuffix('"').replace('\\"', '"').replace("\\'", "'")
 
     @staticmethod
     def escapeIfNeeded(value: Any) -> str:
@@ -1365,12 +1368,12 @@ class EscapeMgr:
 
     @staticmethod
     def asBashParam(
-        value: Any, name_optional: str = "", withExtraEscaping: bool = False
+        value: Any, name_optional: str = "", withEscaping: bool = True
     ) -> str:
         if value is None:
             return ""
         valueTxt = str(value)
-        if withExtraEscaping:
+        if withEscaping:
             valueTxt = EscapeMgr.asEscapedText(valueTxt)
         if name_optional == "":
             resultTxt = ""
