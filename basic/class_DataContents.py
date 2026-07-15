@@ -427,3 +427,6 @@ class DataContents:
             raise HandledException(
                 f"DataContents[{self.optionalName}]: {e} processing {caption}", e
             )
+
+    def asBashParam(self) -> str:
+        return EscapeMgr.asBashParam(self.asParamTxt(), name_optional=self.optionalName)
