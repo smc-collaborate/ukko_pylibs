@@ -73,6 +73,7 @@ def _applyAlways(text: str, styleText: str) -> Tuple[str, str | None]:
                 color=color or None,
                 on_color=on_color or None,
                 attrs=attrs or None,
+                force_color=True,
             ),
             None,
         )
@@ -98,7 +99,10 @@ def apply(value: Any | None, styleText: str) -> str:
     if not value:
         return ""
 
-    return _applyAlways(str(value), styleText)[0] if isEnabled() else str(value)
+    if not styleText or not isEnabled():
+        return str(value)
+
+    return _applyAlways(str(value), styleText)[0]
 
 
 def isStyled(text: str) -> bool:
