@@ -73,7 +73,9 @@ class DataContents:
         else:
             self.asProvided: Any = value
             self.asData: Any = (
-                (value) if srcDirect else EscapeMgr.fromEscapedText(value)
+                (value)
+                if srcDirect or not isinstance(value, str)
+                else EscapeMgr.fromEscapedText(value)
             )
             self.fname: str = ""
             self.fileIsTempCreated: bool | None = None
