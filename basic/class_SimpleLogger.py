@@ -8,7 +8,6 @@ from types import NoneType
 from typing import Any, Callable, TextIO, Tuple
 import os
 
-
 ################################################################################
 #
 # Shared Libraries
@@ -31,12 +30,14 @@ class MsgKind:
         name: str,
         icon: str,
         thresholdName: str,
+        topLineStyle: str = "",
         isDefaultLevel: bool = False,
     ):
         self.value = value
         self.name = name
         self.icon = icon
         self.thresholdName = thresholdName
+        self.topLineStyle = topLineStyle
         self.isDefaultLevel = isDefaultLevel
         msgKinds[value] = self
 
@@ -46,11 +47,12 @@ class MsgKind:
         name: str,
         icon: str,
         thresholdName: str,
+        topLineStyle: str = "",
         isDefaultLevel: bool = False,
     ) -> "MsgKind":
         if value in msgKinds:
             raise ValueError(f"MsgKind with value {value} already exists")
-        return MsgKind(value, name, icon, thresholdName, isDefaultLevel)
+        return MsgKind(value, name, icon, thresholdName, topLineStyle, isDefaultLevel)
 
     def asDict(self) -> dict[str, Any]:
         return {
@@ -82,15 +84,11 @@ class SimpleLogger:
 
         return thresholdList, defaultThreshold
 
-    def _getLevelIconAndPrefix(self, value: int) -> Tuple[str, str, str]:
+    def _getMessageKind(self, value: int) -> MsgKind:
         if value in msgKinds:
-            return (
-                msgKinds[value].icon,
-                msgKinds[value].name,
-                msgKinds[value].thresholdName,
-            )
+            return msgKinds[value]
         else:
-            return "❓", f"[Level {value}]", ""
+            return MsgKind(value, f"[Level {value}]", "❓", "")
 
     ###############################
     # Thresholds and Verbosity Levels
@@ -145,12 +143,12 @@ class SimpleLogger:
         if message is None or not self.amPrinting(level):
             return None
 
-        iconPrefix, txtPrefix, _ = self._getLevelIconAndPrefix(level)
+        msgKind = self._getMessageKind(level)
 
-        self.kindCounts[txtPrefix] = self.kindCounts.get(txtPrefix, 0) + 1
+        self.kindCounts[msgKind.name] = self.kindCounts.get(msgKind.name, 0) + 1
 
         if noPrefix:
-            txtPrefix = ""
+            msgKind.name = ""
 
         msg_text = self.asPrintable(message)
         if msg_text == "":
@@ -162,12 +160,12 @@ class SimpleLogger:
             textOut = dest
 
         lines = msg_text.split("\n")
-        topLine = lines.pop(0).strip().removeprefix(iconPrefix).strip()
+        topLine = lines.pop(0).strip().removeprefix(msgKind.icon).strip()
 
-        prefix = iconPrefix
-        if iconPrefix != "" and txtPrefix != "":
+        prefix = msgKind.icon
+        if msgKind.icon != "" and msgKind.name != "":
             prefix += "  "
-        prefix += txtPrefix
+        prefix += msgKind.name
         bar = " "
         if not noPrefix and self.name != "":
             if prefix != "":
@@ -175,8 +173,13 @@ class SimpleLogger:
             prefix += f"{self.name}"
             bar = " | "
 
-        textOut.write(f"{prefix}{bar}{topLine}\n")
         from ukko_pylibs.basic.simpleUtils import PrettyText
+        import ukko_pylibs.basic.styling as styling
+
+        if not styling.isStyled(topLine) and msgKind.topLineStyle is not None:
+            topLine = styling.apply(topLine, msgKind.topLineStyle)
+
+        textOut.write(f"{prefix}{bar}{topLine}\n")
 
         padding = PrettyText.asSpaces(prefix)
         for line in lines:
@@ -257,6 +260,7 @@ class SimpleLogger:
         isFatal: bool = False,
         dest: TextIO | None = None,
     ) -> None | str:
+
         return self.print_error(
             message or "<unknown error>", isFatal=isFatal, noPrefix=True, dest=dest
         )
@@ -397,8 +401,10 @@ class SimpleLogger:
             )
 
 
-MsgKind.add(SimpleLogger.MsgKind_ERROR, "Error", "❌", "quiet", isDefaultLevel=True)
+MsgKind.add(
+    SimpleLogger.MsgKind_ERROR, "Error", "❌", "quiet", "red+bold", isDefaultLevel=True
+)
 MsgKind.add(SimpleLogger.MsgKind_WARNING, "Warning", "⚠️", "")
 MsgKind.add(SimpleLogger.MsgKind_INFO, "Info", "ℹ️", "info")
 MsgKind.add(SimpleLogger.MsgKind_DETAIL, "Detail", "Ⓜ️", "details")
-MsgKind.add(SimpleLogger.MsgKind_TEDIOUS, "Tedious", "🔍", "all")
+MsgKind.add(SimpleLogger.MsgKind_TEDIOUS, "Tedious", "🔍", "all", "cyan")
