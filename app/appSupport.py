@@ -20,7 +20,13 @@ if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 from ukko_pylibs.basic import fileUtils
-from ukko_pylibs.basic.simpleUtils import Utils, PrettyText, EscapeMgr, DictUtils
+from ukko_pylibs.basic.simpleUtils import (
+    PrettyTable,
+    Utils,
+    PrettyText,
+    EscapeMgr,
+    DictUtils,
+)
 from ukko_pylibs.basic.logger import appLog
 from ukko_pylibs.basic.class_HandledException import (
     HandledException,
@@ -1044,16 +1050,16 @@ class Define:
                     )
                     _entry["nameToUse"] = exeNameToUse + " " + _name
 
-            tableOut: list[list[str]] = []
+            tableOut = PrettyTable()
 
-            tableOut.append(
+            tableOut.appendRow(
                 [exeNameDecorated, "", f"| {appChoices.appValue("description")}"]
             )
-            tableOut.append([])
+            tableOut.appendRow([])
 
             for _entry in directPrefixes:
                 if _entry.get("blankLine", False):
-                    tableOut.append([])
+                    tableOut.appendRow([])
                 else:
                     _name = _entry.get("name", "")
                     exeNameToUse = (
@@ -1069,7 +1075,7 @@ class Define:
                     params_txt = "[options …]"
                     _params_out = params_txt if includeOptions else ""
 
-                    tableOut.append(
+                    tableOut.appendRow(
                         [
                             f"{prefix}{styling.asSuggestion(_nameToUse)}",
                             styling.asSuggestion(_params_out),
@@ -1078,7 +1084,7 @@ class Define:
                     )
                     prefix = PrettyText.asSpaces(prefix)
 
-            lines_out.extend(PrettyText.tableAsLines(tableOut, dividers=" "))
+            lines_out.extend(tableOut.asLines())
 
             ###############
             #
