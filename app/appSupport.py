@@ -260,6 +260,7 @@ class AppChoices:
             "additional_parameters": "",
             "exeName": getExeName(),
             "enableStyling": True,
+            "versions_extra": [],
         }
         if name in APP_OPTION_DEFAULTS:
             return APP_OPTION_DEFAULTS[name]
@@ -1028,9 +1029,19 @@ class Define:
 
         if not _customisedChoiceNext:
             mentionOtherOptions = "" if len(_unmentioned) == 0 else " [options]"
-            lines_out.append(
-                f"{PrettyText.padToWidth(exeNameDecorated, 32)} {PrettyText.padToWidth(verText, 13)} : {PrettyText.padToWidth(appChoices.appValue('description'), 90)}"
+            prefix = (
+                styling.asBold(
+                    PrettyText.padToWidth(exeNameDecorated, 32)
+                    + " "
+                    + PrettyText.padToWidth(verText, 13)
+                )
+                + " : "
             )
+            lines_out.append(f"{prefix}{appChoices.appValue('description')}")
+            prefix = PrettyText.asSpaces(prefix)
+            for x in appChoices.appValue("versions_extra") or []:
+                lines_out.append(f"{prefix}{styling.asBold(x)}")
+
             lines_out.append("")
             lines_out.append(
                 f"Usage: {styling.asSuggestion(exeNameDecorated+mentionOtherOptions+' '+params_txt)}"
@@ -1081,8 +1092,15 @@ class Define:
             tableOut = PrettyTable()
 
             tableOut.appendRow(
-                [exeNameDecorated, "", f"| {appChoices.appValue("description")}"]
+                [
+                    styling.asBold(exeNameDecorated),
+                    styling.asBold(verText),
+                    "| " + styling.asBold(appChoices.appValue("description")),
+                ]
             )
+
+            for x in appChoices.appValue("versions_extra") or []:
+                tableOut.appendRow(["", "", "| " + styling.asBold(x)])
             tableOut.appendRow([])
 
             for _entry in directPrefixes:
