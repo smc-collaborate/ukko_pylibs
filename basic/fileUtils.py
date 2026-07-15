@@ -15,7 +15,7 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic.simpleUtils import PrettyText, Utils
+from ukko_pylibs.basic.simpleUtils import PrettyText, Utils, get_cwdOnStartup
 from ukko_pylibs.basic.logger import appLog
 from ukko_pylibs.basic.class_HandledException import HandledException
 
@@ -101,14 +101,14 @@ def loadJsonDictFromFile(
             # Avoid throwing exception on missing file if we're not giving a warning about it.
             # This eases our debugging process when we halt on raised exceptions
             showWarning = False
-            errmsg = f"The {inputKind} '{fname_friendly}' was not found."
+            errmsg = f"The {inputKind} '{fname_friendly}' wasn't found."
         else:
             with open(inputJsonFile, "r") as file:
                 return json.load(file)
     except FileNotFoundError:
         if not giveWarningOnFileMissing:
             showWarning = False
-        errmsg = f"The {inputKind} '{fname_friendly}' was not found."
+        errmsg = f"The {inputKind.removesuffix('file').strip()} file '{os.path.abspath(inputJsonFile)}' wasn't found."
     except json.JSONDecodeError:
 
         errmsg = f"The {inputKind} '{fname_friendly}' doesn't contain valid JSON"
@@ -211,6 +211,15 @@ def loadBytesFromFile_orHandledException(
         with open(inputBinaryFile, "rb") as file:
             file_bytes = file.read()
         return file_bytes
+    except FileNotFoundError as e:
+        msg = f"Unable to load {what}.  File not found: {Utils.pathDisplay(inputBinaryFile)}"
+        fullPath = os.path.abspath(inputBinaryFile)
+        if fullPath != Utils.pathDisplay(inputBinaryFile):
+            msg += f"\nFull path  : {fullPath}"
+            msg += f"\nCurrent dir: {os.getcwd()}"
+            if get_cwdOnStartup() != os.getcwd():
+                msg += f"\nOnStartup  : {get_cwdOnStartup()}"
+        raiseHandledException(msg)
     except Exception as e:
         raiseHandledException(
             f"Unable to load {what} from file '{Utils.pathDisplay(inputBinaryFile)}'\nA [{type(e).__name__}] exception occurred: {e}"
