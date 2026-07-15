@@ -1299,9 +1299,7 @@ class Define:
                 for line in examplesOut.asLines(render_colVisWidths=tableColWidths):
                     lines_out.append(f" • {line}")
 
-        for line in lines_out:
-            line = line.replace("\xa0", " ")
-        return lines_out
+        return [line.replace("\xa0", " ").rstrip() for line in lines_out]
 
     def getExeName_decorated(self, decorated=True):
         if decorated:
