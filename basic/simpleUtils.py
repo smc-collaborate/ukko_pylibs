@@ -1339,7 +1339,7 @@ class EscapeMgr:
             valueOut = codecs.decode(value, "unicode_escape")
         except Exception as e:
             appLog.print_warning(
-                f"Error interpreting {json.dumps(str(value))} as escaped text: {e}"
+                f"Unable to interpret {json.dumps(str(value))} as escaped text: {e}"
             )
         appLog.print_tediousDetail(
             f"Interpreting value as escaped text: '{value}' -> json {json.dumps(valueOut)}"
