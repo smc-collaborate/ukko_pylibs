@@ -919,6 +919,21 @@ class _AppParameterParser:
 # |x|        return NoneType
 
 
+def exeSubstitute(txt: str, exeName: str, exeNameDecorated: str) -> str:
+    txt = txt.replace("<exeName>", exeName)
+    txt = txt.replace("<exeName+action>", exeNameDecorated)
+    return txt
+
+
+def popLastFromText(txt: str, suffixMarker: str) -> tuple[str, str]:
+    x = txt.split(suffixMarker)
+    suffix = ""
+    if len(x) > 1:
+        suffix = suffixMarker + " " + x.pop().strip()
+        txt = "#".join(x).strip()
+    return txt, suffix
+
+
 class Define:
 
     def __init__(self, _app_definition: dict[str, Any]):
@@ -1090,24 +1105,42 @@ class Define:
             #
             # Add to examples
             #
-            extraExamplesReformat: list[list[str]] = []
-            extraExamplesDirect: list[str] = []
+            _examplesOut = appChoices.appValue("examples")
+            if not _examplesOut:
+                _examplesOut = []
+                appChoices.appValues["examples"] = _examplesOut
+
+            def replaceWithin(txt: str | list[str], needle: str, replacement: str):
+                if isinstance(txt, str):
+                    return txt.replace(needle, replacement)
+                elif isinstance(txt, list):
+                    return [replaceWithin(x, needle, replacement) for x in txt]
+                else:
+                    return txt
+
             for action, entry in _customisedChoiceNext.items():
 
                 topSuggestion = entry.get("topSuggestion", None)
-                _restyle = False
                 if topSuggestion is None:
                     kindExamples = entry.get("examples", [])
                     if len(kindExamples) > 0:
                         topSuggestion = kindExamples[0]
-                        _restyle = topSuggestion.startswith("<exeName+action>")
 
                 if topSuggestion is not None:
-                    topSuggestion = topSuggestion.replace(
+                    topSuggestion = replaceWithin(
+                        topSuggestion,
                         "<exeName+action>",
                         "<exeName+action> " + EscapeMgr.escapeIfNeeded(action),
-                    ).strip()
-                    if _restyle:
+                    )
+                    if isinstance(topSuggestion, str):
+                        topSuggestion = topSuggestion.strip()
+
+                        _restyle = topSuggestion.startswith("<exeName+action>")
+                    else:
+                        _restyle = False
+
+                    if _restyle and isinstance(topSuggestion, str):
+
                         comment_suffix = ""
                         x = topSuggestion.split("#")
                         if len(x) > 1:
@@ -1117,16 +1150,9 @@ class Define:
                         topSuggestion = topSuggestion.split(" ") + [comment_suffix]
 
                 if isinstance(topSuggestion, str):
-                    extraExamplesDirect.append(topSuggestion)
+                    _examplesOut.append(topSuggestion)
                 elif isinstance(topSuggestion, list):
-                    extraExamplesReformat.append(topSuggestion)
-
-            _examplesOut = appChoices.appValue("examples")
-            if not _examplesOut:
-                _examplesOut = []
-                appChoices.appValues["examples"] = _examplesOut
-            _examplesOut += extraExamplesDirect
-            _examplesOut += PrettyText.tableAsLines(extraExamplesReformat, dividers=" ")
+                    _examplesOut.append(topSuggestion)
 
         lines_out.append("")
 
@@ -1192,27 +1218,60 @@ class Define:
         #
         # Add examples
         #
-        _examples = appChoices.appValue("examples")
+        _examplesRaw = appChoices.appValue("examples")
 
-        if _examples:
-            examplesOut: list[list[str]] = []
+        if _examplesRaw:
 
-            for s in _examples:
-                txt = exeName.join(s.split("<exeName>"))
-                txt = exeNameDecorated.join(txt.split("<exeName+action>"))
-                comment_suffix = ""
-                x = txt.split("#")
-                if len(x) > 1:
-                    comment_suffix = " # " + x.pop().strip()
-                    txt = "#".join(x).strip()
-                examplesOut.append(
-                    [f" • {styling.asSuggestion(txt.strip())}", comment_suffix]
-                )
+            def popLastFromList(entries: list[str], suffixMarker: str) -> str:
+                if len(entries) == 0:
+                    return ""
+                last = entries[-1]
+                if not last.startswith(suffixMarker):
+                    return ""
+                return entries.pop()
 
-            lines_out.append("")
-            lines_out.append("Examples:")
-            lines_out.extend(PrettyText.tableAsLines(examplesOut, dividers=" "))
+            examplesOut = PrettyTable()
+            commentsOut: list[str] = []
+            tableColWidths = None
+            # pipeOut: list[str] = []
+            for s in _examplesRaw:
+                if isinstance(s, str):
+                    txt, comment_suffix = popLastFromText(
+                        exeSubstitute(s, exeName, exeNameDecorated), "#"
+                    )
+                    # txt, pipe_suffix = popLastFromText(textSubstitute(s), "|")
+                    examplesOut.appendRow([styling.asSuggestion(txt)])
+                    commentsOut.append(comment_suffix)
+                    # pipeOut.append(pipe_suffix)
+                elif isinstance(s, dict):
+                    if "colWidths" in s:
+                        tableColWidths = s.get("colWidths")
 
+                else:
+                    line_out = [
+                        exeSubstitute(str(x), exeName, exeNameDecorated).strip()
+                        for x in s
+                    ]
+
+                    comment = popLastFromList(line_out, "#")
+                    # pipe=popLastFromList(line_out,'|')
+                    commentsOut.append(comment)
+                    examplesOut.appendRow([styling.asSuggestion(x) for x in line_out])
+                    # pipeOut.append(pipe)
+
+            if examplesOut.rows:
+
+                lines_out.append("")
+                lines_out.append("Examples:")
+
+                examplesOut.appendCol(commentsOut)
+                for line in examplesOut.asLines(render_colVisWidths=tableColWidths):
+                    lines_out.append(f" • {line}")
+
+                # |x|for x in _examplesRaw:
+                # |x|    lines_out.append(
+                # |x|        f" • {styling.asError(str(x))}"
+                # |x|    )
         for line in lines_out:
             line = line.replace("\xa0", " ")
         return lines_out
