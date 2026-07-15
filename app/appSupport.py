@@ -978,21 +978,25 @@ class Define:
         }
         return obj
 
-    def giveHelp(self, file_dest=sys.stdout):
-        for x in self.getHelp():
+    def giveHelp(self, file_dest=sys.stdout, shorterVersion=False):
+        for x in self.getHelp(shorterVersion=shorterVersion):
             file_dest.write(x.rstrip() + "\n")
         printVerbose_sysInfo()
 
-    def getHelp(self) -> list[str]:
+    def getHelp(self, shorterVersion=False) -> list[str]:
         #
         # Full done from only:
         #   * self.appChoices
         #   * self.availParams
         #
-        return self._getHelp(self.appChoices, self.availParams)
+        return self._getHelp(
+            self.appChoices, self.availParams, shorterVersion=shorterVersion
+        )
 
     @staticmethod
-    def _getHelp(appChoices: AppChoices, availParams: ParamSpecList) -> list[str]:
+    def _getHelp(
+        appChoices: AppChoices, availParams: ParamSpecList, shorterVersion=False
+    ) -> list[str]:
         #
         # Full done from only:
         #   * self.appChoices
@@ -1038,9 +1042,10 @@ class Define:
                 + " : "
             )
             lines_out.append(f"{prefix}{appChoices.appValue('description')}")
-            prefix = PrettyText.asSpaces(prefix)
-            for x in appChoices.appValue("versions_extra") or []:
-                lines_out.append(f"{prefix}{styling.asBold(x)}")
+            if not shorterVersion:
+                prefix = PrettyText.asSpaces(prefix)
+                for x in appChoices.appValue("versions_extra") or []:
+                    lines_out.append(f"{prefix}{styling.asBold(x)}")
 
             lines_out.append("")
             lines_out.append(
@@ -1098,10 +1103,10 @@ class Define:
                     "| " + styling.asBold(appChoices.appValue("description")),
                 ]
             )
-
-            for x in appChoices.appValue("versions_extra") or []:
-                tableOut.appendRow(["", "", "| " + styling.asBold(x)])
-            tableOut.appendRow([])
+            if not shorterVersion:
+                for x in appChoices.appValue("versions_extra") or []:
+                    tableOut.appendRow(["", "", "| " + styling.asBold(x)])
+                tableOut.appendRow([])
 
             for _entry in directPrefixes:
                 if _entry.get("blankLine", False):
@@ -1250,8 +1255,9 @@ class Define:
         # Add examples
         #
         _examplesRaw = appChoices.appValue("examples")
-
-        if _examplesRaw:
+        if shorterVersion:
+            lines_out.append("")
+        elif _examplesRaw:
 
             def popLastFromList(entries: list[str], suffixMarker: str) -> str:
                 if len(entries) == 0:
