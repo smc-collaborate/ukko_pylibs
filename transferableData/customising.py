@@ -1,4 +1,5 @@
 import io
+from os import path
 import struct
 import os, sys
 
@@ -834,7 +835,6 @@ def relPathOrDefault(path: Any, default: str) -> str:
 def customFormat_getBasicInfo(
     src: CustomContentsFormatDefinition | None,
 ) -> dict[str, Any]:
-
     raw_type = "bitstream"
     raw_type_extra = " (such as a .bin file)"
     annotated_file_ext = ".data+"
@@ -845,9 +845,35 @@ def customFormat_getBasicInfo(
         "input.raw": "input.raw",
         "/path/to/sample.raw": "/path/to/input.raw",
         "/path/to/sample.data+": "/path/to/input.data+",
+        "/path/to/sample.annotations.json": "/path/to/input.annotations.json",
         ".raw": ".raw",
     }
-    if src is not None:
+
+    def replaceWithFileIfExists(key: str, relPath: str):
+        if not path.exists(relPath):
+            errmsg = f"customFormat[{result['kind']}]:Unable to find example file for key '{key}': {relPath}"
+            if relPath in ["data.bin", "image.img", "image.bin"]:
+                appLog.print_verbose(errmsg)
+            else:
+                appLog.print_warning(errmsg)
+        else:
+            result[key] = relPath
+
+    if src is None:
+        appModule = sys.modules["__main__"]
+        appPaths = appModule.PATHS
+        replaceWithFileIfExists(
+            "/path/to/sample.raw",
+            f"{appPaths['SAMPLES_DIR']}/arrow/arrow_mono8.raw_mono8_100x100",
+        )
+        replaceWithFileIfExists(
+            "/path/to/sample.data+", f"{appPaths['SAMPLES_DIR']}/arrow/arrow_mono8.img+"
+        )
+        replaceWithFileIfExists(
+            "/path/to/sample.annotations.json",
+            f"{appPaths['SAMPLES_DIR']}/arrow/arrow_mono8.annotations.json",
+        )
+    else:
         raw_type = str(src.definition("description", raw_type))
         annotated_file_ext = (
             str(src.definition("suggested_file_ext", ".data+")).removesuffix("+") + "+"
@@ -859,14 +885,20 @@ def customFormat_getBasicInfo(
         result["includes"] = includes
 
         result["kind"] = src.KIND
-        result["input.raw"] = src.suggestSampleFileName()
-        result["/path/to/sample.raw"] = relPathOrDefault(
-            src.definition("examples/bitstream/0"),
-            "/path/to/" + src.suggestSampleFileName(),
+        replaceWithFileIfExists("input.raw", src.suggestSampleFileName())
+        replaceWithFileIfExists(
+            "/path/to/sample.raw",
+            relPathOrDefault(
+                src.definition("examples/bitstream/0"),
+                "/path/to/" + src.suggestSampleFileName(),
+            ),
         )
-        result["/path/to/sample.data+"] = relPathOrDefault(
-            src.definition("examples/annotatedData/0"),
-            "/path/to/input" + annotated_file_ext,
+        replaceWithFileIfExists(
+            "/path/to/sample.data+",
+            relPathOrDefault(
+                src.definition("examples/annotatedData/0"),
+                "/path/to/input" + annotated_file_ext,
+            ),
         )
 
         result[".raw"] = src.definition("suggested_file_ext_raw", ".raw")
