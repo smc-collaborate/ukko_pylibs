@@ -410,15 +410,20 @@ class IArgLoader_Template:
             elif isinstance(self.appValues[name], list):
                 self.appValues[name].extend(actionInfo[name])
             else:
-                n = 1
-                while f"_test_only_{name}_prev[{n}]" in self.appValues:
-                    n += 1
+                if True:
+                    if not "_test_only_" in self.appValues:
+                        self.appValues["_test_only_"] = {}
+                    _test_only = self.appValues["_test_only_"]
+                    n = 1
+                    while f"{name}_prev[{n}]" in _test_only:
+                        n += 1
 
-                for i in range(n - 1, 1, -1):
-                    self.appValues[f"_test_only_{name}_prev[{i+1}]"] = self.appValues[
-                        f"_test_only_{name}_prev[{i}]"
-                    ]
-                self.appValues[f"_test_only_{name}_prev[1]"] = self.appValues[name]
+                        for i in range(n - 1, 1, -1):
+                            _test_only[f"{name}_prev[{i+1}]"] = _test_only[
+                                f"{name}_prev[{i}]"
+                            ]
+                    _test_only[f"{name}_prev[1]"] = self.appValues[name]
+
                 self.appValues[name] = actionInfo[name]
 
         #########################
