@@ -338,12 +338,8 @@ class IArgLoader_Template:
                     "name": "debug-info",
                     "group": "~appAuto",
                     "description": "Gives additional information about the app and its configuration",
-                    "lookup": {
-                        "none": None,
-                        "app-info": "app-info",
-                        "config-info": "config-info",
-                        "all": "all",
-                    },
+                    "lookup": ["", "app-info", "app-as-run", "config-info", "all"],
+                    "default": "",
                 }
             )
         )
@@ -885,8 +881,27 @@ class Define:
                 _parseResults.errors[0][0], suggestion if suggestion else "<auto>"
             )
 
-        if _parseResults.appChoices.params.pop("debug-option", None) == "app-info":
-            obj = {"appDefinition": self.app_definition}
+        debug_info = _parseResults.appChoices.params.pop("debug-info", None)
+        if debug_info:
+            obj: dict[str, Any] = {}
+            # debug_info: "app-info","app-as-run","config-info","all"
+            if debug_info in ["all", "app-info"]:
+                obj["app-info"] = self.app_definition
+            if debug_info in ["all", "app-as-run"]:
+                asRun = deepcopy(_parseResults.appChoices.asDict())
+                for x in [
+                    "options",
+                    "examples",
+                    "usage",
+                    "group",
+                    "isChosen",
+                    "_test_only_",
+                ]:
+                    asRun["appValues"].pop(x)
+                obj["app-as-run"] = asRun
+            if debug_info in ["all", "config-info"]:
+                obj["config-info"] = appConfig.asDict()
+
             print(Utils.asJsonStr(obj, indent=2))
             exitReason = ""
 
