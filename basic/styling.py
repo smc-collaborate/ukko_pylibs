@@ -155,6 +155,10 @@ def asBold(value: Any | None) -> str:
     return apply(value, "+bold")
 
 
+def asExpectedOneOf(entries, butHave):
+    return f"Expected one of {asSuggestionList(entries)} but have {asError(butHave)}"
+
+
 def asSuggestionList(values: Iterable[Any], quoteIfNeeded: bool = False) -> str:
 
     if quoteIfNeeded:

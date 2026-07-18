@@ -27,15 +27,7 @@ import ukko_pylibs.basic.fileUtils as fileUtils
 
 #
 ################################################################################
-
-CUSTOM_FORMAT_SUFFIXES_TO_IGNORE = [
-    "/reply",
-    "/request",
-    "/stream/start",
-    "/stream/stop",
-    "/stream",
-    "/image",
-]  # Suffixes for custom formats that should not trigger a warning if no specific format definition is found (e.g. because they are more generic formats that are handled in a more flexible way)
+CUSTOM_FORMATS_TO_IGNORE = ["device/reading"]
 
 CUSTOM_FORMAT_SUFFIXES_TO_IGNORE = [
     "/reply",
@@ -805,9 +797,13 @@ def customFormat_get(
 
             result = CustomContentsFormatDefinition(definition)
 
-        elif (customFormatName != "") and not any(
-            customFormatName.endswith(suffix)
-            for suffix in CUSTOM_FORMAT_SUFFIXES_TO_IGNORE
+        elif (
+            (customFormatName != "")
+            and (customFormatName not in CUSTOM_FORMATS_TO_IGNORE)
+            and not any(
+                customFormatName.endswith(suffix)
+                for suffix in CUSTOM_FORMAT_SUFFIXES_TO_IGNORE
+            )
         ):
             appLog.print_warning(
                 f"No custom format found for {customFormatName}.  Options include {list(formatLookup.keys())+['image:mono12_1024x1024','image:mono8_640x480', ' …']}"
@@ -852,7 +848,9 @@ def customFormat_getBasicInfo(
     def replaceWithFileIfExists(key: str, relPath: str):
         if not path.exists(relPath):
             errmsg = f"customFormat[{result['kind']}]:Unable to find example file for key '{key}': {relPath}"
-            if relPath in ["data.bin", "image.img", "image.bin"]:
+            if relPath in ["data.bin", "image.img", "image.bin"] or result[
+                "kind"
+            ].startswith("generic/"):
                 appLog.print_verbose(errmsg)
             else:
                 appLog.print_warning(errmsg)

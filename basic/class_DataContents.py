@@ -317,6 +317,8 @@ class DataContents:
 
         if self.getFormat() == "default":
             self.formatting = self.getSuggestedFormatting()
+        if not os.path.isfile(fname):
+            raise HandledException(f"File not found: {json.dumps(fname)}")
         try:
             with open(fname, "rb") as f:
                 self.asData = f.read()
@@ -325,10 +327,10 @@ class DataContents:
 
     def doErrorExit(self, msg: str, e: Exception | None = None) -> NoReturn:
         from ukko_pylibs.app.appSupport import (
-            error_exit,
+            error_msg_exit,
         )  # < Not permitted to be imported at module-level
 
-        error_exit(f"DataContents -- {msg}", e)
+        error_msg_exit(f"DataContents -- {msg}", e)
 
     def asBytes(self) -> bytes:
         if isinstance(self.asData, bytes):
@@ -426,9 +428,10 @@ class DataContents:
                     self.warning = f"Unable to parse as hex data: {e}"
 
         except Exception as e:
-            raise HandledException(
-                f"DataContents[{self.optionalName}]: {e} processing {caption}", e
-            )
+            errmsg = str(e)
+            if not (caption.removeprefix("file:").removesuffix("…") in errmsg):
+                errmsg += f" while processing {caption}"
+            raise HandledException(f"DataContents[{self.optionalName}]: {errmsg}", e)
 
     def asBashParam(self) -> str:
         return EscapeMgr.asBashParam(self.asParamTxt(), name_optional=self.optionalName)

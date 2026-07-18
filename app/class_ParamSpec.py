@@ -178,6 +178,15 @@ class ParamSpec:
         else:
             return None
 
+    def defaultValue_orNone(self):
+        result = self.defaultValue_orNoneType()
+        if result is None:
+            return False  # < This is the special 'It is a presence marker'
+        elif result is NoneType:
+            return None
+        else:
+            return result
+
     def defaultValue_orNoneType(
         self, withoutEnv: bool = False, withoutLookup: bool = False
     ) -> Any | NoneType:
@@ -295,8 +304,11 @@ class ParamSpec:
     def isNotHidden(self) -> bool:
         return not self.spec.get("hidden", False) and self.isUsable()
 
-    def isCustomising(self) -> bool:
+    def isCustomisingOptions(self) -> bool:
         return (self.spec.get("customising", None) is not None) and self.isNotHidden()
+
+    def isCustomisingChoice(self) -> bool:
+        return self.spec.get("customisationChoice", None) is not None
 
     def isEscaped(self) -> bool:
         return self._isEscaped
@@ -660,12 +672,32 @@ class ParamSpec:
 
     def mayBeUsedDirectly(self) -> bool:
         # Don't include the 'isCustomising()' element as that is used quite differently
-        return not self.isCustomising() and (
+        return not self.isCustomisingOptions() and (
             (self.spec.get("mayBeDirect", False)) or self.mustBeDirect()
         )
 
     def mayBeDirect(self) -> bool:
         return (self.spec.get("mayBeDirect", False)) and self.isNotHidden()
+
+    def customisationOptionsToChoice(self, choice: str) -> dict[str, Any]:
+
+        spec = {}
+
+        for name in [
+            "name",
+            "description",
+            "mustBeDirect",
+            "lookup",
+            "group",
+            "default",
+            "defaultEnvVar",
+        ]:
+            if name in self.spec:
+                spec[name] = self.spec[name]
+
+        spec["customisationChoice"] = choice
+
+        return spec
 
 
 class ParamSpecAndValue:
@@ -679,7 +711,7 @@ class ParamSpecAndValue:
         self.value = value
         self.errorNotes: list[str] = []
         if convert is not None:
-            self.value = self.load_withConvert(convert)
+            self.value, _ = self.load_withConvert(convert)
 
     def throwIfErrorNotes(self):
         if self.errorNotes:
@@ -688,35 +720,48 @@ class ParamSpecAndValue:
     def name(self) -> str:
         return self.spec.name()
 
+    def isDefaultValue(self):
+        result = self.spec.defaultValue_orNone()
+        return False if (result is None) else (result == self.value)
+
     def asDict(self) -> dict[str, Any]:
         result: dict[str, Any] = {"name": self.name(), "spec": self.spec.asDict()}
         if self.value is not None:
             result["value"] = self.value
         if self.errorNotes:
             result["errorNotes"] = self.errorNotes
+
+        if self.isDefaultValue():
+            result["isDefaultValue"] = True
         return result
 
-    def load_withConvert(self, arg: str) -> str | None:
+    def load_appendValue(self, _value: Any) -> str | None:
         errmsg: str | None = None
-        _value, _errorNote = self.spec._convertArg(arg)
-
-        if _errorNote is not None:
-            self.errorNotes.append(_errorNote)
-        elif not (self.spec.get("supportMultiple", False)):
+        if not (self.spec.get("supportMultiple", False)):
             if self.value is None:
                 self.value = _value
 
             elif not self.errorNotes:
+                errmsg = f"Parameter {self.spec.name()} does not support multiple values, but was provided with multiple values: {self.value} and {_value}"
 
-                self.errorNotes.append(
-                    f"Parameter {self.spec.name()} does not support multiple values, but was provided with multiple values: {self.value} and {arg}"
-                )
+                self.errorNotes.append(errmsg)
         else:
             if self.value is None or not isinstance(self.value, list):
                 self.value = []
             self.value.append(_value)
 
         return errmsg
+
+    def load_withConvert(self, arg: str) -> Tuple[Any, str | None]:
+
+        _value, errmsg = self.spec._convertArg(arg)
+
+        if errmsg is not None:
+            self.errorNotes.append(errmsg)
+        else:
+            errmsg = self.load_appendValue(_value)
+
+        return _value, errmsg
 
 
 class ParamSpecList(list[ParamSpec]):
@@ -731,7 +776,7 @@ class ParamSpecList(list[ParamSpec]):
             spec = ParamSpec(_spec, escapeArguments)
             self.append(spec)
 
-    def doFilterByAttr(self, attr) -> "ParamSpecList":
+    def doFilterByAttr(self, attr: str) -> "ParamSpecList":
         result = ParamSpecList()
         for spec in self:
             if getattr(spec, attr)():
@@ -761,6 +806,26 @@ class ParamSpecList(list[ParamSpec]):
                 if argMatched:
                     return spec, _value
         return None, None
+
+    def nextCustomisationOptions_get(self) -> ParamSpec | None:
+        for _entry in self:
+            if _entry.isCustomisingOptions():
+                return _entry
+        # |x|->Tuple[ParamSpec,int]|None:
+        # |x|for n in range(0,len(self)):
+        # |x|    _entry=self[n]
+        # |x|    if _entry.isCustomising():
+        # |x|        return (_entry,n)
+
+        return None
+
+    def nextCustomisationOptions_pop(self) -> int:
+        for n in range(0, len(self)):
+            if self[n].isCustomisingOptions():
+                self.pop(n)
+                return n
+
+        return len(self)
 
 
 class ValueHelpSummaries(list[ValueHelpSummary]):

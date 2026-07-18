@@ -119,6 +119,11 @@ class Configuration:
 
         return resultWithErrMsg[0]
 
+    def hasKey(self, name: str) -> bool:
+        if not name:
+            return False
+        return name in self._settingsSpec
+
     def setting_applyIfMatchesWithErrMsg(
         self,
         name_valueTuple: tuple[str, str] | list[str],

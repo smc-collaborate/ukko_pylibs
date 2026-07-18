@@ -27,6 +27,10 @@ from ukko_pylibs.basic.class_HandledException import HandledException
 FileUtils = sys.modules[__name__]
 
 
+def filenameIsStdIO(filename: str) -> bool:
+    return filename in ["-", "@stdin", "@stdout", "/dev/stdin", "/dev/stdout", "@-", ""]
+
+
 def raiseHandledException(errmsg: str) -> NoReturn:
     raise HandledException(errmsg)
 
@@ -38,7 +42,7 @@ def loadJsonWithExtras(
     assumeDict: bool = False,
 ) -> tuple[str | None, dict[str, Any]]:
     jParams_ = string_or_path
-    if jParams_ == "-":
+    if filenameIsStdIO(jParams_):
         jParams_ = "@/dev/stdin"
     jParams_filePath = (
         jParams_[1:]
@@ -158,7 +162,7 @@ def loadJson(
     inputJsonFile = "??"
 
     try:
-        if (inputJson == "-") or (inputJson == "@-") or (inputJson == "@"):
+        if filenameIsStdIO(inputJson):
             inputJson = "@/dev/stdin"
         loadedJson: dict[str, Any] = {}
         if inputJson.startswith("@"):
@@ -205,12 +209,7 @@ def loadJson_dict_withSourceDescription_orException(
     sourceDescription = defaultDescription
     if (inputJson == None) or (inputJson == "") or (inputJson == "null"):
         pass
-    elif (
-        (inputJson == "-")
-        or (inputJson == "@-")
-        or (inputJson == "@")
-        or (inputJson == "@/dev/stdin")
-    ):
+    elif filenameIsStdIO(inputJson):
         pass
     elif inputJson.startswith("@"):
         sourceDescription = f"{Utils.pathDisplay(inputJson[1:])}"
@@ -236,7 +235,7 @@ def loadBytesFromFile_orHandledException(
     inputBinaryFile: str, what: str = "binary data"
 ) -> bytes:
     try:
-        if inputBinaryFile == "-":
+        if FileUtils.filenameIsStdIO(inputBinaryFile):
             inputBinaryFile = "/dev/stdin"
         if inputBinaryFile == "/dev/stdin":
             appLog.print_info(f"Note: Reading {what} from standard input")
@@ -252,7 +251,7 @@ def exportToFile_orHandledException(
     outputFilename: str, fileContents, format: str = "data", isText: bool = False
 ) -> Tuple[str, int]:
     try:
-        if (outputFilename == "-") or (outputFilename == "/dev/stdin"):
+        if filenameIsStdIO(outputFilename):
             outputFilename = "/dev/stdout"
         appLog.print_verbose(
             f"Exporting {format:<4} to {outputFilename} ({'None' if (fileContents is None) else PrettyText.pluralize(len(fileContents), 'byte')})"

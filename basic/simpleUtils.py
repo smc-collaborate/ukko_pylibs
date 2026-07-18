@@ -154,6 +154,12 @@ class Utils:
         return path
 
     @staticmethod
+    def asUtf8orBytesOrNone(data: Any) -> str | bytes | None:
+
+        result = Utils.asUtf8orBytes(data)
+        return result if result != "" else None
+
+    @staticmethod
     def asUtf8orBytes(data: Any) -> str | bytes:
 
         data_b = None
