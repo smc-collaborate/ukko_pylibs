@@ -897,7 +897,7 @@ class Define:
                     "isChosen",
                     "_test_only_",
                 ]:
-                    asRun["appValues"].pop(x)
+                    asRun["appValues"].pop(x, None)
                 obj["app-as-run"] = asRun
             if debug_info in ["all", "config-info"]:
                 obj["config-info"] = appConfig.asDict()
