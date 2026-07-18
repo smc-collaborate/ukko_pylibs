@@ -957,6 +957,20 @@ class PrettyTable:
 
 class DictUtils:
     @staticmethod
+    def appendStr(
+        obj: dict[str, Any], key: str, newValue: str | None, separator: str = ","
+    ):
+
+        if newValue is None:
+            return
+
+        if not isinstance(obj.get(key, None), str):
+            obj[key] = ""
+        if newValue != "":
+            obj[key] += separator
+        obj[key] += str(newValue)
+
+    @staticmethod
     def getWithDefaultValuesRemoved(
         dictIn: dict, defaultValues: dict[str, Any], recurseDicts: bool = False
     ) -> dict[str, Any]:
