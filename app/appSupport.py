@@ -40,8 +40,12 @@ from ukko_pylibs.app.class_ParamSpec import (
     ParamSpec,
     ParamSpecAndValue,
     ParamSpecList,
+    ParamSpecAndValue_collection,
     ValueHelpSummaries,
 )
+
+from ukko_pylibs.app.appChoices import AppParamParseResults, AppChoices
+import ukko_pylibs.app.appHelp as appHelp
 
 #
 ################################################################################
@@ -162,170 +166,27 @@ appConfig = Configuration(
 entries, default = appLog.get_thresholds()
 
 
-def getValue(name: str, default: Any | None = None) -> Any | None:
-    global g_runningApp
+def appValueOrDefault(appValues: dict[str, Any], name: str) -> Any | None:
+    if name in appValues:
+        return appValues[name]
 
-    if g_runningApp is not None:
-        return g_runningApp.appChoices.get(name, default)
-    else:
-        return default
+    APP_OPTION_DEFAULTS = {
+        "settings": None,
+        "show-config": False,
+        "examples": [],
+        "description": "Application",
+        "runner": None,
+        "escapeArguments": None,
+        "additional_parameters": "",
+        "exeName": getExeName(),
+        "enableStyling": True,
+        "versions_extra": [],
+    }
+    if name in APP_OPTION_DEFAULTS:
+        return APP_OPTION_DEFAULTS[name]
 
-
-# AppChoices
-# .appOptions = appOptions
-# .defaultsUsed = defaults_used
-# .nextCustomisationAvail = nextCustomisationAvail
-# .customisingChoicesMade=[]
-#
-class AppChoices:
-    """This is the final results of what the user has chosen, after parsing the command line arguments and applying any defaults
-    See AppParameterParsing for details of HOW this is generated - but the results are deliberately kept separate to avoid the messiness.
-    """
-
-    def __init__(
-        self,
-        paramsChosen: dict[str, Any],
-        appValues: dict[str, Any],
-        defaults_used: list[str],
-        nextCustomisationAvail: dict[str, Any] | None,
-    ):
-        self.params = paramsChosen
-        self.appValues = appValues
-        self.defaultsUsed = defaults_used
-        self.nextCustomisationAvail = nextCustomisationAvail
-        self.customisingChoicesMade_: list[Tuple[str, str]] | None = None
-
-    def customisingChoices_asText(self, separator: str = " ") -> str:
-        if self.customisingChoicesMade_ is None:
-            return "<IN PROGRESS>"
-
-        result = separator.join([str(x[1]) for x in self.customisingChoicesMade_])
-        if result != "" and separator == " ":
-            result = " " + result
-        return result + "!!"
-
-    def appValue(self, name: str) -> Any | None:
-        if name in self.appValues:
-            return self.appValues[name]
-
-        APP_OPTION_DEFAULTS = {
-            "settings": None,
-            "show-config": False,
-            "examples": [],
-            "description": "Application",
-            "runner": None,
-            "escapeArguments": None,
-            "additional_parameters": "",
-            "exeName": getExeName(),
-            "enableStyling": True,
-            "versions_extra": [],
-        }
-        if name in APP_OPTION_DEFAULTS:
-            return APP_OPTION_DEFAULTS[name]
-
-        appLog.print_warning(
-            f"AppChoices.appValue() - Unknown option requested: {name}"
-        )
-        return APP_OPTION_DEFAULTS.get(name, None)
-
-    def paramChoice(self, name: str, default: Any | None = None) -> Any | None:
-        return self.params.get(name, default)
-
-    def asDict(self) -> dict[str, Any]:
-
-        obj: dict[str, Any] = {
-            "customisingChoices_asText": self.customisingChoices_asText(),
-            "params": self.params,
-            "appValues": self.appValues,
-        }
-        if self.customisingChoicesMade_ is not None:
-            obj["customisingChoicesMade"] = [
-                f"{x[0]}={x[1]}" for x in self.customisingChoicesMade_
-            ]
-        if self.defaultsUsed:
-            obj["defaultsUsed"] = self.defaultsUsed
-        if self.nextCustomisationAvail:
-            obj["nextCustomisationAvail"] = self.nextCustomisationAvail
-        return obj
-
-    def __getitem__(self, key):
-        return self.paramChoice(key)
-
-    def asStr(self, name) -> str:
-        _value = self.paramChoice(name)
-        return "" if _value is None else str(_value)
-
-    def asList(self, name) -> list[Any]:
-        _value = self.paramChoice(name)
-        return [] if _value is None else list(_value)
-
-    def asInt(self, name) -> int:
-        _value = self.paramChoice(name)
-        return 0 if _value is None else int(_value)
-
-    def get(self, key, default=None):
-        return self.paramChoice(key, default)
-
-    def getDataContents_orNone(self, key) -> DataContents | None:
-        return self.paramChoice(key, None)
-
-    def getOverviewAsTextAndParams(self) -> tuple[str, list[str]]:
-        param_info = ""
-        summarisedParams: list[str] = []
-        for spec in self.getOptions():
-            usage = spec.getHelpSummary()
-            if usage and usage.summaryAdd_param:
-                param_info += usage.summaryAdd_param
-                summarisedParams.append(spec.name())
-
-        additionalParams = self.appValues.get("additional_parameters", None)
-        if additionalParams:
-            param_info += f" -- {additionalParams}"
-        return param_info.strip(), summarisedParams
-
-    def getOptions(self) -> ParamSpecList:
-        return ParamSpecList(self.appValues.get("options", []))
-
-
-class AppParamParseResults:
-    def __init__(
-        self,
-        paramSpec_chosen: dict[str, ParamSpecAndValue],
-        errors: list[Tuple[str, str | None]],
-        paramSpec_avail: ParamSpecList,
-        appChoices: AppChoices,
-    ):
-        self.paramSpec_chosen = paramSpec_chosen
-        self.errors = errors
-        self.paramSpec_avail = paramSpec_avail
-        self.appChoices = appChoices
-
-    def asDict(self) -> dict[str, Any]:
-        obj = {
-            "paramSpec_chosen": {
-                k: v.asDict() for k, v in self.paramSpec_chosen.items()
-            },
-            "paramSpec_avail": [x.asDict() for x in self.paramSpec_avail],
-            "appChoices": self.appChoices.asDict(),
-        }
-
-        if self.errors:
-            errorsOut = []
-            for x in self.errors:
-                msg = PrettyText.removeAnsiCodes(str(x[0]))
-                if x[1] is None:
-                    errorsOut.append(msg)
-                else:
-                    errorsOut.append(
-                        {
-                            "message": msg,
-                            "suggestion": PrettyText.removeAnsiCodes(str(x[1])),
-                        }
-                    )
-
-            obj["errors"] = errorsOut
-
-        return obj
+    appLog.print_warning(f"appValue() - Unknown option requested: {name}")
+    return None
 
 
 class IArgLoader_Template:
@@ -337,8 +198,9 @@ class IArgLoader_Template:
         self.buildingParamsFromAppDef = ParamSpecList()
 
         self.errors: list[Tuple[str, str | None]] = []
-        self.appChoicesBeingBuilt = AppChoices({}, {}, [], None)
-        self.paramSpec_chosen: dict[str, ParamSpecAndValue] = {}
+        self.nextCustomisationAvail_: dict[str, Any] | None = None
+        self.paramsChosen = ParamSpecAndValue_collection()
+        self.appValues: dict[str, Any] = {}
         self._noteGroupInfo(app_definition)
 
         self.processed_args: list[str] = []
@@ -352,16 +214,27 @@ class IArgLoader_Template:
     #########################################
     #
     # Rest is internal only
-    def getAppParamParseResults(self):
+    def getAppParamParseResults(self) -> AppParamParseResults:
+
+        _defaultsUsed = list(self.paramsChosen.filterBySource("defaults_used").keys())
+        _params: dict[str, Any] = {}
+        for key, _value in self.paramsChosen.items():
+            _params[key] = _value.value
         return AppParamParseResults(
-            self.paramSpec_chosen,
+            self.paramsChosen,
             self.errors,
             self.getAvailParamsAll(),
-            self.appChoicesBeingBuilt,
+            AppChoices(
+                _params,
+                self.appValues,
+                _defaultsUsed,
+                self.nextCustomisationAvail_,
+                self.customisingChoices_asText_calc(),
+            ),
         )
 
-    def getAppValue(self, name: str) -> Any:
-        return self.appChoicesBeingBuilt.appValue(name)
+    def getAppValue(self, name: str) -> Any | None:
+        return appValueOrDefault(self.appValues, name)
 
     def getParamSpec(self, name) -> ParamSpec | None:
         return self.getAvailParamsAll().get(name)
@@ -480,21 +353,21 @@ class IArgLoader_Template:
     def customisingChoices_asText_calc(self, separator: str = " ") -> str:
         result = separator.join(
             [
-                x.name()
+                x.spec.get("customisationChoice", "???")
                 for x in self.getAvailParamsAll().doFilterByAttr("isCustomisingChoice")
             ]
         )
         if result != "" and separator == " ":
             result = " " + result
-        return result + "![b]!"
+        return result  # + "![b]!"
 
     def loadNamed_fromArg(self, spec: ParamSpec, arg: str):
         _name: str = spec.name()
 
-        if not (_name in self.paramSpec_chosen):
-            self.paramSpec_chosen[_name] = ParamSpecAndValue(spec)
+        if not (_name in self.paramsChosen):
+            self.paramsChosen[_name] = ParamSpecAndValue(spec)
 
-        _value, _error = self.paramSpec_chosen[_name].load_withConvert(arg)
+        _value, _error = self.paramsChosen[_name].load_withConvert(arg)
         self.event_applyingValue(_name, _value, "spec")
         if _error:
             self.errors.append((_error, None))
@@ -510,18 +383,6 @@ class IArgLoader_Template:
     # |x|        if _error:
     # |x|            self.errors.append((_error, None))
 
-    def _mergeStr(self, name: str, actionInfo: dict[str, Any], separator: str):
-        appendThis = actionInfo.get(name, None)
-        if appendThis is None:
-            return
-
-        _mergedAppInfo = self.appChoicesBeingBuilt.appValues
-        if not isinstance(_mergedAppInfo.get(name, None), str):
-            _mergedAppInfo[name] = ""
-        if _mergedAppInfo[name] != "":
-            _mergedAppInfo[name] += separator
-        _mergedAppInfo[name] += str(appendThis)
-
     def _noteGroupInfo(
         self,
         _actionInfo: dict[str, Any],
@@ -531,46 +392,44 @@ class IArgLoader_Template:
         actionInfo = deepcopy(_actionInfo)
 
         # Update:
-        #   * self._mergedAppInfo
+        #   * self.appValues
         #   * self.availParamsRightNow
-        _mergedAppInfo = self.appChoicesBeingBuilt.appValues
 
-        #########################
-        # Update: _mergedAppInfo
-        #
         for name in actionInfo:
             if name == "options":
                 pass  # Do separately at the end
-            elif name not in _mergedAppInfo:
-                _mergedAppInfo[name] = actionInfo[name]
+            elif name not in self.appValues:
+                self.appValues[name] = actionInfo[name]
             elif name in ["description", "escapeArguments", "examples"]:
-                _mergedAppInfo[name] = actionInfo[name]
+                self.appValues[name] = actionInfo[name]
                 # self._mergeStr(name, actionInfo, ' - ')
             elif name in ["version"]:
-                self._mergeStr(name, actionInfo, ",")
-            elif isinstance(_mergedAppInfo[name], list):
-                _mergedAppInfo[name].extend(actionInfo[name])
+                DictUtils.appendStr(
+                    self.appValues, name, actionInfo.get(name, None), ","
+                )
+            elif isinstance(self.appValues[name], list):
+                self.appValues[name].extend(actionInfo[name])
             else:
                 n = 1
-                while f"{name}_prev[{n}]" in _mergedAppInfo:
+                while f"_test_only_{name}_prev[{n}]" in self.appValues:
                     n += 1
 
                 for i in range(n - 1, 1, -1):
-                    _mergedAppInfo[f"{name}_prev[{i+1}]"] = _mergedAppInfo[
-                        f"{name}_prev[{i}]"
+                    self.appValues[f"_test_only_{name}_prev[{i+1}]"] = self.appValues[
+                        f"_test_only_{name}_prev[{i}]"
                     ]
-                _mergedAppInfo[f"{name}_prev[1]"] = _mergedAppInfo[name]
-                _mergedAppInfo[name] = actionInfo[name]
+                self.appValues[f"_test_only_{name}_prev[1]"] = self.appValues[name]
+                self.appValues[name] = actionInfo[name]
 
         #########################
         # Update:
         #   * self._mergedAppInfo[options]
         #   * self.availParamsRightNow
         #
-        _optionList: list[dict[str, Any]] | None = _mergedAppInfo.get("options", None)
+        _optionList: list[dict[str, Any]] | None = self.appValues.get("options", None)
         if _optionList is None:
             _optionList = []
-            _mergedAppInfo["options"] = _optionList
+            self.appValues["options"] = _optionList
 
         if _optionList is actionInfo.get("options", None):
             appLog.print_warning("Impossible configuration - Adding a list to itself ?")
@@ -664,59 +523,53 @@ class IArgLoader_Template:
                 entry["descriptions"][key] = _customisations[key].get("description", "")
             entry["lookup"] = list(_customisations.keys())
 
-    def loadDefaultsIntoRemainingValues(self) -> list[str]:
-        _usedDefaults = []
-
-        def _loadIntoSpec_direct(spec: ParamSpec, value: Any):
-            _name: str = spec.name()
-            _usedDefaults.append(_name)
-
-            if _name in self.paramSpec_chosen:
-                self.errors.append(
-                    (f"Cannot load directly into {_name} : Already has value", None)
-                )
-                return
-
-            self.paramSpec_chosen[_name] = ParamSpecAndValue(spec)
-            self.paramSpec_chosen[_name].value = value
+    def loadDefaultsIntoRemainingValues(self):
 
         ################################################
-        # Load Defaults for missing --options
+        # Modifies:
+        #   * self.paramsChosen.createNew_SpecAndValue(spec, <value>, 'usedDefault')
+        #   * self.errors
+        #
+        # Creates:
+        #   * self.nextCustomisationAvail_
+        #
+        # Uses:
+        #   * self.getAvailParamsAll()
+        #   * self.paramsChosen
         #
         for spec in self.getAvailParamsAll():
-            _name: str = spec.name()
-            if _name not in self.paramSpec_chosen:
+            if spec.name() not in self.paramsChosen:
+
                 _defValue = spec.defaultValue_orNoneType()
                 if spec.isCustomisingOptions():
-                    if self.appChoicesBeingBuilt.nextCustomisationAvail is None:
-                        self.appChoicesBeingBuilt.nextCustomisationAvail = spec.get(
-                            "customising", None
-                        )
+                    if self.nextCustomisationAvail_ is None:
+                        self.nextCustomisationAvail_ = spec.get("customising", None)
                 elif _defValue is not NoneType:
-                    _loadIntoSpec_direct(spec, _defValue)
-                elif spec.hasBoolValueForPresence():
+                    self.paramsChosen.createNew_SpecAndValue(
+                        spec, _defValue, "usedDefault"
+                    )
+                elif spec.isNotHidden():
                     # Special case - the existance of it is the value - so if it is included we set it to True (eg: --help)
                     # but if it is not included, we set it to False
-                    if spec.isNotHidden():
-                        _usedDefaults.append(_name)
-                        _loadIntoSpec_direct(spec, False)
-                elif spec.isNotHidden() and not "help" in self.paramSpec_chosen:
-
-                    _errmsg = f"Missing required parameter: {styling.asError(spec.getValueHelp(ParamSpec.InfoStyle.PARAM_FORMAT_OR_EXAMPLE))}"
-
-                    exampleOrNone = spec.getExample()
-
-                    if exampleOrNone is None:
-                        _suggestion = None
-                    else:
-                        _suggestion = (
-                            appInfo_cmdWithVariant({_name: exampleOrNone}) or None
+                    if spec.hasBoolValueForPresence():
+                        self.paramsChosen.createNew_SpecAndValue(
+                            spec, False, "usedDefault"
                         )
+                    elif not "help" in self.paramsChosen:
+                        # @todo: Consider adding this anyway with a source as 'omitted - give error' or similar
+                        _errmsg = f"Missing required parameter: {styling.asError(spec.getValueHelp(ParamSpec.InfoStyle.PARAM_FORMAT_OR_EXAMPLE))}"
 
-                    self.errors.append((_errmsg, _suggestion))
+                        exampleOrNone = spec.getExample()
 
-        self.appChoicesBeingBuilt.defaultsUsed = _usedDefaults
-        return _usedDefaults
+                        if exampleOrNone is None:
+                            _suggestion = None
+                        else:
+                            _suggestion = (
+                                appInfo_cmdWithVariant({spec.name(): exampleOrNone})
+                                or None
+                            )
+
+                        self.errors.append((_errmsg, _suggestion))
 
     def doIterateArgs(self, args: list[str]):
 
@@ -739,7 +592,7 @@ class IArgLoader_Template:
                             for _spec in self.getAvailParamsAll()
                             if _spec.mayBeUsedDirectly()
                             and (
-                                not (_spec.name() in self.paramSpec_chosen)
+                                not (_spec.name() in self.paramsChosen)
                                 or _spec.get("supportMultiple", False)
                             )
                         ),
@@ -775,22 +628,19 @@ class IArgLoader_Template:
                 (f"Missing value for option: {_chosenSpec.name()}", None)
             )
 
-        if (
-            self.appChoicesBeingBuilt.nextCustomisationAvail is not None
-            and "help" not in self.paramSpec_chosen
-        ):
+        if self.nextCustomisationAvail_ is not None and "help" not in self.paramsChosen:
             self.errors.append(
                 (
-                    f"Expected one of {styling.asSuggestionList(self.appChoicesBeingBuilt.nextCustomisationAvail.keys())}",
+                    f"Expected one of {styling.asSuggestionList(self.nextCustomisationAvail_.keys())}",
                     None,
                 )
             )
 
-        self.appChoicesBeingBuilt.customisingChoicesMade_ = []
+        self.NOT_NEEDED_customisingChoicesMade_ = []
         for paramSpec in [
             x for x in self.getAvailParamsAll().doFilterByAttr("isCustomisingChoice")
         ]:
-            self.appChoicesBeingBuilt.customisingChoicesMade_.append(
+            self.NOT_NEEDED_customisingChoicesMade_.append(
                 (paramSpec.name(), paramSpec.spec["customisationChoice"])
             )
 
@@ -858,21 +708,6 @@ class ArgLoader_withApplyConfig(IArgLoader_Template):
         return _done
 
 
-def exeSubstitute(txt: str, exeName: str, exeNameDecorated: str) -> str:
-    txt = txt.replace("<exeName>", exeName)
-    txt = txt.replace("<exeName+action>", exeNameDecorated)
-    return txt
-
-
-def popLastFromText(txt: str, suffixMarker: str) -> tuple[str, str]:
-    x = txt.split(suffixMarker)
-    suffix = ""
-    if len(x) > 1:
-        suffix = suffixMarker + " " + x.pop().strip()
-        txt = "#".join(x).strip()
-    return txt, suffix
-
-
 class Define:
 
     def __init__(self, _app_definition: dict[str, Any]):
@@ -893,14 +728,16 @@ class Define:
         self.orig_app_definition = deepcopy(self.app_definition)
         appInfo_set("APP_DEFINITION", deepcopy(self.app_definition))
 
-        self.appChoices = AppChoices({}, deepcopy(self.app_definition), [], None)
+        self.parseResults: AppParamParseResults | None = None
 
     def asDict(self) -> dict[str, Any]:
-        obj = {
+        obj: dict[str, Any] = {
             "app_definition": self.app_definition,
-            # "appParamParser": self.appParamParser,
-            "appParamsChoices": self.appChoices.asDict(),
         }
+
+        if self.parseResults is not None:
+            obj["parseResults"] = (self.parseResults.asDict(),)
+
         return obj
 
     def giveHelp(self, file_dest=sys.stdout, shorterVersion=False):
@@ -914,323 +751,17 @@ class Define:
         #   * self.appChoices
         #   * self.availParams
         #
-        return self._getHelp(
-            self.appChoices, self.availParams, shorterVersion=shorterVersion
+        if self.parseResults is None:
+            error_exit_internalCause("app.getHelp(parseResults=None)")
+
+        return appHelp.getAppHelp_asLines(
+            self.parseResults.appChoices,
+            self.parseResults.paramSpec_avail,
+            appConfig,
+            shorterVersion=shorterVersion,
         )
 
-    @staticmethod
-    def _getHelp(
-        appChoices: AppChoices, availParams: ParamSpecList, shorterVersion=False
-    ) -> list[str]:
-        #
-        # Full done from only:
-        #   * self.appChoices
-        #   * self.availParams
-
-        #
-        visibleParams = [
-            x for x in availParams if x.isNotHidden() and not x.isCustomisingOptions()
-        ]
-
-        lines_out: list[str] = []
-
-        exeName = str(appChoices.appValue("exeName"))
-        exeNameDecorated = (
-            exeName + " " + appChoices.customisingChoices_asText().strip()
-        ).strip()
-
-        verText = f"v{appChoices.appValue('version')}"
-
-        params_txt, _mentioned = appChoices.getOverviewAsTextAndParams()
-
-        #########################################
-        #  Calculate: `mentionOtherOptions`  (to use with 'params_txt' in the usage line)
-        #
-        _unmentioned = [
-            x
-            for x in visibleParams
-            if not x.name() in _mentioned and (x.get("group") != "~appAuto")
-        ]
-
-        #########################################
-        #
-        _customisedChoiceNext: dict[str, Any] | None = appChoices.nextCustomisationAvail
-
-        if not _customisedChoiceNext:
-            mentionOtherOptions = "" if len(_unmentioned) == 0 else " [options]"
-            prefix = (
-                styling.asBold(
-                    PrettyText.padToWidth(exeNameDecorated, 32)
-                    + " "
-                    + PrettyText.padToWidth(verText, 13)
-                )
-                + " : "
-            )
-            lines_out.append(f"{prefix}{appChoices.appValue('description')}")
-            if not shorterVersion:
-                prefix = PrettyText.asSpaces(prefix)
-                for x in appChoices.appValue("versions_extra") or []:
-                    lines_out.append(f"{prefix}{styling.asBold(x)}")
-
-            lines_out.append("")
-            lines_out.append(
-                f"Usage: {styling.asSuggestion(exeNameDecorated+mentionOtherOptions+' '+params_txt)}"
-            )  # + {appChoices.getCustomisationChoicesAsText()}
-        else:
-            # |eg:|  "send": {
-            # |eg:|      "description": "Send ground command messages",
-            # |eg:|      "options": [
-            # |eg:|          PARAM_COMMANDS_DEFINITION,
-            # |eg:|          {
-            # |eg:|              "name": "keep-monitoring",
-            # |eg:|              "description": "Continues to monitor even after all sent messages are handled",
-            # |eg:|          },
-            # |eg:|      ],
-            # |eg:|      "show-config": True,
-
-            directPrefixes = []
-            for key, paramObj in _customisedChoiceNext.items():
-                _description = paramObj.get("description", "")
-                _obj: dict[str, Any] = {
-                    "name": key,
-                    "description": _description,
-                }  # +"="+Utils.asJsonStr(paramObj)}
-
-                _obj["options"] = paramObj.get("options", None) is not None
-                directPrefixes.append(_obj)
-
-            prefix = f"Usage: "
-            directPrefixes.append({"blankLine": True})
-            directPrefixes.append(
-                {
-                    "name": "<action> --help",
-                    "options": False,
-                    "description": "Gives help information on the action (From the above list)",
-                }
-            )
-
-            for _entry in directPrefixes:
-                if not _entry.get("blankLine", False):
-                    _name = _entry.get("name", "")
-                    exeNameToUse = (
-                        exeName
-                        if _entry.get("noDecoration", False)
-                        else exeNameDecorated
-                    )
-                    _entry["nameToUse"] = exeNameToUse + " " + _name
-
-            tableOut = PrettyTable()
-
-            tableOut.appendRow(
-                [
-                    styling.asBold(exeNameDecorated),
-                    styling.asBold(verText),
-                    "| " + styling.asBold(appChoices.appValue("description")),
-                ]
-            )
-            if not shorterVersion:
-                for x in appChoices.appValue("versions_extra") or []:
-                    tableOut.appendRow(["", "", "| " + styling.asBold(x)])
-                tableOut.appendRow([])
-
-            for _entry in directPrefixes:
-                if _entry.get("blankLine", False):
-                    tableOut.appendRow([])
-                else:
-                    _name = _entry.get("name", "")
-                    exeNameToUse = (
-                        exeName
-                        if _entry.get("noDecoration", False)
-                        else exeNameDecorated
-                    )
-                    _nameToUse = exeNameToUse + " " + _name
-
-                    _value = _entry.get("description", "")
-                    includeOptions = _entry.get("options", True)
-
-                    params_txt = "[options …]"
-                    _params_out = params_txt if includeOptions else ""
-
-                    tableOut.appendRow(
-                        [
-                            f"{prefix}{styling.asSuggestion(_nameToUse)}",
-                            styling.asSuggestion(_params_out),
-                            "" if _value == "" else f"| {_value}",
-                        ]
-                    )
-                    prefix = PrettyText.asSpaces(prefix)
-
-            lines_out.extend(tableOut.asLines())
-
-            ###############
-            #
-            # Add to examples
-            #
-            _examplesOut = appChoices.appValue("examples")
-            if not _examplesOut:
-                _examplesOut = []
-                appChoices.appValues["examples"] = _examplesOut
-
-            def replaceWithin(txt: str | list[str], needle: str, replacement: str):
-                if isinstance(txt, str):
-                    return txt.replace(needle, replacement)
-                elif isinstance(txt, list):
-                    return [replaceWithin(x, needle, replacement) for x in txt]
-                else:
-                    return txt
-
-            for action, entry in _customisedChoiceNext.items():
-
-                topSuggestion = entry.get("topSuggestion", None)
-                if topSuggestion is None:
-                    kindExamples = entry.get("examples", [])
-                    if len(kindExamples) > 0:
-                        topSuggestion = kindExamples[0]
-
-                if topSuggestion is not None:
-                    topSuggestion = replaceWithin(
-                        topSuggestion,
-                        "<exeName+action>",
-                        "<exeName+action> " + EscapeMgr.escapeIfNeeded(action),
-                    )
-                    if isinstance(topSuggestion, str):
-                        topSuggestion = topSuggestion.strip()
-
-                        _restyle = topSuggestion.startswith("<exeName+action>")
-                    else:
-                        _restyle = False
-
-                    if _restyle and isinstance(topSuggestion, str):
-
-                        comment_suffix = ""
-                        x = topSuggestion.split("#")
-                        if len(x) > 1:
-                            comment_suffix = " # " + x.pop()
-                            topSuggestion = "#".join(x).strip()
-
-                        topSuggestion = topSuggestion.split(" ") + [comment_suffix]
-
-                if isinstance(topSuggestion, str):
-                    _examplesOut.append(topSuggestion)
-                elif isinstance(topSuggestion, list):
-                    _examplesOut.append(topSuggestion)
-
-        lines_out.append("")
-
-        optionSummaries = ValueHelpSummaries()
-
-        ############################################
-        #
-        # Add:  ['settings']: 'Setting Options'
-        #
-        shouldShowConfig = appChoices.appValue("show-config")
-        if shouldShowConfig:
-
-            appSettings = appChoices.appValue("settings")
-
-            if appSettings:
-                for entry_name, entry_params in appSettings.items():
-                    _spec = {"group": "settings", "name": entry_name, "shortName": ""}
-                    _spec.update(entry_params)
-                    _spec["default"] = appConfig.setting_getPreUser(
-                        entry_name
-                    )  # < After update to overwrite it
-                    optionSummaries.appendItem("Setting Options", _spec)
-
-        ############################################
-        #
-        # Add:  ['~chosen']: 'Specific Options'
-        #
-
-        otherName = "Basic Options"
-        for paramObj in visibleParams:
-            _g = paramObj.get("group")
-            if _g and (_g != "~appAuto"):  # < First: Non blank & non-auto entries
-                titlePrefix = str(_g).title().replace("_", " ")
-                if " " in titlePrefix or ":" in titlePrefix:
-                    titlePrefix = "Basic"
-
-                optionSummaries.appendItem(f"{titlePrefix} Options", paramObj)
-                otherName = "Common Options"
-
-        # < Ensure '~appAuto' are last
-        for paramObj in visibleParams:
-            _g = paramObj.get("group", None)
-            if not _g:
-                optionSummaries.appendItem(otherName, paramObj)  # < Then: Blank Entries
-
-        for paramObj in visibleParams:
-            _g = paramObj.get("group", None)
-            if _g == "~appAuto":  # < Then: Auto entries
-                optionSummaries.appendItem("Tailoring Options", paramObj)
-
-        ############################################
-        #
-        # Print the options
-        #
-        lines_out.extend(optionSummaries.asLines())
-
-        subscripts = ""
-        for d in visibleParams:
-            subscripts += d.getValueHelpSubscripts()
-        lines_out.extend(ParamSpec.getValueHelpExtraInfoFromSubscripts(subscripts))
-
-        ############################################
-        #
-        # Add examples
-        #
-        _examplesRaw = appChoices.appValue("examples")
-        if shorterVersion:
-            lines_out.append("")
-        elif _examplesRaw:
-
-            def popLastFromList(entries: list[str], suffixMarker: str) -> str:
-                if len(entries) == 0:
-                    return ""
-                last = entries[-1]
-                if not last.startswith(suffixMarker):
-                    return ""
-                return entries.pop()
-
-            examplesOut = PrettyTable()
-            commentsOut: list[str] = []
-            tableColWidths = None
-            # pipeOut: list[str] = []
-            for s in _examplesRaw:
-                if isinstance(s, str):
-                    txt, comment_suffix = popLastFromText(
-                        exeSubstitute(s, exeName, exeNameDecorated), "#"
-                    )
-                    # txt, pipe_suffix = popLastFromText(textSubstitute(s), "|")
-                    examplesOut.appendRow([styling.asSuggestion(txt)])
-                    commentsOut.append(comment_suffix)
-                    # pipeOut.append(pipe_suffix)
-                elif isinstance(s, dict):
-                    if "colWidths" in s:
-                        tableColWidths = s.get("colWidths")
-
-                else:
-                    line_out = [
-                        exeSubstitute(str(x), exeName, exeNameDecorated).strip()
-                        for x in s
-                    ]
-
-                    comment = popLastFromList(line_out, "#")
-                    # pipe=popLastFromList(line_out,'|')
-                    commentsOut.append(comment)
-                    examplesOut.appendRow([styling.asSuggestion(x) for x in line_out])
-                    # pipeOut.append(pipe)
-
-            if examplesOut.rows:
-
-                lines_out.append("")
-                lines_out.append("Examples:")
-
-                examplesOut.appendCol(commentsOut)
-                for line in examplesOut.asLines(render_colVisWidths=tableColWidths):
-                    lines_out.append(f" • {line}")
-
-        return [line.replace("\xa0", " ").rstrip() for line in lines_out]
+        # self.appChoices = AppChoices({}, deepcopy(self.app_definition), [], None)
 
     def getExeName_decorated(self, decorated=True):
         if decorated:
@@ -1281,10 +812,14 @@ class Define:
 
         argLoader.doIterateArgs(args)
 
-        _usedDefaults = argLoader.loadDefaultsIntoRemainingValues()
+        argLoader.loadDefaultsIntoRemainingValues()
 
-        if len(_usedDefaults) > 0:
-            appLog.print_tediousDetail(f"Used defaults for: {', '.join(_usedDefaults)}")
+        _usedDefaults = argLoader.paramsChosen.filterBySource("usedDefault")
+
+        if _usedDefaults:
+            appLog.print_tediousDetail(
+                f"Used defaults for: {', '.join(_usedDefaults.keys())}"
+            )
 
         ##################################################################################################
         # Now has:
@@ -1298,57 +833,66 @@ class Define:
             f"errors: " + Utils.asJsonStr(argLoader.errors, indent=2)
         )
         appLog.print_tediousDetail(
-            f"AS LOADED: " + Utils.asJsonStr(argLoader.paramSpec_chosen, indent=2)
+            f"AS LOADED: " + Utils.asJsonStr(argLoader, indent=2)
         )
 
-        parseResults = argLoader.getAppParamParseResults()
+        self.parseResults = argLoader.getAppParamParseResults()
 
-        self.availParams = parseResults.paramSpec_avail
-        self.appChoices = parseResults.appChoices
+        exitReason = self.doRunOnParseResults(self.parseResults)
 
+        if exitReason is not None:
+            doHalt(
+                f"{'' if exitReason=='' else exitReason+' - '}Exiting",
+                suggestSilent=True,
+            )
+            exit(0)
+
+        return self.parseResults.appChoices
+
+    def doRunOnParseResults(self, _parseResults: AppParamParseResults) -> str | None:
         appInfo_appendStr(
-            "APP_AS_USED.post_exe", self.appChoices.customisingChoices_asText()
+            "APP_AS_USED.post_exe",
+            _parseResults.appChoices.customisingChoicesMade_withLeadingSpace,
         )
 
-        for name, obj in parseResults.paramSpec_chosen.items():
-            self.appChoices.params[name] = obj.value
+        # |x|for name, obj in parseResults.paramSpec_chosen.items():
+        # |x|    self.appChoices.params[name] = obj.value
 
-        # for name, value in self.appChoices.customisingChoicesMade:
-        #    self.appChoices.params[name] = value
+        # |x| for name, value in self.appChoices.customisingChoicesMade:
+        # |x|    self.appChoices.params[name] = value
 
         ####################################
         #
-        if self.appChoices.params.pop("version", None):
+        if _parseResults.appChoices.params.pop("version", None):
             self.dumpVersion()
-            doHalt("Version Info - Exiting", suggestSilent=True)
-            exit(0)
+            return "Version Info"
 
-        exitWithOk = False
-        if self.appChoices.params.pop("help", None):
-            self.giveHelp(shorterVersion=bool(parseResults.errors))
-            doHalt("Help Info - Exiting", suggestSilent=True)
+        exitReason: str | None = None
+        if _parseResults.appChoices.params.pop("help", None):
+            self.giveHelp(shorterVersion=bool(_parseResults.errors))
 
-            exitWithOk = True
+            exitReason = "Help Info"
 
-        if parseResults.errors:
-            suggestion = parseResults.errors[0][1]
+        if _parseResults.errors:
+            suggestion = _parseResults.errors[0][1]
 
             error_exit_withSuggestion(
-                parseResults.errors[0][0], suggestion if suggestion else "<auto>"
+                _parseResults.errors[0][0], suggestion if suggestion else "<auto>"
             )
 
-        if self.appChoices.params.pop("debug-option", None) == "app-info":
+        if _parseResults.appChoices.params.pop("debug-option", None) == "app-info":
             obj = {"appDefinition": self.app_definition}
             print(Utils.asJsonStr(obj, indent=2))
-            exitWithOk = True
+            exitReason = ""
 
-        self.appChoices.appValues.pop("options", None)
+        _parseResults.appChoices.appValues.pop("options", None)
 
-        if exitWithOk:
-            doHalt("Exiting", suggestSilent=True)
-            exit(0)
-        return self.appChoices
+        return exitReason
 
+
+##################################################################################################
+#
+#
 
 g_runningApp: Define | None = None
 
@@ -1356,6 +900,20 @@ g_runningApp: Define | None = None
 def getRunningApp() -> Define | None:
     global g_runningApp
     return g_runningApp
+
+
+def getValue(name: str, default: Any | None = None) -> Any | None:
+    global g_runningApp
+
+    if g_runningApp is not None and g_runningApp.parseResults is not None:
+        return g_runningApp.parseResults.appChoices.get(name, default)
+    else:
+        return default
+
+
+#
+#
+##################################################################################################
 
 
 class _ArgLoader_ReplaceParams(IArgLoader_Template):
@@ -1430,6 +988,11 @@ class _ArgLoader_ReplaceParams(IArgLoader_Template):
         return " ".join(newList)  # [EscapeMgr.asBashParam(x) for x in newList])
 
 
+##################################################################################################
+#
+#
+
+
 def appInfo_cmdWithVariant(
     replacingArgs: dict[str, Any], blankIfUnchanged: bool = True
 ) -> str:
@@ -1451,52 +1014,103 @@ def appInfo_normalisedCommand() -> str:
     return appInfo_cmdWithVariant({}, blankIfUnchanged=False)
 
 
-# |Remove|    def option_usedDefault(self, name):
-# |Remove|        """
-# |Remove|        Check if the option is set to its default value.
-# |Remove|        :param name: The name of the option to check.
-# |Remove|        :return: True if the option was omitted - forcing the deault value to be used
-# |Remove|        """
-# |Remove|        return name in self.choices_made.get("default_parameters", [])
-# |Remove|
-# |Remove|    def option_isDefault(self, name):
-# |Remove|        """
-# |Remove|        Check if the option is set to its default value.
-# |Remove|        :param name: The name of the option to check.
-# |Remove|        :return: True if the option is set to its default value, False otherwise.
-# |Remove|        """
-# |Remove|        if self.option_usedDefault(name):
-# |Remove|            return True
-# |Remove|        _value = self.choices_made.get("chosen_parameters", {}).get(name, None)
-# |Remove|        if _value is None:
-# |Remove|            return False
-# |Remove|        return _value == ParamSpec.defaultValue(
-# |Remove|            self.app_definition["options"].get(name)
-# |Remove|        )
+def exeInfo_getName():
+    """
+    Returns the name of the executable, without the path.
+    :return: The name of the executable.
+    """
+    return os.path.basename(getExeName())
 
+
+def appDir(defaultDir: str = ".") -> str:
+    """
+    Get the application directory, which is the directory of the main module.
+    """
+
+    appModule = sys.modules["__main__"]
+    _filename = str(getattr(appModule, "__file__", ""))
+
+    reason = ""
+    if _filename:
+        appDir = os.path.dirname(_filename)
+        reason = "mainModuleFile.dir"
+    else:
+        appDir = defaultDir
+        reason = "defaultDir"
+
+    dirFromDef = appInfo_get("APP_DEFINITION.app_dir", None)
+    if dirFromDef is not None:
+        appDir = dirFromDef
+        reason = "app_dir from definition"
+
+    appLog.print_verbose(f"App directory: {appDir} (Reason: {reason})")
+    return appDir
+
+
+def getDir(subDirName: str = "") -> str:
+    """
+    Get the application directory with an optional subdirectory.
+    """
+
+    def _getDirIfExists(baseDir: str, subDirName: str) -> str | None:
+        subdir = os.path.realpath(os.path.join(baseDir, subDirName))
+        if os.path.exists(subdir):
+            return subdir
+        return None
+
+    dirPath = appInfo_get(f"APP_DEFINITION.{subDirName}_dir", None)
+    if dirPath is not None:
+        reason = f"{subDirName}_dir from definition"
+    else:
+        basePath = appDir()
+        dirPath = None
+        reason = f"No {subDirName} found - Using default"
+        for entry in ("./", "../", "../../"):
+            dirPath = _getDirIfExists(basePath, entry + subDirName)
+            if dirPath is not None:
+                reason = f"Found {subDirName} in {entry} relative to appDir"
+                break
+        if dirPath is None:
+            dirPath = f"{basePath}/"
+
+    appLog.print_verbose(f"Dir[{subDirName}]= {dirPath} (Reason: {reason})")
+    return dirPath
+
+
+#
+#
+##################################################################################################
 
 ################################
-def groupCreate(name: str, defaultValue: str | None = None) -> dict[str, Any]:
-    obj = {"name": name, "customising": {}, "mustBeDirect": True}
+# |ToReview| def groupCreate(name: str, defaultValue: str | None = None) -> dict[str, Any]:
+# |ToReview|     obj = {"name": name, "customising": {}, "mustBeDirect": True}
+# |ToReview|
+# |ToReview|     if defaultValue is not None:
+# |ToReview|         obj["defaultValue"] = defaultValue
+# |ToReview|
+# |ToReview|     return obj
+# |ToReview|
+# |ToReview|
+# |ToReview| def groupEntry(
+# |ToReview|     description: str,
+# |ToReview|     funcCallback,
+# |ToReview|     _options: list | None = None,
+# |ToReview|     examples: list | None = None,
+# |ToReview| ):
+# |ToReview|     obj: dict[str, Any] = {"description": description, "_func_callback": funcCallback}
+# |ToReview|     if _options is not None:
+# |ToReview|         obj["options"] = _options
+# |ToReview|     if examples is not None:
+# |ToReview|         obj["examples"] = examples
+# |ToReview|     return obj
+# |ToReview|
+# |ToReview| class JsonEncoderExtended(json.JSONEncoder):
+# |ToReview|     def default(self, o):
+# |ToReview|         return o.__dict__
+# |ToReview|
 
-    if defaultValue is not None:
-        obj["defaultValue"] = defaultValue
-
-    return obj
-
-
-def groupEntry(
-    description: str,
-    funcCallback,
-    _options: list | None = None,
-    examples: list | None = None,
-):
-    obj: dict[str, Any] = {"description": description, "_func_callback": funcCallback}
-    if _options is not None:
-        obj["options"] = _options
-    if examples is not None:
-        obj["examples"] = examples
-    return obj
+#############################################################################################################################################
+#
 
 
 g_appIsRunning = True
@@ -1518,21 +1132,16 @@ def doHalt(msg: str | None = None, suggestSilent: bool = False):
         )
 
 
-def doExit(defaultExitCode: int | None = None) -> NoReturn:
-    doHalt()
-    if defaultExitCode is not None and defaultExitCode != 0:
-        exitCode = defaultExitCode
-    else:
-        exitCode = 1 if appLog.had_error() else 0
-    sys.exit(exitCode)
-
-
 def doRun(callable: Callable[[], None]):
     try:
         callable()
         doExit()
     except BaseException as e:
         exitOnException(e)
+
+
+#
+#############################################################################################################################################
 
 
 def printVerbose_sysInfo():
@@ -1557,6 +1166,19 @@ def printVerbose_sysInfo():
         appLog.print_verbose(f"Executable: {sys.executable}")
         appLog.print_verbose(f"Current working directory: {os.getcwd()}")
         appLog.print_tediousDetail(f"Modules:\n" + "\n".join(lines))
+
+
+#############################################################################################################################################
+#
+
+
+def doExit(defaultExitCode: int | None = None) -> NoReturn:
+    doHalt()
+    if defaultExitCode is not None and defaultExitCode != 0:
+        exitCode = defaultExitCode
+    else:
+        exitCode = 1 if appLog.had_error() else 0
+    sys.exit(exitCode)
 
 
 def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
@@ -1596,7 +1218,7 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
         if appLog.isVerbose() or [x for x in os.environ if x.startswith("VSCODE_")]:
             msg += "\n".join([f"   [trace]: {x}" for x in traceLines])
 
-        elif g_runningApp is not None:
+        elif getRunningApp() is not None:
             msg += f"Suggestion: {styling.asSuggestion(appInfo_cmdWithVariant({'verbosity':'details'}))} for more information"
         error_msg_exit(msg)
     elif e.srcException is not None:
@@ -1604,7 +1226,7 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
             msg = "\n".join(
                 [f"   [trace]: {x}" for x in getPrettyExceptionInfo(e.srcException)[1]]
             )
-        elif g_runningApp is not None:
+        elif getRunningApp() is not None:
             msg = f"Suggestion: {styling.asSuggestion(appInfo_cmdWithVariant({'verbosity':'details'}))} for more information"
         else:
             msg = ""
@@ -1689,7 +1311,16 @@ def error_exit_withAutoSuggestion(
     msg: str, exception: Exception | None = None, useAutoSuggestion: bool = True
 ) -> NoReturn:
 
-    return error_exit_withSuggestion(msg, "<auto>", "", exception)
+    return error_exit_withSuggestion(
+        msg, "<auto>" if useAutoSuggestion else "", "", exception
+    )
+
+
+def error_exit_internalCause(
+    msg: str,
+    exception: Exception | None = None,
+) -> NoReturn:
+    return error_msg_exit("Error[Internal]: " + msg, exception)
 
 
 def error_exit_withSuggestion(
@@ -1760,12 +1391,8 @@ def doExitWithCode() -> NoReturn:
         sys.exit(0)
 
 
-def exeInfo_getName():
-    """
-    Returns the name of the executable, without the path.
-    :return: The name of the executable.
-    """
-    return os.path.basename(getExeName())
+#
+#############################################################################################################################################
 
 
 def exeInfo_doUninstall():
@@ -1782,11 +1409,6 @@ def exeInfo_doUninstall():
         except Exception as e:
             error_msg_exit(f"Unable to uninstall {exeInfo_getName()}: {e}")
     return "PYAPP_INSTALL_SOURCE" in os.environ
-
-
-class JsonEncoderExtended(json.JSONEncoder):
-    def default(self, o):
-        return o.__dict__
 
 
 def exec_cmd(
@@ -1894,61 +1516,6 @@ def loadBinaryFile_orHandledException(
         inputJsonParams["_filename"] = inputBinaryFilename
 
     return fileUtils.loadBytesFromFile_orHandledException(inputBinaryFilename)
-
-
-def appDir(defaultDir: str = ".") -> str:
-    """
-    Get the application directory, which is the directory of the main module.
-    """
-
-    appModule = sys.modules["__main__"]
-    _filename = str(getattr(appModule, "__file__", ""))
-
-    reason = ""
-    if _filename:
-        appDir = os.path.dirname(_filename)
-        reason = "mainModuleFile.dir"
-    else:
-        appDir = defaultDir
-        reason = "defaultDir"
-
-    dirFromDef = appInfo_get("APP_DEFINITION.app_dir", None)
-    if dirFromDef is not None:
-        appDir = dirFromDef
-        reason = "app_dir from definition"
-
-    appLog.print_verbose(f"App directory: {appDir} (Reason: {reason})")
-    return appDir
-
-
-def getDir(subDirName: str = "") -> str:
-    """
-    Get the application directory with an optional subdirectory.
-    """
-
-    def _getDirIfExists(baseDir: str, subDirName: str) -> str | None:
-        subdir = os.path.realpath(os.path.join(baseDir, subDirName))
-        if os.path.exists(subdir):
-            return subdir
-        return None
-
-    dirPath = appInfo_get(f"APP_DEFINITION.{subDirName}_dir", None)
-    if dirPath is not None:
-        reason = f"{subDirName}_dir from definition"
-    else:
-        basePath = appDir()
-        dirPath = None
-        reason = f"No {subDirName} found - Using default"
-        for entry in ("./", "../", "../../"):
-            dirPath = _getDirIfExists(basePath, entry + subDirName)
-            if dirPath is not None:
-                reason = f"Found {subDirName} in {entry} relative to appDir"
-                break
-        if dirPath is None:
-            dirPath = f"{basePath}/"
-
-    appLog.print_verbose(f"Dir[{subDirName}]= {dirPath} (Reason: {reason})")
-    return dirPath
 
 
 def print_cyan(message: Any):

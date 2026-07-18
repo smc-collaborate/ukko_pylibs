@@ -709,6 +709,7 @@ class ParamSpecAndValue:
     ):
         self.spec = spec.__clone__()
         self.value = value
+        self.valueSource: str = ""
         self.errorNotes: list[str] = []
         if convert is not None:
             self.value, _ = self.load_withConvert(convert)
@@ -762,6 +763,32 @@ class ParamSpecAndValue:
             errmsg = self.load_appendValue(_value)
 
         return _value, errmsg
+
+
+class ParamSpecAndValue_collection(dict[str, ParamSpecAndValue]):
+    def __init__(self):
+        super().__init__()
+
+    def createNew_SpecAndValue(self, spec: ParamSpec, value: Any, source: str):
+        _name: str = spec.name()
+
+        if _name in self:
+            self[_name].errorNotes.append(
+                f"Cannot load directly into {_name} : Already has value"
+            )
+            return
+
+        self = ParamSpecAndValue(spec)
+        self.value = value
+        self.valueSource = source
+
+    def filterBySource(self, source: str) -> "ParamSpecAndValue_collection":
+        result = ParamSpecAndValue_collection()
+        for key, _value in self.items():
+            if _value.valueSource == source:
+                result[key] = _value
+
+        return result
 
 
 class ParamSpecList(list[ParamSpec]):
