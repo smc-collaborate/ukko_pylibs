@@ -23,12 +23,12 @@ if shared_dir not in sys.path:
 
 from ukko_pylibs.basic import fileUtils
 from ukko_pylibs.basic.simpleUtils import (
-    PrettyTable,
     Utils,
     PrettyText,
     EscapeMgr,
     DictUtils,
 )
+
 from ukko_pylibs.basic.logger import appLog
 from ukko_pylibs.basic.class_HandledException import (
     HandledException,
@@ -269,7 +269,8 @@ class IArgLoader_Template:
             ParamSpec(
                 {
                     "name": "verbosity",
-                    "group": "~appAuto",
+                    "group": "Display Options",
+                    "position": 999,
                     "lookup": entries,
                     "default": default,
                     "defaultEnvVar": "UAPP_VERBOSITY",
@@ -288,7 +289,8 @@ class IArgLoader_Template:
                     {
                         "name": "colour",
                         "lookup": ["enable", "disable"],
-                        "group": "~appAuto",
+                        "group": "Display Options",
+                        "position": 998,
                         "shortName": "",
                         "default": "enable",
                         "defaultEnvVar": "UAPP_COLOUR",
@@ -312,7 +314,7 @@ class IArgLoader_Template:
             ParamSpec(
                 {
                     "name": "version",
-                    "group": "~appAuto",
+                    "group": "",  # "~appAuto",
                     "shortName": "",
                     "description": "Gives version information for this app: "
                     + styling.asBold(f"v{self.getAppValue('version')}"),
@@ -324,7 +326,7 @@ class IArgLoader_Template:
             ParamSpec(
                 {
                     "name": "help",
-                    "group": "~appAuto",
+                    "group": "",  # "~appAuto",
                     "shortName": "?" if _all.containsShortName("-h") else "h",
                     "description": "Gives help",
                 }
@@ -337,6 +339,7 @@ class IArgLoader_Template:
                     "hidden": True,
                     "name": "debug-info",
                     "group": "~appAuto",
+                    "position": 1000,
                     "description": "Gives additional information about the app and its configuration",
                     "lookup": ["", "app-info", "app-as-run", "config-info", "all"],
                     "default": "",
