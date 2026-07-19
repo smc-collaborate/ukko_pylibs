@@ -1,6 +1,7 @@
 #########################################################################
 #
 # appHelp
+from copy import deepcopy
 import os
 import sys
 from typing import Any
@@ -14,11 +15,12 @@ if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 from ukko_pylibs.basic.simpleUtils import (
-    PrettyTable,
     PrettyText,
     EscapeMgr,
 )
-from ukko_pylibs.basic.logger import appLog
+from ukko_pylibs.basic.prettyTable import PrettyTable, PrettyTable_Rendered
+
+
 from ukko_pylibs.basic import styling
 from ukko_pylibs.app.class_ParamSpec import (
     ParamSpec,
@@ -135,21 +137,24 @@ def getAppHelp_asLines(
 
         tableOut = PrettyTable()
 
-        tableOut.appendRow(
+        tableOut.appendRowList(
             [
                 styling.asBold(exeNameDecorated),
                 styling.asBold(verText),
                 "| " + styling.asBold(appChoices.appValue("description")),
-            ]
+            ],
+            "overview",
         )
         if not shorterVersion:
             for x in appChoices.appValue("versions_extra") or []:
-                tableOut.appendRow(["", "", "| " + styling.asBold(x)])
-            tableOut.appendRow([])
+                tableOut.appendRowList(
+                    ["", "", "| " + styling.asBold(x)], "versionInfo"
+                )
+            tableOut.appendRowBlank()
 
         for _entry in directPrefixes:
             if _entry.get("blankLine", False):
-                tableOut.appendRow([])
+                tableOut.appendRowBlank()
             else:
                 _name = _entry.get("name", "")
                 exeNameToUse = (
@@ -163,16 +168,17 @@ def getAppHelp_asLines(
                 params_txt = "[options …]"
                 _params_out = params_txt if includeOptions else ""
 
-                tableOut.appendRow(
+                tableOut.appendRowList(
                     [
                         f"{prefix}{styling.asSuggestion(_nameToUse)}",
                         styling.asSuggestion(_params_out),
                         "" if _value == "" else f"| {_value}",
-                    ]
+                    ],
+                    "xx",
                 )
                 prefix = PrettyText.asSpaces(prefix)
 
-        lines_out.extend(tableOut.asLines())
+        lines_out.extend(PrettyTable_Rendered(tableOut).asLines())
 
         ###############
         #
@@ -242,7 +248,12 @@ def getAppHelp_asLines(
 
         if appSettings:
             for entry_name, entry_params in appSettings.items():
-                _spec = {"group": "settings", "name": entry_name, "shortName": ""}
+                _spec = {
+                    "group": "settings",
+                    "name": entry_name,
+                    "shortName": "",
+                    "position": 10,
+                }
                 _spec.update(entry_params)
                 _spec["default"] = appConfig.setting_getPreUser(
                     entry_name
@@ -255,26 +266,41 @@ def getAppHelp_asLines(
     #
 
     otherName = "Basic Options"
-    for paramObj in visibleParams:
-        _g = paramObj.get("group")
-        if _g and (_g != "~appAuto"):  # < First: Non blank & non-auto entries
-            titlePrefix = str(_g).title().replace("_", " ")
-            if " " in titlePrefix or ":" in titlePrefix:
-                titlePrefix = "Basic"
+    _toSummarise = deepcopy(visibleParams)
 
-            optionSummaries.appendItem(f"{titlePrefix} Options", paramObj)
-            otherName = "Common Options"
+    # |x| print("!!! zzzz: ",Utils.asJsonStr(_toSummarise,indent=2))
+    def addToSummary(title: str, spec: ParamSpec | dict[str, Any]):
+        # |x| print("!!! z: ",title,spec)
+        optionSummaries.appendItem(title, spec)
+        if isinstance(spec, ParamSpec):
+            spec = spec.spec
+        spec["_isSummarised"] = True
 
-    # < Ensure '~appAuto' are last
-    for paramObj in visibleParams:
-        _g = paramObj.get("group", None)
-        if not _g:
-            optionSummaries.appendItem(otherName, paramObj)  # < Then: Blank Entries
+    for paramObj in _toSummarise:
+        if not paramObj.get("_isSummarised", None):
 
-    for paramObj in visibleParams:
-        _g = paramObj.get("group", None)
-        if _g == "~appAuto":  # < Then: Auto entries
-            optionSummaries.appendItem("Tailoring Options", paramObj)
+            _g = paramObj.get("group")
+            if _g and paramObj.get("position", "") != "end":
+                titleNote = str(_g).title().replace("_", " ")
+                if titleNote:
+                    addToSummary(titleNote, paramObj)
+                else:
+                    addToSummary("Basic Options", paramObj)
+                    otherName = "Common Options"
+
+    for paramObj in _toSummarise:
+        if not paramObj.get("_isSummarised", None):
+            _g = paramObj.get("group", None)
+            if not _g:
+                addToSummary(otherName, paramObj)  # < Then: Blank Entries
+
+    for paramObj in _toSummarise:
+        if not paramObj.get("_isSummarised", None):
+            # |x| print("!!! aaa: ",Utils.asJsonStr(paramObj,indent=2))
+            _g = paramObj.get("group", None)
+            if _g == "~appAuto":  # < Then: Auto entries
+                _g = "Tailoring Options"
+            addToSummary((_g or "Extras").removeprefix("~"), paramObj)
 
     ############################################
     #
@@ -305,8 +331,8 @@ def getAppHelp_asLines(
             return entries.pop()
 
         examplesOut = PrettyTable()
-        commentsOut: list[str] = []
-        tableColWidths = None
+        commentsOut: list[str | None] = []
+        tableColWidths: list[int | None] | None = None
         # pipeOut: list[str] = []
         for s in _examplesRaw:
             if isinstance(s, str):
@@ -314,12 +340,11 @@ def getAppHelp_asLines(
                     _exeSubstitute(s, exeName, exeNameDecorated), "#"
                 )
                 # txt, pipe_suffix = _popLastFromText(textSubstitute(s), "|")
-                examplesOut.appendRow([styling.asSuggestion(txt)])
+                examplesOut.appendRowList([styling.asSuggestion(txt)], note="examples")
                 commentsOut.append(comment_suffix)
                 # pipeOut.append(pipe_suffix)
             elif isinstance(s, dict):
-                if "colWidths" in s:
-                    tableColWidths = s.get("colWidths")
+                tableColWidths = s.get("colWidths")
 
             else:
                 line_out = [
@@ -329,7 +354,9 @@ def getAppHelp_asLines(
                 comment = popLastFromList(line_out, "#")
                 # pipe=popLastFromList(line_out,'|')
                 commentsOut.append(comment)
-                examplesOut.appendRow([styling.asSuggestion(x) for x in line_out])
+                examplesOut.appendRowList(
+                    [styling.asSuggestion(x) for x in line_out], note="examples"
+                )
                 # pipeOut.append(pipe)
 
         if examplesOut.rows:
@@ -337,8 +364,8 @@ def getAppHelp_asLines(
             lines_out.append("")
             lines_out.append("Examples:")
 
-            examplesOut.appendCol(commentsOut)
-            for line in examplesOut.asLines(render_colVisWidths=tableColWidths):
+            examplesOut.appendColList(commentsOut)
+            for line in PrettyTable_Rendered(examplesOut, tableColWidths).asLines():
                 lines_out.append(f" • {line}")
 
     return [line.replace("\xa0", " ").rstrip() for line in lines_out]

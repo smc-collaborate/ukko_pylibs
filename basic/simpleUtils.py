@@ -783,18 +783,36 @@ class PrettyText:
         return bool(ansi_escape.search(text))
 
     @staticmethod
+    def textWrap(txt: str, maxWidth: int | None = None) -> list[str]:
+
+        return PrettyText.textWrapWithPrefixes(txt, maxWidth, prefixes=False)
+
+    class SlashTextWrapper(textwrap.TextWrapper):
+        """Custom wrapper that treats slashes as breaking boundaries."""
+
+        # Overriding the default word-splitting regex to include slashes
+        wordsep_re = re.compile(
+            r"(\s+|"  # Whitespace
+            r"(?<=[\w\!\"\'\&\.\,\?])-{2,}(?=\w)|"  # Em-dash
+            r"(?<=\w)-(?=\w)|"  # Hyphenated words
+            #        r'(?<=[/])|(?=[/]))'                       # Break right before or after a slash
+            r"(?<=[/]))"  # Break immediately after a slash
+        )
+
+    @staticmethod
     def textWrapWithPrefixes(
-        txt: str, maxWidth: int | None = None, prefixes: list[str] | None = None
+        txt: str, maxWidth: int | None = None, prefixes: list[str] | bool = True
     ) -> list[str]:
+
         if maxWidth is None or PrettyText.uniLen_approx(txt) <= maxWidth:
             return [txt]
 
         prefixToAppend = ""
         otherPrefixes = ""
-        if prefixes is None and ("=" in txt):
+        if prefixes == True and ("=" in txt):
             prefixes = [txt.split("=")[0] + "="]
 
-        if prefixes is not None:
+        if isinstance(prefixes, list):
             for prefix in prefixes:
                 if txt.startswith(prefix):
                     txt = txt[len(prefix) :]
@@ -807,19 +825,7 @@ class PrettyText:
         if maxWidth is None or maxWidth <= 0:
             return [prefixToAppend.rstrip()] if prefixToAppend else [""]
 
-        class SlashTextWrapper(textwrap.TextWrapper):
-            """Custom wrapper that treats slashes as breaking boundaries."""
-
-            # Overriding the default word-splitting regex to include slashes
-            wordsep_re = re.compile(
-                r"(\s+|"  # Whitespace
-                r"(?<=[\w\!\"\'\&\.\,\?])-{2,}(?=\w)|"  # Em-dash
-                r"(?<=\w)-(?=\w)|"  # Hyphenated words
-                #        r'(?<=[/])|(?=[/]))'                       # Break right before or after a slash
-                r"(?<=[/]))"  # Break immediately after a slash
-            )
-
-        parts = SlashTextWrapper(width=maxWidth).wrap(txt)
+        parts = PrettyText.SlashTextWrapper(width=maxWidth).wrap(txt)
         if not parts:
             return [prefixToAppend.rstrip()] if prefixToAppend else [""]
 
