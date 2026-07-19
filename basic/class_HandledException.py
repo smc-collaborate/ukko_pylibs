@@ -62,19 +62,21 @@ def getPrettyExceptionInfo(
     for _line in traceLines:
         line = _line.strip()
         if line.startswith('File "'):
-            summary = []
+            summary = [line]
         elif line:
             summary.append(_line)
 
     sourceLeft = []
-    if len(summary) >= 2:
+    if len(summary) >= 3:
         kind = summary[-1]
-        _untrimmed = summary[0].rstrip()
+        _untrimmed = summary[1].rstrip()
 
         source = _untrimmed.lstrip()
         prefixToStrip = _untrimmed[: (len(_untrimmed) - len(source))]
-        for x in summary[1:-1]:
+        for x in summary[2:-1]:
             sourceLeft.append(x.removeprefix(prefixToStrip))
+        traceLines.insert(0, styling.asBold(summary[0].strip()))
+        traceLines.insert(1, "")
     else:
         kind = str(e)
         source = ""
