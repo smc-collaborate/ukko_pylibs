@@ -19,6 +19,15 @@ if shared_dir not in sys.path:
 
 from ukko_pylibs.basic.class_HandledException import HandledException
 from ukko_pylibs.basic.simpleUtils import PrettyText, EscapeMgr, Utils
+from ukko_pylibs.basic.prettyTable import (
+    RenderOptions_Columns,
+    PrettyTable,
+    RenderOptions_SingleCol,
+    PrettyTable_Row,
+    PrettyCellContents,
+    PrettyTable_Rendered,
+    RenderOptions_Table,
+)
 from ukko_pylibs.basic.logger import appLog
 from ukko_pylibs.basic.class_DataContents import DataContents
 
@@ -29,8 +38,6 @@ import ukko_pylibs.basic.styling as styling
 
 
 class ValueHelpSummary:
-
-    Columns = Tuple[list[str], list[str], list[str], list[str], list[str]]
 
     def __init__(
         self,
@@ -84,17 +91,42 @@ class ValueHelpSummary:
 
         return result
 
-    def asWrapped(self) -> "ValueHelpSummary.Columns":
-        return (
-            PrettyText.textWrapWithPrefixes(self.shortName),
-            PrettyText.textWrapWithPrefixes(
-                self.decoratedNamePlusExtras,
-                50,
-            ),
-            PrettyText.textWrapWithPrefixes(self.extraInfo, 72),
-            PrettyText.textWrapWithPrefixes(self.defaultInfo),
-            PrettyText.textWrapWithPrefixes(self.description, 102, [" • "]),
+    @staticmethod
+    def asTableRowRenderOptions() -> RenderOptions_Columns:
+        return RenderOptions_Columns.createFromList(
+            [
+                None,
+                RenderOptions_SingleCol(50),
+                RenderOptions_SingleCol(72),
+                None,
+                RenderOptions_SingleCol(102, [" • "]),
+            ]
         )
+
+    def asTableRow(self) -> PrettyTable_Row:
+        return PrettyTable_Row.createFromList(
+            [
+                self.shortName,  # M 0
+                self.decoratedNamePlusExtras,  # < 1: Wid 50
+                self.extraInfo,  # < 2: Wid 72
+                self.defaultInfo,
+                self.description,
+            ],
+            note=self.group,
+        )  # < 4: Wid 102, xxx
+
+
+# |x|    def asWrapped(self) -> "ValueHelpSummary.ColumnsType":
+# |x|        return (
+# |x|            PrettyText.textWrapWithPrefixes(self.shortName),
+# |x|            PrettyText.textWrapWithPrefixes(
+# |x|                self.decoratedNamePlusExtras,
+# |x|                50,
+# |x|            ),
+# |x|            PrettyText.textWrapWithPrefixes(self.extraInfo, 72),
+# |x|            PrettyText.textWrapWithPrefixes(self.defaultInfo),
+# |x|            PrettyText.textWrapWithPrefixes(self.description, 102, [" • "]),
+# |x|        )
 
 
 class ParamSpec:
@@ -855,9 +887,7 @@ class ParamSpecList(list[ParamSpec]):
         return len(self)
 
 
-class ValueHelpSummaries(list[ValueHelpSummary]):
-    COLUMNS = range(5)
-    MIN_COL0_WIDTH = 3
+class ValueHelpSummaries:
 
     def appendItem(
         self,
@@ -867,134 +897,86 @@ class ValueHelpSummaries(list[ValueHelpSummary]):
         if item is None:
             return
 
-        if isinstance(item, dict):
-            item = ParamSpec(item)
+        if not isinstance(item, ParamSpec):
+            appLog.print_error(
+                f"Internal issue: ValueHelpSummaries.appendItem({groupCaption},item:{type(item)})"
+            )
+
+            # |x| print("!!! b: ",groupCaption)
+
+            if isinstance(item, dict):
+                item = ParamSpec(item)
+
         if isinstance(item, ParamSpec):
+            position = item.spec.get("position", 0)
             item = item.getHelpSummary()
-
+        else:
+            position = 0
         if item is not None:
-            item_out = item.clone()
-            item_out.group = groupCaption
-            self.append(item_out)
+            self._addNewItem(groupCaption, item, position)
 
-    def _doReview(self):
-        self.maxWidths = [0, 0, 0, 0, 0]
-        self.groupPlusWrapped: list[Tuple[str, ValueHelpSummary.Columns]] = []
+    class Group:
+        def __init__(self, title: str, position: int):
+            self.title = title
+            self.summaries: list[ValueHelpSummary] = []
 
-        for entry in self:
-            wrappedEntry = entry.asWrapped()
-            self.groupPlusWrapped.append((entry.group, wrappedEntry))
+            self.position = position
 
-            for i in self.COLUMNS:
-                self.maxWidths[i] = max(
-                    self.maxWidths[i],
-                    max(map(PrettyText.uniLen_approx, wrappedEntry[i])),
-                )
+    def __init__(self):
+        self.collection: dict[str, ValueHelpSummaries.Group] = {}
 
-    def _colWidth(self, col: int, withPadding: bool = False) -> int:
-        if col < 0 or col >= len(self.maxWidths):
-            return 0
+    def _addNewItem(
+        self, groupCaption: str, summary: ValueHelpSummary, position: int | None = None
+    ):
+        # |x| print("!!! a: ",groupCaption)
+        if groupCaption not in self.collection:
+            self.collection[groupCaption] = ValueHelpSummaries.Group(
+                groupCaption, len(self.collection) if position is None else position
+            )
 
-        wid = self.maxWidths[col]
-        if col == 0 and wid < self.MIN_COL0_WIDTH:
-            wid = self.MIN_COL0_WIDTH
+        summaryOut = summary.clone()
+        summaryOut.group = groupCaption
+        self.collection[groupCaption].summaries.append(summaryOut)
 
-        if (wid == 0) and (col > 1):
-            return 0
+    def asTable(self) -> PrettyTable:
 
-        if withPadding:
-            if col > 0:
-                wid += 1
-        return wid
+        groupList = sorted(self.collection.values(), key=lambda group: group.position)
 
-    def _asSingleLine(self, cols: list[str]) -> str:
+        combinedTables = PrettyTable()
 
-        if cols[0] != "":
-            cols[0] += ","
-        txt = f"{PrettyText.padToWidth(cols[0], self._colWidth(0))}{PrettyText.padToWidth(cols[1], self._colWidth(1))}"
+        group: ValueHelpSummaries.Group
+        for group in groupList:
 
-        for n in self.COLUMNS:
-            if n <= 1 or (self.maxWidths[n] <= 0):
-                continue
-            txt += f" {PrettyText.padToWidth(cols[n], self._colWidth(n))}"
-        return txt
+            summary: ValueHelpSummary
 
-    def getDividerLine(self, horizontalChar: str = "─", verticalChar: str = "┼") -> str:
-        line = ""
-        for width in self.maxWidths:
-            if width > 0:
-                if line != "":
-                    line += verticalChar
-                line += horizontalChar * width
-        return line
+            groupTable = PrettyTable(
+                [
+                    "",
+                    styling.asUnderline(group.title),
+                    "",
+                    styling.asUnderline("Default"),
+                ]
+            )
+            for summary in group.summaries:
+                _row = summary.asTableRow()
+                groupTable.appendRow(_row)
 
-    def _cumulativeWidthIncludingPadding(self, colAfterLast: int, colFirst: int = 0):
+            if groupTable.hasData():
+                combinedTables.appendTable(groupTable, withSeparatingBlankLine=True)
 
-        result = 0
-        for n in range(colFirst, colAfterLast):
-            result += self._colWidth(n, withPadding=True)
-        return result
-
-    def maxLenOfGroupCol(self, group: str, column: int) -> int:
-        return max(
-            [
-                len("".join(y[column]))
-                for _group, y in self.groupPlusWrapped
-                if _group == group
-            ]
-        )
+        return combinedTables
 
     def asLines(self) -> list[str]:
+        table = self.asTable()
+        rendered = PrettyTable_Rendered(
+            table,
+            RenderOptions_Table(colOptions=ValueHelpSummary.asTableRowRenderOptions()),
+        )
 
-        self._doReview()
-        results: list[str] = []
-
-        if self.maxWidths[3] > 0:
-            col3Caption = "Default"
-            self.maxWidths[3] = max(
-                self.maxWidths[3], PrettyText.uniLen_approx(col3Caption)
-            )
-        else:
-            col3Caption = ""
-
-        prevGroup: str | None = None
-        for group, columnsOfWrappedLines in self.groupPlusWrapped:
-            if group != prevGroup:
-                if prevGroup is not None:
-                    results.append("")
-
-                titleLine = "   " + styling.asUnderline(group)
-
-                if self.maxLenOfGroupCol(group, 3) > 0:
-                    titleLine += " " * (
-                        self._cumulativeWidthIncludingPadding(3)
-                        - PrettyText.uniLen_approx(titleLine)
-                    ) + styling.asUnderline(col3Caption)
-                    # col3Caption='' #< If we want this only on the topmost line
-                results.append(titleLine)
-
-                # |For experiments|results.append(f"{self.getDividerLine()} ! {self.maxWidths}")
-                prevGroup = group
-
-            subLine = 0
-            while True:
-                hasContents = False
-                subLineContents = []
-                for i in self.COLUMNS:
-                    wrappedCol = columnsOfWrappedLines[i]
-                    if len(wrappedCol) > subLine:
-                        hasContents = True
-                        subLineContents.append(wrappedCol[subLine])
-                    else:
-                        subLineContents.append("")
-
-                if not hasContents:
-                    break
-
-                results.append(self._asSingleLine(subLineContents))
-                subLine += 1
-
-        return results
+        lines: list[str] = []
+        for line in rendered.asLines():
+            lines.append(line)
+        return lines
 
     @staticmethod
     def createFromDescriptions(
@@ -1012,15 +994,9 @@ class ValueHelpSummaries(list[ValueHelpSummary]):
         paramSpecList: "ParamSpecList", includeMustBeDirect: bool = False
     ) -> "ValueHelpSummaries":
         result = ValueHelpSummaries()
-        for spec in paramSpecList:
-            if not spec.mustBeDirect() or includeMustBeDirect:
-                pairOrNone = spec.getHelpSummary()
-                if pairOrNone is not None:
-                    result.append(pairOrNone)
+        for paramSpec in paramSpecList:
+            if not paramSpec.mustBeDirect() or includeMustBeDirect:
+                helpSummary = paramSpec.getHelpSummary()
+                if helpSummary is not None:
+                    result.appendItem(helpSummary.group, helpSummary)
         return result
-
-    def findByShortName(self, shortName: str) -> ValueHelpSummary | None:
-        for entry in self:
-            if entry.shortName == shortName:
-                return entry
-        return None
