@@ -23,7 +23,6 @@ if shared_dir not in sys.path:
 
 from ukko_pylibs.basic import fileUtils
 from ukko_pylibs.basic.simpleUtils import (
-    PrettyTable,
     Utils,
     PrettyText,
     EscapeMgr,
