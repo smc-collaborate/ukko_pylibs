@@ -41,7 +41,6 @@ from ukko_pylibs.app.class_ParamSpec import (
     ParamSpecAndValue,
     ParamSpecList,
     ParamSpecAndValue_collection,
-    ValueHelpSummaries,
 )
 
 from ukko_pylibs.app.appChoices import AppParamParseResults, AppChoices
