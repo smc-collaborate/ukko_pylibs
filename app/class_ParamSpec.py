@@ -7,7 +7,8 @@ import json
 import os
 import sys
 from types import NoneType
-from typing import Any, Tuple
+from typing import Any, Tuple, get_args
+import typing
 
 ################################################################################
 #
@@ -93,7 +94,7 @@ class ValueHelpSummary:
 
     @staticmethod
     def asTableRowRenderOptions() -> RenderOptions_Columns:
-        return RenderOptions_Columns.createFromList(
+        return RenderOptions_Columns.create_fromList(
             [
                 None,
                 RenderOptions_SingleCol(50),
@@ -104,15 +105,14 @@ class ValueHelpSummary:
         )
 
     def asTableRow(self) -> PrettyTable_Row:
-        return PrettyTable_Row.createFromList(
+        return PrettyTable_Row.create_fromList(
             [
                 self.shortName,  # M 0
                 self.decoratedNamePlusExtras,  # < 1: Wid 50
                 self.extraInfo,  # < 2: Wid 72
                 self.defaultInfo,
                 self.description,
-            ],
-            note=self.group,
+            ]
         )  # < 4: Wid 102, xxx
 
 
@@ -300,10 +300,13 @@ class ParamSpec:
         return self.type_orNone() is not None
 
     def defaultQuotedTxt(self):
+        _myType = self.type_orNone()
         txt = self._defaultTxt()
         if txt is None:
             txt = ""
-        elif (self.type_orNone() is DataContents) and txt == "":
+        elif (None in get_args(_myType)) and txt == "":
+            txt = ""
+        elif (_myType is DataContents) and txt == "":
             txt = ""
         elif txt == "":
             txt = "''"
@@ -472,6 +475,8 @@ class ParamSpec:
     def _convertArg(self, arg) -> Tuple[Any, str | None]:
         """Returns value/None and error info if any (msg, exception, errorWithSuggestion)"""
 
+        _name = self.spec.get("name", "<Unnamed>")
+
         def _error(
             msg: str, e: Exception | None = None, but_is_this_value: Any | None = None
         ):
@@ -483,7 +488,6 @@ class ParamSpec:
                 msg += f"\nCaused by: {styling.asError(str(e))}"
             return None, f"Parameter {_name}: {msg}"
 
-        _name = self.spec.get("name", "<Unnamed>")
         _lookup = self.getLookup()
         if _lookup is not None:
             if isinstance(_lookup, dict):
@@ -523,6 +527,9 @@ class ParamSpec:
                     f"Expects a boolean presence value", but_is_this_value=arg
                 )
 
+        if None in typing.get_args(_type) and (arg is None or not arg.strip()):
+            return None, None
+
         if _type == bool:
             _result = Utils.toBool(arg)
             if _result is not None:
@@ -547,7 +554,7 @@ class ParamSpec:
                 return value, None
             except ValueError:
                 return _error(
-                    f"Parameter {_name} expects {PrettyText.withAOrAn( _type.__name__)} value",
+                    f"expects {PrettyText.withAOrAn( _type.__name__)} value",
                     but_is_this_value=arg,
                 )
         elif _type is str:
@@ -938,18 +945,18 @@ class ValueHelpSummaries:
         summaryOut.group = groupCaption
         self.collection[groupCaption].summaries.append(summaryOut)
 
-    def asTable(self) -> PrettyTable:
+    def asTable(self) -> PrettyTable.Table:
 
         groupList = sorted(self.collection.values(), key=lambda group: group.position)
 
-        combinedTables = PrettyTable()
+        combinedTables = PrettyTable.Table()
 
         group: ValueHelpSummaries.Group
         for group in groupList:
 
             summary: ValueHelpSummary
 
-            groupTable = PrettyTable(
+            groupTable = PrettyTable.Table(
                 [
                     "",
                     styling.asUnderline(group.title),
