@@ -96,6 +96,11 @@ class Utils:
         return Utils.pathConvert(pathName, kind="friendly").removesuffix(os.sep)
 
     @staticmethod
+    def pathDisplay(pathName: str) -> str:
+        appLog.deprecationWarningRename("pathDisplay", "pathAsDisplay")
+        return Utils.pathAsDisplay(pathName)
+
+    @staticmethod
     def pathConvert(pathName: str, kind: str = "friendly") -> str:
         """Converts a path to [abs, abs:friendly, rel, friendly, raw] format.  If conversion isn't available then returns the pathName given"""
 
