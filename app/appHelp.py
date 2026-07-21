@@ -4,7 +4,7 @@
 from copy import deepcopy
 import os
 import sys
-from typing import Any
+from typing import Any, Tuple
 
 ################################################################################
 #
@@ -81,190 +81,66 @@ def getAppHelp_asLines(
         if x.isNotHidden() and not (x.isCustomisingOptions() or x.isCustomisingChoice())
     ]
 
-    lines_out: list[str] = []
-
     exeName = str(appChoices.appValue("exeName"))
     exeNameDecorated = exeName + appChoices.customisingChoicesMade_withLeadingSpace
 
     verText = f"v{appChoices.appValue('version')}"
 
-    params_txt, _mentioned = appChoices.getOverviewAsTextAndParams()
+    # |Logging| from ukko_pylibs.app.appSupport import print_cyan
+    # |Logging| print_cyan(visibleParams)
+
+    # |if _customisedChoiceNext:
+    # |    shorterVersion=True
+
+    titleAndUsageTable = PrettyTable.Table()
+
+    titleAndUsageTable.appendRowList(
+        [
+            styling.asBold(exeNameDecorated),
+            styling.asBold(verText),
+            ": " + styling.asBold(appChoices.appValue("description")),
+        ]
+    )
+    if not shorterVersion:
+        for x in appChoices.appValue("versions_extra") or []:
+            titleAndUsageTable.appendRowList(["", "", "| " + styling.asBold(x)])
+    titleAndUsageTable.appendRowBlank()
+
+    _examplesOut = deepcopy(appChoices.appValue("examples") or [])
 
     #########################################
-    #  Calculate: `mentionOtherOptions`  (to use with 'params_txt' in the usage line)
     #
-    _unmentioned = [
-        x
-        for x in visibleParams
-        if not x.name() in _mentioned and (x.get("group") != "~appAuto")
-    ]
 
-    #########################################
-    #
-    _customisedChoiceNext: dict[str, Any] | None = appChoices.customisingChoices_next
+    usageSuggestions = getUsageSuggestions(
+        appChoices, getUsageSuggestions
+    )  # < list[ (namePlus,options,description] :
 
-    if not _customisedChoiceNext:
-        mentionOtherOptions = "" if len(_unmentioned) == 0 else " [options]"
-        prefix = (
-            styling.asBold(
-                PrettyText.padToWidth(exeNameDecorated, 32)
-                + " "
-                + PrettyText.padToWidth(verText, 13)
-            )
-            + " : "
-        )
-        lines_out.append(f"{prefix}{appChoices.appValue('description')}")
-        if not shorterVersion:
-            prefix = PrettyText.asSpaces(prefix)
-            for x in appChoices.appValue("versions_extra") or []:
-                lines_out.append(f"{prefix}{styling.asBold(x)}")
+    if appChoices.customisingChoices_next:
+        for action, entry in appChoices.customisingChoices_next.items():
+            _examplesOut.extend(customisedChoicePart_getTopSuggestions(action, entry))
 
-        lines_out.append("")
-        lines_out.append(
-            f"Usage: {styling.asSuggestion(exeNameDecorated+mentionOtherOptions+' '+params_txt)}"
-        )  # + {appChoices.getCustomisationChoicesAsText()}
-    else:
-        # |eg:|  "send": {
-        # |eg:|      "description": "Send ground command messages",
-        # |eg:|      "options": [
-        # |eg:|          PARAM_COMMANDS_DEFINITION,
-        # |eg:|          {
-        # |eg:|              "name": "keep-monitoring",
-        # |eg:|              "description": "Continues to monitor even after all sent messages are handled",
-        # |eg:|          },
-        # |eg:|      ],
-        # |eg:|      "show-config": True,
-
-        directPrefixes = []
-        for key, paramObj in _customisedChoiceNext.items():
-            _description = paramObj.get("description", "")
-            _obj: dict[str, Any] = {
-                "name": key,
-                "description": _description,
-            }  # +"="+Utils.asJsonStr(paramObj)}
-
-            _obj["options"] = paramObj.get("options", None) is not None
-            directPrefixes.append(_obj)
-
-        prefix = f"Usage: "
-        directPrefixes.append({"blankLine": True})
-        directPrefixes.append(
-            {
-                "name": "<action> --help",
-                "options": False,
-                "description": "Gives help information on the action (From the above list)",
-            }
-        )
-
-        for _entry in directPrefixes:
-            if not _entry.get("blankLine", False):
-                _name = _entry.get("name", "")
-                exeNameToUse = (
-                    exeName if _entry.get("noDecoration", False) else exeNameDecorated
-                )
-                _entry["nameToUse"] = exeNameToUse + " " + _name
-
-        tableOut = PrettyTable.Table()
-
-        tableOut.appendRowList(
+    prefix = f"Usage: "
+    for usage in usageSuggestions:
+        titleAndUsageTable.appendRowList(
             [
-                styling.asBold(exeNameDecorated),
-                styling.asBold(verText),
-                "| " + styling.asBold(appChoices.appValue("description")),
+                prefix + styling.asSuggestion(usage[0]),
+                styling.asSuggestion(usage[1]),
+                usage[2],
             ]
         )
-        if not shorterVersion:
-            for x in appChoices.appValue("versions_extra") or []:
-                tableOut.appendRowList(["", "", "| " + styling.asBold(x)])
-            tableOut.appendRowBlank()
 
-        for _entry in directPrefixes:
-            if _entry.get("blankLine", False):
-                tableOut.appendRowBlank()
-            else:
-                _name = _entry.get("name", "")
-                exeNameToUse = (
-                    exeName if _entry.get("noDecoration", False) else exeNameDecorated
-                )
-                _nameToUse = exeNameToUse + " " + _name
-
-                _value = _entry.get("description", "")
-                includeOptions = _entry.get("options", True)
-
-                params_txt = "[options …]"
-                _params_out = params_txt if includeOptions else ""
-
-                tableOut.appendRowList(
-                    [
-                        f"{prefix}{styling.asSuggestion(_nameToUse)}",
-                        styling.asSuggestion(_params_out),
-                        "" if _value == "" else f"| {_value}",
-                    ]
-                )
-                prefix = PrettyText.asSpaces(prefix)
-
-        lines_out.extend(PrettyTable.Rendered(tableOut).asLines())
-
-        ###############
-        #
-        # Add to examples
-        #
-        _examplesOut = appChoices.appValue("examples")
-        if not _examplesOut:
-            _examplesOut = []
-            appChoices.appValues["examples"] = _examplesOut
-
-        def replaceWithin(txt: str | list[str], needle: str, replacement: str):
-            if isinstance(txt, str):
-                return txt.replace(needle, replacement)
-            elif isinstance(txt, list):
-                return [replaceWithin(x, needle, replacement) for x in txt]
-            else:
-                return txt
-
-        for action, entry in _customisedChoiceNext.items():
-
-            topSuggestion = entry.get("topSuggestion", None)
-            if topSuggestion is None:
-                kindExamples = entry.get("examples", [])
-                if len(kindExamples) > 0:
-                    topSuggestion = kindExamples[0]
-
-            if topSuggestion is not None:
-                topSuggestion = replaceWithin(
-                    topSuggestion,
-                    "<exeName+action>",
-                    "<exeName+action> " + EscapeMgr.escapeIfNeeded(action),
-                )
-                if isinstance(topSuggestion, str):
-                    topSuggestion = topSuggestion.strip()
-
-                    _restyle = topSuggestion.startswith("<exeName+action>")
-                else:
-                    _restyle = False
-
-                if _restyle and isinstance(topSuggestion, str):
-
-                    comment_suffix = ""
-                    x = topSuggestion.split("#")
-                    if len(x) > 1:
-                        comment_suffix = " # " + x.pop()
-                        topSuggestion = "#".join(x).strip()
-
-                    topSuggestion = topSuggestion.split(" ") + [comment_suffix]
-
-            if isinstance(topSuggestion, str):
-                _examplesOut.append(topSuggestion)
-            elif isinstance(topSuggestion, list):
-                _examplesOut.append(topSuggestion)
-
+    lines_out: list[str] = []
+    lines_out.extend(PrettyTable.Rendered(titleAndUsageTable).asLines())
     lines_out.append("")
-
-    optionSummaries = ValueHelpSummaries()
 
     ############################################
     #
-    # Add:  ['settings']: 'Setting Options'
+    # Option Summaries
+    #
+    optionSummaries = ValueHelpSummaries()
+
+    #
+    # Step 1: ['settings']: 'Setting Options'
     #
     shouldShowConfig = appChoices.appValue("show-config")
     if shouldShowConfig:
@@ -285,51 +161,22 @@ def getAppHelp_asLines(
                 )  # < After update to overwrite it
                 optionSummaries.appendItem("Setting Options", _spec)
 
-    ############################################
     #
-    # Add:  ['~chosen']: 'Specific Options'
+    # Step 2 - Visible Parameters
     #
+    for paramObj in visibleParams:
+        _g = paramObj.get("group")
+        if not _g:
+            _g = "Basic"
+        elif _g == "~appAuto":
+            _g = "Tailoring Options"
+        titleNote = (
+            str(_g).title().removesuffix(" Options").replace("_", " ") + " Options"
+        )
+        optionSummaries.appendItem(titleNote, paramObj)
 
-    otherName = "Basic Options"
-    _toSummarise = deepcopy(visibleParams)
-
-    # |x| print("!!! zzzz: ",Utils.asJsonStr(_toSummarise,indent=2))
-    def addToSummary(title: str, spec: ParamSpec | dict[str, Any]):
-        # |x| print("!!! z: ",title,spec)
-        optionSummaries.appendItem(title, spec)
-        if isinstance(spec, ParamSpec):
-            spec = spec.spec
-        spec["_isSummarised"] = True
-
-    for paramObj in _toSummarise:
-        if not paramObj.get("_isSummarised", None):
-
-            _g = paramObj.get("group")
-            if _g and paramObj.get("position", "") != "end":
-                titleNote = str(_g).title().replace("_", " ")
-                if titleNote:
-                    addToSummary(titleNote, paramObj)
-                else:
-                    addToSummary("Basic Options", paramObj)
-                    otherName = "Common Options"
-
-    for paramObj in _toSummarise:
-        if not paramObj.get("_isSummarised", None):
-            _g = paramObj.get("group", None)
-            if not _g:
-                addToSummary(otherName, paramObj)  # < Then: Blank Entries
-
-    for paramObj in _toSummarise:
-        if not paramObj.get("_isSummarised", None):
-            # |x| print("!!! aaa: ",Utils.asJsonStr(paramObj,indent=2))
-            _g = paramObj.get("group", None)
-            if _g == "~appAuto":  # < Then: Auto entries
-                _g = "Tailoring Options"
-            addToSummary((_g or "Extras").removeprefix("~"), paramObj)
-
-    ############################################
     #
-    # Print the options
+    # Done
     #
     lines_out.extend(optionSummaries.asLines())
 
@@ -338,61 +185,207 @@ def getAppHelp_asLines(
         subscripts += d.getValueHelpSubscripts()
     lines_out.extend(ParamSpec.getValueHelpExtraInfoFromSubscripts(subscripts))
 
+    #
+    ############################################
+
     ############################################
     #
     # Add examples
     #
-    _examplesRaw = appChoices.appValue("examples")
     if shorterVersion:
         lines_out.append("")
-    elif _examplesRaw:
+    else:
+        examplesTable, tableStyling = examplesTableAndRenderOptions_create(
+            appChoices, _examplesOut
+        )
 
-        def popLastFromList(entries: list[str], suffixMarker: str) -> str:
-            if len(entries) == 0:
-                return ""
-            last = entries[-1]
-            if not last.startswith(suffixMarker):
-                return ""
-            return entries.pop()
-
-        examplesOut = PrettyTable.Table()
-        commentsOut: list[str | None] = []
-        tableColWidths: list[int | None] | None = None
-        # pipeOut: list[str] = []
-        for s in _examplesRaw:
-            if isinstance(s, str):
-                txt, comment_suffix = _popLastFromText(
-                    appDoco_replaceTemplateMarkers(appChoices, s), "#"
-                )
-                # txt, pipe_suffix = _popLastFromText(textSubstitute(s), "|")
-                examplesOut.appendRowList([styling.asSuggestion(txt)])
-                commentsOut.append(comment_suffix)
-                # pipeOut.append(pipe_suffix)
-            elif isinstance(s, dict):
-                tableColWidths = s.get("colWidths")
-
-            else:
-                line_out = [
-                    appDoco_replaceTemplateMarkers(appChoices, x).strip() for x in s
-                ]
-
-                comment = popLastFromList(line_out, "#")
-                # pipe=popLastFromList(line_out,'|')
-                commentsOut.append(comment)
-                examplesOut.appendRowList([styling.asSuggestion(x) for x in line_out])
-                # pipeOut.append(pipe)
-
-        if examplesOut.rows:
+        if examplesTable.hasData():
 
             lines_out.append("")
             lines_out.append("Examples:")
             # |x| print(Utils.asJsonStr(examplesOut.asDict(),indent=2))
-            examplesOut.appendColList(commentsOut)
+
             # |x| print(Utils.asJsonStr(examplesOut.asDict(),indent=2))
-            for line in PrettyTable.Rendered(examplesOut, tableColWidths).asLines():
+            for line in PrettyTable.Rendered(examplesTable, tableStyling).asLines():
                 lines_out.append(f" • {line}")
 
     return [line.replace("\xa0", " ").rstrip() for line in lines_out]
+
+
+def popLastFromList(entries: list[str], suffixMarker: str) -> str:
+    if len(entries) == 0:
+        return ""
+    last = entries[-1]
+    if not last.startswith(suffixMarker):
+        return ""
+    return entries.pop()
+
+
+def examplesTableAndRenderOptions_create(
+    appChoices, _examplesOut: list[list[str]]
+) -> Tuple[PrettyTable.Table, Any]:
+
+    examplesTableOut = PrettyTable.Table()
+    tableStyling: list[int | None] | None = None
+
+    if not _examplesOut:
+        return examplesTableOut, tableStyling
+
+    commentsOut: list[str | None] = []
+    # pipeOut: list[str] = []
+    for s in _examplesOut:
+        if isinstance(s, str):
+            txt, comment_suffix = _popLastFromText(
+                appDoco_replaceTemplateMarkers(appChoices, s), "#"
+            )
+            # txt, pipe_suffix = _popLastFromText(textSubstitute(s), "|")
+            examplesTableOut.appendRowList([styling.asSuggestion(txt)])
+            commentsOut.append(comment_suffix)
+            # pipeOut.append(pipe_suffix)
+        elif isinstance(s, dict):
+            tableStyling = s.get("colWidths")
+
+        else:
+            line_out = [
+                appDoco_replaceTemplateMarkers(appChoices, x).strip() for x in s
+            ]
+
+            comment = popLastFromList(line_out, "#")
+            # pipe=popLastFromList(line_out,'|')
+            commentsOut.append(comment)
+            examplesTableOut.appendRowList([styling.asSuggestion(x) for x in line_out])
+            # pipeOut.append(pipe)
+
+    examplesTableOut.appendColList(commentsOut)
+    return examplesTableOut, tableStyling
+
+
+def replaceWithin(txt: str | list[str], needle: str, replacement: str):
+    if isinstance(txt, str):
+        return txt.replace(needle, replacement)
+    elif isinstance(txt, list):
+        return [replaceWithin(x, needle, replacement) for x in txt]
+    else:
+        return txt
+
+
+def customisedChoicePart_getTopSuggestions(
+    action: str, entry: dict[str, Any]
+) -> list[str | list[str]]:
+
+    results = []
+
+    topSuggestion = entry.get("topSuggestion", None)
+    if topSuggestion is None:
+        kindExamples = entry.get("examples", [])
+        if len(kindExamples) > 0:
+            topSuggestion = kindExamples[0]
+
+    if topSuggestion is not None:
+        topSuggestion = replaceWithin(
+            topSuggestion,
+            "<exeName+action>",
+            "<exeName+action> " + EscapeMgr.escapeIfNeeded(action),
+        )
+        if isinstance(topSuggestion, str):
+            topSuggestion = topSuggestion.strip()
+
+            _restyle = topSuggestion.startswith("<exeName+action>")
+        else:
+            _restyle = False
+
+        if _restyle and isinstance(topSuggestion, str):
+
+            comment_suffix = ""
+            x = topSuggestion.split("#")
+            if len(x) > 1:
+                comment_suffix = " # " + x.pop()
+                topSuggestion = "#".join(x).strip()
+
+            topSuggestion = topSuggestion.split(" ") + [comment_suffix]
+
+    if isinstance(topSuggestion, str):
+        results.append(topSuggestion)
+    elif isinstance(topSuggestion, list):
+        results.append(topSuggestion)
+
+    return results
+
+
+def getUsageSuggestions(appChoices, visibleParams) -> list[list[str]]:
+    """Returns a list of [namePlus,params,description]"""
+
+    _customisedChoiceNext = appChoices.customisingChoices_next
+
+    lines_out = []
+    exeName = appChoices.appValue("exeName")
+    if _customisedChoiceNext is None:
+
+        #########################################
+        #  Calculate: `mentionOtherOptions`  (to use with 'params_txt' in the usage line)
+        #
+        params_txt, _mentioned = appChoices.getOverviewAsTextAndParams()
+
+        _unmentioned = [
+            x
+            for x in visibleParams
+            if not x.name() in _mentioned and (x.get("group") != "~appAuto")
+        ]
+        mentionOtherOptions = "" if len(_unmentioned) == 0 else " [options]"
+
+        lines_out.append(
+            [
+                [
+                    str(exeName)
+                    + appChoices.customisingChoicesMade_withLeadingSpace
+                    + mentionOtherOptions
+                    + " "
+                    + params_txt
+                ]
+            ]
+        )
+
+    else:
+        directPrefixes = [
+            {
+                "name": key,
+                "description": paramObj.get("description", ""),
+                "options": paramObj.get("options", None),
+            }
+            for key, paramObj in _customisedChoiceNext.items()
+        ]
+
+        directPrefixes.append({"blankLine": True})
+        directPrefixes.append(
+            {
+                "name": "<action> --help",
+                "options": None,
+                "description": "Gives help information on the action (From the above list)",
+            }
+        )
+
+        for _entry in directPrefixes:
+            if _entry.get("blankLine", False):
+                lines_out.append(["", "", ""])
+            else:
+
+                _nameToUse = exeName
+                if _entry.get("noDecoration", False):
+                    _nameToUse += appChoices.customisingChoicesMade_withLeadingSpace
+
+                _nameToUse = _nameToUse + " " + _entry.get("name", "")
+                _params_out = "[options …]" if _entry.get("options", None) else ""
+                _value = _entry.get("description", "")
+
+                lines_out.append(
+                    [
+                        styling.asSuggestion(_nameToUse),
+                        styling.asSuggestion(_params_out),
+                        "" if _value == "" else f"| {_value}",
+                    ]
+                )
+
+    return lines_out
 
 
 def _popLastFromText(txt: str, suffixMarker: str) -> tuple[str, str]:
