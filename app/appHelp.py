@@ -111,23 +111,26 @@ def getAppHelp_asLines(
     #########################################
     #
 
-    usageSuggestions = getUsageSuggestions(
-        appChoices, getUsageSuggestions
-    )  # < list[ (namePlus,options,description] :
+    usageSuggestions = getUsageSuggestions(appChoices, visibleParams)
+
+    prefix = f"Usage: "
+    for usage in usageSuggestions:
+        print(["usage:", usage])
+        if isinstance(usage, str):
+            titleAndUsageTable.appendRowList([prefix + styling.asSuggestion(usage)])
+        else:
+            titleAndUsageTable.appendRowList(
+                [
+                    prefix + styling.asSuggestion(usage[0]),
+                    styling.asSuggestion(usage[1]),
+                    usage[2],
+                ]
+            )
+        prefix = PrettyText.asSpaces(prefix)
 
     if appChoices.customisingChoices_next:
         for action, entry in appChoices.customisingChoices_next.items():
             _examplesOut.extend(customisedChoicePart_getTopSuggestions(action, entry))
-
-    prefix = f"Usage: "
-    for usage in usageSuggestions:
-        titleAndUsageTable.appendRowList(
-            [
-                prefix + styling.asSuggestion(usage[0]),
-                styling.asSuggestion(usage[1]),
-                usage[2],
-            ]
-        )
 
     lines_out: list[str] = []
     lines_out.extend(PrettyTable.Rendered(titleAndUsageTable).asLines())
@@ -170,9 +173,13 @@ def getAppHelp_asLines(
             _g = "Basic"
         elif _g == "~appAuto":
             _g = "Tailoring Options"
-        titleNote = (
-            str(_g).title().removesuffix(" Options").replace("_", " ") + " Options"
-        )
+        titleNote = str(_g).removesuffix(" Options")
+
+        if "_" in titleNote or titleNote.islower():
+            titleNote = titleNote.replace("_", " ").title()
+
+        titleNote += " Options"
+
         optionSummaries.appendItem(titleNote, paramObj)
 
     #
@@ -312,78 +319,70 @@ def customisedChoicePart_getTopSuggestions(
     return results
 
 
-def getUsageSuggestions(appChoices, visibleParams) -> list[list[str]]:
+def getUsageSuggestions(appChoices, visibleParams) -> list[Tuple[str, str, str] | str]:
     """Returns a list of [namePlus,params,description]"""
 
     _customisedChoiceNext = appChoices.customisingChoices_next
 
-    lines_out = []
     exeName = appChoices.appValue("exeName")
+
+    #########################################
+    #  Calculate: `mentionOtherOptions`  (to use with 'params_txt' in the usage line)
+    #
+    params_base_text, params_extra_text, _mentioned = (
+        appChoices.getOverviewAsTextAndParams()
+    )
+
+    _unmentioned = [
+        x.name()
+        for x in visibleParams
+        if not x.name() in _mentioned and (x.get("source") != "~appAuto")
+    ]
+
+    _usageGroups: list[dict | None] = []
     if _customisedChoiceNext is None:
-
-        #########################################
-        #  Calculate: `mentionOtherOptions`  (to use with 'params_txt' in the usage line)
-        #
-        params_txt, _mentioned = appChoices.getOverviewAsTextAndParams()
-
-        _unmentioned = [
-            x
-            for x in visibleParams
-            if not x.name() in _mentioned and (x.get("group") != "~appAuto")
-        ]
-        mentionOtherOptions = "" if len(_unmentioned) == 0 else " [options]"
-
-        lines_out.append(
-            [
-                [
-                    str(exeName)
-                    + appChoices.customisingChoicesMade_withLeadingSpace
-                    + mentionOtherOptions
-                    + " "
-                    + params_txt
-                ]
-            ]
+        _usageGroups.append(
+            {"options": _unmentioned, "_extraParams": params_extra_text}
         )
-
     else:
-        directPrefixes = [
-            {
-                "name": key,
-                "description": paramObj.get("description", ""),
-                "options": paramObj.get("options", None),
-            }
-            for key, paramObj in _customisedChoiceNext.items()
-        ]
-
-        directPrefixes.append({"blankLine": True})
-        directPrefixes.append(
+        for key, paramObj in _customisedChoiceNext.items():
+            _usageGroups.append(
+                {
+                    "name": key,
+                    "description": paramObj.get("description", ""),
+                    "options": paramObj.get("options", None),
+                }
+            )
+        _usageGroups.append(None)
+        _usageGroups.append(
             {
                 "name": "<action> --help",
-                "options": None,
                 "description": "Gives help information on the action (From the above list)",
             }
         )
+    lines_out: list[Tuple[str, str, str] | str] = []
 
-        for _entry in directPrefixes:
-            if _entry.get("blankLine", False):
-                lines_out.append(["", "", ""])
-            else:
+    for _entry in _usageGroups:
+        if _entry is None:
+            lines_out.append("")
+        else:
+            _description = _entry.get("description", "")
+            _extraParams = _entry.get("_extraParams", "")
 
-                _nameToUse = exeName
-                if _entry.get("noDecoration", False):
-                    _nameToUse += appChoices.customisingChoicesMade_withLeadingSpace
+            _base = " ".join(
+                f"{exeName} {params_base_text} {_entry.get('name','')}".split()
+            )
 
-                _nameToUse = _nameToUse + " " + _entry.get("name", "")
-                _params_out = "[options …]" if _entry.get("options", None) else ""
-                _value = _entry.get("description", "")
-
-                lines_out.append(
-                    [
-                        styling.asSuggestion(_nameToUse),
-                        styling.asSuggestion(_params_out),
-                        "" if _value == "" else f"| {_value}",
-                    ]
+            lines_out.append(
+                (
+                    styling.asSuggestion(_base),
+                    styling.asSuggestion(
+                        "[options …]" if _entry.get("options", None) else ""
+                    ),
+                    styling.asSuggestion(_extraParams)
+                    + ("" if _description == "" else f"| {_description}"),
                 )
+            )
 
     return lines_out
 

@@ -23,6 +23,9 @@ from ukko_pylibs import app,Utils,appLog
 Care has been taken to support Python versions from **3.10.12** to **3.14**<br>
 This means that it can run with **Ubuntu 22.04**, **Ubuntu 24.04** & **Ubuntu 26.04** (Four years of LTS)
 
+Issues:
+`ukkoTestCommand verify --stdout='Hello World\n' -- echo 'Hello Worldx'` -> --stdout='Hello World\\n' when giving a suggestion ...
+
 ## Style ##
 
 Style can be enforced with **`pre-commit install`**<br>

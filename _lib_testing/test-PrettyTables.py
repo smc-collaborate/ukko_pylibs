@@ -50,6 +50,7 @@ def main():
                     "lookup": ["text", "json", "json-full"],
                     "default": "text",
                     "group": "Display Options",
+                    "source": "~appAuto",
                     "position": 9999,
                 },
             ],

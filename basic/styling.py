@@ -47,8 +47,8 @@ def isSupported() -> bool:
 
 # First is always the colour, the rest are attributes (eg: bold, underline, etc)
 #
-def _applyAlways(text: str, styleText: str) -> Tuple[str, str | None]:
-    isSilent, styleText = Utils.removePrefix(styleText, "silent:")
+def _applyAlways(text: str, styleTextPlus: str) -> Tuple[str, str | None]:
+    isSilent, styleText = Utils.removePrefix(styleTextPlus, "silent:")
 
     x = styleText.split("+")
 
@@ -125,6 +125,10 @@ def isStyled(text: str) -> bool:
 
 def asSuggestion(value: Any | None) -> str:
     return apply(value, "blue+bold")
+
+
+def asUnderlinedSuggestion(value: Any | None) -> str:
+    return apply(value, "blue+bold+underline")
 
 
 def asExceptFor(

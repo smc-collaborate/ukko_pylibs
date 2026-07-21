@@ -341,13 +341,13 @@ class Utils:
                         if extra != "":
                             obj["_note"] = extra
                         return obj
-                    elif o.__class__.__name__.startswith("numpy"):
+                    if o.__class__.__name__.startswith("numpy"):
                         import numpy as np
 
                         return np.array_str(o)
-                    elif not isinstance(o, type) and hasattr(o, "asDict"):
+                    if not isinstance(o, type) and hasattr(o, "asDict"):
                         return o.asDict()
-                    elif hasattr(o, "__slots__"):
+                    if hasattr(o, "__slots__"):
                         outResult = {}
                         for field_name in o.__slots__:
                             value = getattr(o, field_name, None)
@@ -357,10 +357,9 @@ class Utils:
                                 if _doc != "None" and _doc != "":
                                     return f"<doc:{_doc.split()[0]}>"
                         return outResult
-                    elif hasattr(o, "__dict__"):
+                    if hasattr(o, "__dict__"):
                         return o.__dict__
-                    else:
-                        return str(o)
+                    return str(o)
                 except Exception as e:
                     return f"<Object[{o.__class__.__name__}:{type(o)}] (Note: {e})>"
 

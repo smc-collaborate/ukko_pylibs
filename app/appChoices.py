@@ -145,7 +145,7 @@ class AppChoices:
     def getDataContents_orNone(self, key) -> DataContents | None:
         return self.paramChoice(key, None)
 
-    def getOverviewAsTextAndParams(self) -> tuple[str, list[str]]:
+    def getOverviewAsTextAndParams(self) -> tuple[str, str, list[str]]:
         param_info = ""
         summarisedParams: list[str] = []
         for spec in self.getOptions():
@@ -155,9 +155,11 @@ class AppChoices:
                 summarisedParams.append(spec.name())
 
         additionalParams = self.appValues.get("additional_parameters", None)
-        if additionalParams:
-            param_info += f" -- {additionalParams}"
-        return param_info.strip(), summarisedParams
+        return (
+            param_info.strip(),
+            ("" if not additionalParams else f" -- {additionalParams}"),
+            summarisedParams,
+        )
 
     def getOptions(self) -> ParamSpecList:
         return ParamSpecList(self.appValues.get("options", []))

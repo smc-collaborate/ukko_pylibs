@@ -11,7 +11,7 @@ import sys
 from typing import Any, Callable, NoReturn, Tuple
 from types import NoneType
 
-from ukko_pylibs.basic.class_DataContents import DataContents
+from ukko_pylibs.basic.simpleUtils import EscapeMgr
 
 ################################################################################
 #
@@ -276,6 +276,7 @@ class IArgLoader_Template:
                     "default": default,
                     "defaultEnvVar": "UAPP_VERBOSITY",
                     "description": "Set verbosity of messaging       ",
+                    "source": "~appAuto",
                 }
             )
         )
@@ -291,6 +292,7 @@ class IArgLoader_Template:
                         "name": "colour",
                         "lookup": ["enable", "disable"],
                         "group": "Display Options",
+                        "source": "~appAuto",
                         "position": 998,
                         "shortName": "",
                         "default": "enable",
@@ -305,6 +307,7 @@ class IArgLoader_Template:
                     {
                         "name": "config-view",
                         "group": self.customisingChoices_asText_calc("+"),
+                        "source": "~appAuto",
                         "shortName": "C",
                         "description": "Gives the current configuration",
                     }
@@ -315,7 +318,7 @@ class IArgLoader_Template:
             ParamSpec(
                 {
                     "name": "version",
-                    "group": "",  # "~appAuto",
+                    "source": "~appAuto",
                     "shortName": "",
                     "description": "Gives version information for this app: "
                     + styling.asBold(f"v{self.getAppValue('version')}"),
@@ -327,7 +330,7 @@ class IArgLoader_Template:
             ParamSpec(
                 {
                     "name": "help",
-                    "group": "",  # "~appAuto",
+                    "source": "~appAuto",
                     "shortName": "?" if _all.containsShortName("-h") else "h",
                     "description": "Gives help",
                 }
@@ -339,7 +342,7 @@ class IArgLoader_Template:
                 {
                     "hidden": True,
                     "name": "debug-info",
-                    "group": "~appAuto",
+                    "source": "~appAuto",
                     "position": 1000,
                     "description": "Gives additional information about the app and its configuration",
                     "lookup": ["", "app-info", "app-as-run", "config-info", "all"],
@@ -566,15 +569,14 @@ class IArgLoader_Template:
 
                         exampleOrNone = spec.getExample()
 
-                        if exampleOrNone is None:
-                            _suggestion = None
-                        else:
-                            _suggestion = (
-                                appInfo_cmdWithVariant({spec.name(): exampleOrNone})
-                                or None
+                        if exampleOrNone is not None:
+                            _suggestionStyled = appInfo_cmdWithVariant_styled(
+                                {spec.name(): exampleOrNone}
                             )
+                            if _suggestionStyled:
+                                _errmsg += "\nSuggestion: " + _suggestionStyled
 
-                        self.errors.append((_errmsg, _suggestion))
+                        self.errors.append((_errmsg, None))
 
     def doIterateArgs(self, args: list[str]):
 
@@ -789,6 +791,33 @@ class Define:
                 f"{PrettyText.padToWidth('', 32)}  {PrettyText.padToWidth('', 10)} {PrettyText.padToWidth(str(line), 104)}\n"
             )
 
+    def doRunner(self):
+        """Automatically runs the last runner found with 'appChoices'
+        ```
+            from ukko_pylibs import app
+
+            def main():
+                app.Define({ "version": "0.1.0",
+                            "description": "Say hello",
+                            "options":["name": "person",
+                                        "default": "whowever you are"],
+                            "runner": doSayHello}).doRunner()
+
+
+            if __name__ == "__main__":
+                app.doRun(main)
+        ```"""
+        appChoices = self.parseParams()
+
+        runner = appChoices.appValue("runner")
+
+        if callable(runner):
+            runner(appChoices)
+        else:
+            error_exit_internalCause(
+                f"Missing runner for action: [{appChoices.customisingChoicesMade_withLeadingSpace.strip()}]"
+            )
+
     def parseParams(self, args: list[str] | None = None) -> AppChoices:
         global g_runningApp
         g_runningApp = self
@@ -875,7 +904,6 @@ class Define:
         exitReason: str | None = None
         if _parseResults.appChoices.params.pop("help", None):
             self.giveHelp(shorterVersion=bool(_parseResults.errors))
-
             exitReason = "Help Info"
 
         if _parseResults.errors:
@@ -946,7 +974,13 @@ class _ArgLoader_ReplaceParams(IArgLoader_Template):
         self.toReplace: dict[str, Any] = deepcopy(replacingArgs)
 
         self.hasModified = False
-        self.outputList: list[str] = []
+        self._outputList: list[str] = []
+
+    def _appendParam(self, paramText: str, withUnderline: bool):
+        if withUnderline:
+            self._outputList.append(styling.asUnderlinedSuggestion(paramText))
+        else:
+            self._outputList.append(styling.asSuggestion(paramText))
 
     def doExtraArgReview(self, arg: str) -> bool:
         key = (
@@ -957,17 +991,20 @@ class _ArgLoader_ReplaceParams(IArgLoader_Template):
 
         return False if not appConfig.hasContents() else appConfig.hasKey(key)
 
-    def _nameValueToArg(self, name: str, valueAsText: str):
+    @staticmethod
+    def _nameValueToBadBashArg(name: str, valueAsText: str, badReason: str = ""):
+        return EscapeMgr.asBashParam(f"--{name}={valueAsText}❓  {badReason}")
+
+    def _nameValueToBashArg(self, name: str, valueAsText: str):
         spec = self.getParamSpec(name)
-        paramAsText = name
         if spec is None:
-            paramAsText = f"--{name}={valueAsText}❓  "
+            paramAsText = self._nameValueToBadBashArg(name, valueAsText)
         elif spec.mustBeDirect() or (name == "--"):
-            paramAsText = valueAsText
+            paramAsText = EscapeMgr.asBashParam(valueAsText)
         else:
-            paramAsText = f"--{name}"
+            paramAsText = "--" + EscapeMgr.asBashParam(name)
             if spec.hasValue():
-                paramAsText += f"={valueAsText}"
+                paramAsText += "=" + EscapeMgr.asBashParam(valueAsText)
 
         return paramAsText
 
@@ -976,38 +1013,38 @@ class _ArgLoader_ReplaceParams(IArgLoader_Template):
         # |x| _msg=f"Applying[{style:<30}] [ {paramAsText:<30}]"
         # |x| print_cyan([_msg])
 
+        withUnderline = False
         if name in self.toReplace:
             newValue = self.toReplace.pop(name)
-            paramAsText = self._nameValueToArg(name, value)
+            paramAsText = self._nameValueToBashArg(name, value)
             if value != newValue:
                 self.hasModified = True
+                withUnderline = True
 
         elif style == "spec":
-            paramAsText = self._nameValueToArg(name, arg)
+            paramAsText = self._nameValueToBashArg(name, arg)
         elif style == "--":
             self._appendIfNeeded()
             paramAsText = "--"
         else:
-            paramAsText = f"--{name}={value}❓  [style:{style}]"
+            paramAsText = self._nameValueToBadBashArg(name, value, "[style:{style}]")
 
-        self.outputList.append(str(paramAsText))
+        self._appendParam(paramAsText, withUnderline)
 
     def _appendIfNeeded(self):
         for name, value in self.toReplace.items():
-            self.outputList.append(
-                self._nameValueToArg(name, value)
-            )  # f"--{self.replacingArg}={self.newValue}[**INSERTED]")
+            self._appendParam(self._nameValueToBashArg(name, value), True)
             self.hasModified = True
         self.toReplace = {}
 
-    def getReplacedParams(self, exeName: str, blankIfUnchanged: bool) -> str:
+    def getReplacedParams_styled(self, exeName: str, blankIfUnchanged: bool) -> str:
         self._appendIfNeeded()
 
         if not self.hasModified and blankIfUnchanged:
             return ""
 
         newList: list[str] = [exeName]
-        newList.extend(self.outputList)
+        newList.extend(self._outputList)
 
         return " ".join(newList)  # [EscapeMgr.asBashParam(x) for x in newList])
 
@@ -1017,7 +1054,7 @@ class _ArgLoader_ReplaceParams(IArgLoader_Template):
 #
 
 
-def appInfo_cmdWithVariant(
+def appInfo_cmdWithVariant_styled(
     replacingArgs: dict[str, Any], blankIfUnchanged: bool = True
 ) -> str:
     """Returns: (cmd,isModified) - the command line to run the app with the given spec/value, and whether it is materially different from the existing values
@@ -1031,11 +1068,11 @@ def appInfo_cmdWithVariant(
 
     argReplacer.doIterateArgs(app.original_params)
 
-    return argReplacer.getReplacedParams(appInfo_getStr("exeFullName"), False)
+    return argReplacer.getReplacedParams_styled(appInfo_getStr("exeFullName"), False)
 
 
-def appInfo_normalisedCommand() -> str:
-    return appInfo_cmdWithVariant({}, blankIfUnchanged=False)
+def appInfo_normalisedCommand_styled() -> str:
+    return appInfo_cmdWithVariant_styled({}, blankIfUnchanged=False)
 
 
 def exeInfo_getName():
@@ -1156,9 +1193,12 @@ def doHalt(msg: str | None = None, suggestSilent: bool = False):
         )
 
 
-def doRun(callable: Callable[[], None]):
+def doRun(mainFunc_or_appDefinition: dict | Callable[[], None]):
     try:
-        callable()
+        if isinstance(mainFunc_or_appDefinition, dict):
+            Define(mainFunc_or_appDefinition).doRunner()
+        else:
+            mainFunc_or_appDefinition()
         doExit()
     except BaseException as e:
         exitOnException(e)
@@ -1243,7 +1283,7 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
             msg += "\n".join([f"   [trace]: {x}" for x in traceLines])
 
         elif getRunningApp() is not None:
-            msg += f"Suggestion: {styling.asSuggestion(appInfo_cmdWithVariant({'verbosity':'details'}))} for more information"
+            msg += f"Suggestion: {appInfo_cmdWithVariant_styled({'verbosity':'details'})} for more information"
         error_msg_exit(msg)
     elif e.srcException is not None:
         if appLog.isVerbose() or [x for x in os.environ if x.startswith("VSCODE_")]:
@@ -1251,7 +1291,7 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
                 [f"   [trace]: {x}" for x in getPrettyExceptionInfo(e.srcException)[1]]
             )
         elif getRunningApp() is not None:
-            msg = f"Suggestion: {styling.asSuggestion(appInfo_cmdWithVariant({'verbosity':'details'}))} for more information"
+            msg = f"Suggestion: {appInfo_cmdWithVariant_styled({'verbosity':'details'})} for more information"
         else:
             msg = ""
         error_msg_exit(f"{action}{emsgSuffix}\n{msg}")
@@ -1271,10 +1311,10 @@ def returnJsonData(resultFull: Any, elementNameIfNotFull: str | None = None):
             outputFormat = "json" if isJson else "text"
 
     if outputFormat is None:
-        appLog.print_warning(f"Unspecified 'output format' : defaulting to json")
-        outputFormat = "json"
+        # appLog.print_warning(f"Unspecified 'output-format' : defaulting to json")
+        outputFormat = "text"
     else:
-        appLog.print_info(f"Output format: {outputFormat}")
+        appLog.print_verbose(f"Output format: {outputFormat}")
 
     if outputFormat == "json-full":
         if elementNameIfNotFull:
@@ -1285,23 +1325,20 @@ def returnJsonData(resultFull: Any, elementNameIfNotFull: str | None = None):
         resultPart = (
             resultFull
             if elementNameIfNotFull is None
-            else DictUtils.get(resultFull, elementNameIfNotFull, type(None))
+            else DictUtils.get(resultFull, elementNameIfNotFull, NoneType)
         )
 
-    if resultPart is type(None):
+    if resultPart is NoneType:
 
         msg = f"Error[Internal]: Unable to return '{elementNameIfNotFull}'.  Available values are [{','.join(resultFull.keys())}]"
 
-        suggestion = appInfo_cmdWithVariant({"output-format": "json-full"})
+        suggestion = appInfo_cmdWithVariant_styled({"output-format": "json-full"})
         if suggestion != "":
-            msg += (
-                f"\nSuggestion: {styling.asSuggestion(suggestion)} for more information"
-            )
+            msg += f"\nSuggestion: {suggestion} for more information"
 
         error_msg_exit(f"{msg}")
     else:
-        appLog.print_info(f"Output full: {Utils.asJsonStr(resultFull, indent=2)}")
-        appLog.print_info(f"AAAA")
+        appLog.print_verbose(f"Output full: {Utils.asJsonStr(resultFull, indent=2)}")
 
         if outputFormat in ["json", "json-full"]:
             print(Utils.asJsonStr(resultPart, indent=2))
@@ -1309,10 +1346,10 @@ def returnJsonData(resultFull: Any, elementNameIfNotFull: str | None = None):
             if isinstance(resultPart, list):
                 for x in resultPart:
                     print(str(x))
-            elif isinstance(resultPart, dict):
-                print(Utils.asJsonStr(resultPart, indent=2))
-            else:
+            elif isinstance(resultPart, str):
                 print(str(resultPart))
+            else:
+                print(Utils.asJsonStr(resultPart, indent=2))
         else:
             appLog.print_error(f"Unknown output format: {outputFormat}")
             print(Utils.asJsonStr(resultPart, indent=2))

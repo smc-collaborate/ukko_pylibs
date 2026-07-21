@@ -676,6 +676,8 @@ class ParamSpec:
                     summaryAdd_directPrefixes.append(
                         {"name": name, "description": value}
                     )
+            elif "customisationChoice" in self.spec:
+                summaryAdd_param = str(self.spec["customisationChoice"]) + " "
             else:
                 summaryAdd_param = f"[{_formattedName}] "
         elif self.get("mayBeDirect", None):
@@ -761,10 +763,11 @@ class ParamSpecAndValue:
         spec: ParamSpec,
         value: Any | list[Any] | None = None,
         convert: str | None = None,
+        valueSource: str = "",
     ):
         self.spec = spec.__clone__()
         self.value = value
-        self.valueSource: str = ""
+        self.valueSource: str = valueSource
         self.errorNotes: list[str] = []
         if convert is not None:
             self.value, _ = self.load_withConvert(convert)
@@ -829,13 +832,11 @@ class ParamSpecAndValue_collection(dict[str, ParamSpecAndValue]):
 
         if _name in self:
             self[_name].errorNotes.append(
-                f"Cannot load directly into {_name} : Already has value"
+                f"Cannot create new {_name} : Already has value"
             )
             return
 
-        self = ParamSpecAndValue(spec)
-        self.value = value
-        self.valueSource = source
+        self[_name] = ParamSpecAndValue(spec, value, valueSource=source)
 
     def filterBySource(self, source: str) -> "ParamSpecAndValue_collection":
         result = ParamSpecAndValue_collection()

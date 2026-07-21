@@ -185,7 +185,8 @@ class DataContents:
 
     def getAsDisplay(self, clipLen: int = CLIP_LENGTH) -> str:
 
-        _paramText = str(self.asProvided)
+        _paramText = " ".join(str(self.asProvided).split())
+
         if self.asProvided != "" and isinstance(self.asProvided, str):
             _prefix, _fname = self.getProvidedFilenamePlus()
 
