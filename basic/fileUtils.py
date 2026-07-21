@@ -90,7 +90,7 @@ def loadJsonDictFromFile(
     exceptionOnError: bool = True,
     giveWarningOnFileMissing: bool = True,
 ) -> dict[str, Any]:
-    fname_friendly = Utils.pathDisplay(inputJsonFile)
+    fname_friendly = Utils.pathAsDisplay(inputJsonFile)
     errmsg = "Unknown Error"
     showWarning = True
 
@@ -133,14 +133,14 @@ def loadJsonDictFromFile(
 
 
 def fileExceptionToString(fname: str, e: Exception, what: str = "file") -> str:
-    msg = f"Unable to load {what} from file '{Utils.pathDisplay(fname)}'\n"
+    msg = f"Unable to load {what} from file '{Utils.pathAsDisplay(fname)}'\n"
     if not (isinstance(e, HandledException)):
         msg += f"A [{type(e).__name__}] exception occurred: "
 
     msg += str(e)
 
     fullPath = os.path.abspath(fname)
-    if fullPath != Utils.pathDisplay(fname):
+    if fullPath != Utils.pathAsDisplay(fname):
         msg += f"\nFull path  : {fullPath}"
         msg += f"\nCurrent dir: {os.getcwd()}"
         if get_cwdOnStartup() != os.getcwd():
@@ -212,7 +212,7 @@ def loadJson_dict_withSourceDescription_orException(
     elif filenameIsStdIO(inputJson):
         pass
     elif inputJson.startswith("@"):
-        sourceDescription = f"{Utils.pathDisplay(inputJson[1:])}"
+        sourceDescription = f"{Utils.pathAsDisplay(inputJson[1:])}"
 
     return (result, sourceDescription)
 

@@ -430,7 +430,7 @@ class Schema:
                     appLog.print_warning(f"Schema({self.name}): {self.errMsg}")
 
         except Exception as e:
-            self.errMsg = f"Failed to load schema from {Utils.pathDisplay(self.jsonSchemaFilename)}: {str(e)}"
+            self.errMsg = f"Failed to load schema from {Utils.pathAsDisplay(self.jsonSchemaFilename)}: {str(e)}"
             appLog.print_warning(
                 f"Schema({self.name}): Error loading schema: {self.errMsg}"
             )

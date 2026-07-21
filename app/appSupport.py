@@ -89,7 +89,10 @@ def appInfo_get(
             ):
                 _value = os.path.basename(fullname)
             else:
-                _value = Utils.pathDisplay(fullname)
+                _value = Utils.pathAsDisplay(fullname)
+                if not "/" in _value:
+                    _value = "./" + _value
+
     elif name == "name+actions":
         _value = (
             appInfo_getStr("exeFullName") + appInfo_getStr("APP_AS_USED.post_exe")

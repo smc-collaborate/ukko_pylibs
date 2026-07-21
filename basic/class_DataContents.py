@@ -190,7 +190,7 @@ class DataContents:
             _prefix, _fname = self.getProvidedFilenamePlus()
 
             if _fname != "":
-                _paramText = _prefix + Utils.pathDisplay(_fname)
+                _paramText = _prefix + Utils.pathAsDisplay(_fname)
 
         return PrettyText.asClipped(_paramText, clipLen)
 

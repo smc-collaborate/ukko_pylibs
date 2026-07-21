@@ -91,7 +91,7 @@ class Utils:
         return isConsoleOut
 
     @staticmethod
-    def pathDisplay(pathName: str) -> str:
+    def pathAsDisplay(pathName: str) -> str:
         """Converts a path to a friendly display format."""
         return Utils.pathConvert(pathName, kind="friendly").removesuffix(os.sep)
 

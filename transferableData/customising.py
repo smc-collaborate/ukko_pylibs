@@ -934,7 +934,7 @@ def getCustomFormat_fromFile(fname: str) -> CustomContentsFormatDefinition | Non
             for example_file in example_files:
                 if not os.path.isfile(example_file):
                     appLog.print_warning(
-                        f"CustomFormat[{Utils.pathDisplay(fname)}].examples[{example_kind}]: Missing file: {Utils.pathDisplay(example_file)}"
+                        f"CustomFormat[{Utils.pathAsDisplay(fname)}].examples[{example_kind}]: Missing file: {Utils.pathAsDisplay(example_file)}"
                     )
     return CustomContentsFormatDefinition(jsonData, fname)
 

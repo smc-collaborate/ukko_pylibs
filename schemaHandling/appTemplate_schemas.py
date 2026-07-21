@@ -134,7 +134,7 @@ def runApp(appDescription: str, args: list[str]):
         fname = params["json"]
         if (fname == "-") or (fname == ""):
             fname = "/dev/stdin"
-        name = Utils.pathDisplay(fname)
+        name = Utils.pathAsDisplay(fname)
         fileKind = "Specification"
         schema = Schema(name, fname, isStrict=isStrict)
         schemasShow[name] = schema.asDict()

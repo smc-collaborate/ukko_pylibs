@@ -64,12 +64,12 @@ class Configuration:
                 with open(config_fname, "r", encoding="utf-8") as f:
                     _loadedFromFile = json.load(f)
                     self.notes.append(
-                        f"Loaded config file '{Utils.pathDisplay(config_fname)}'"
+                        f"Loaded config file '{Utils.pathAsDisplay(config_fname)}'"
                     )
             except Exception as e:
                 self.log_error(f"Unable to load config file '{config_fname}'", e)
                 self.notes.append(
-                    f"Unable to load from config file '{Utils.pathDisplay(config_fname)}'"
+                    f"Unable to load from config file '{Utils.pathAsDisplay(config_fname)}'"
                 )
         self.BEFORE_USER_CUSTOMISING = _recursive_merge(self._defaults, _loadedFromFile)
         self.CONFIG_USED = deepcopy(self.BEFORE_USER_CUSTOMISING)
