@@ -31,6 +31,7 @@ from ukko_pylibs.basic.prettyTable import (
 )
 from ukko_pylibs.basic.logger import appLog
 from ukko_pylibs.basic.class_DataContents import DataContents
+from ukko_pylibs.basic.class_JsonData import JsonDict
 
 import ukko_pylibs.basic.styling as styling
 
@@ -422,20 +423,29 @@ class ParamSpec:
 
         return result.strip()
 
+    json_suggestions = ['{"name":"value"}', "file:input.json"]
     EXTRA_HELP_SUBSCRIPTS = {
         "⁺": "may be passed directly, without the option name",
         "ⁿ": "support escape characters (such as \\n, \\t)",
         "ꟳ": "support inputs such as 'file:file.bin', 'hex:12ab' & 'base64:MQ==' as well as escape characters",
+        "ᴶ": "are JSON.  eg: "
+        + styling.asSuggestionList(
+            json_suggestions, escapeMethod="bash", separator=" -or- "
+        ),
+        "ⁿ": "support escape characters (such as \\n, \\t)",
     }
 
     def getValueHelpSubscripts(self) -> str:
         """Returns a tuple of (annotation, description) for extra info about the parameter's value."""
         result = ""
-
-        if self.type_orNone() is DataContents:
+        myType = self.type_orNone()
+        if myType is JsonDict or JsonDict in get_args(myType):
+            result += "ᴶ"
+        elif myType is DataContents:
             result += "ꟳ"
         elif self.isEscaped():
             result += "ⁿ"
+
         if self.mayBeDirect():
             result += "⁺"
         return styling.asBold(result)
@@ -562,6 +572,12 @@ class ParamSpec:
                 return EscapeMgr.fromEscapedText(arg), None
             else:
                 return arg, None
+        elif _type is JsonDict or JsonDict in typing.get_args(_type):
+            try:
+                return JsonDict(arg, self.spec.get("formatAsText", "JSON")), None
+            except Exception as e:
+                return _error(str(e))
+
         elif _type is DataContents:
             try:
                 return (

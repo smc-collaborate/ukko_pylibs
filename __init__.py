@@ -16,6 +16,7 @@ from ukko_pylibs.basic.simpleUtils import Utils
 from ukko_pylibs.basic.simpleUtils import ImageInfo
 from ukko_pylibs.app.appSupport import app, AppChoices
 from ukko_pylibs.app.appSupport import Define as AppDefinition
+from ukko_pylibs.basic.prettyTable import PrettyTable
 
 from ukko_pylibs.basic.fileUtils import FileUtils
 from ukko_pylibs.basic import styling
@@ -46,4 +47,5 @@ __all__ = [
     "ImageInfo",
     "timestampObj_from_ns",
     "AppChoices",
+    "PrettyTable",
 ]

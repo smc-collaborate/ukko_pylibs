@@ -159,22 +159,25 @@ def loadJson(
     errmsg = "Unknown Error"
     if (inputJson == None) or (inputJson == "") or (inputJson == "null"):
         return None
-    inputJsonFile = "??"
+    # inputJsonFile = "??"
 
     try:
         if filenameIsStdIO(inputJson):
             inputJson = "@/dev/stdin"
         loadedJson: dict[str, Any] = {}
-        if inputJson.startswith("@"):
+        fname = None
+        for prefix in ["@", "file:"]:
+            if inputJson.startswith(prefix):
+                fname = inputJson.removeprefix("file:")
+                break
+        if fname is not None:
             try:
                 if assumeDict:
-                    return loadJsonDictFromFile(
-                        inputJson[1:], inputKind, exceptionOnError
-                    )
+                    return loadJsonDictFromFile(fname, inputKind, exceptionOnError)
                 else:
-                    return loadJsonFromFile(inputJson[1:], inputKind, exceptionOnError)
+                    return loadJsonFromFile(fname, inputKind, exceptionOnError)
             except Exception as e:
-                errmsg = fileExceptionToString(inputJson[1:], e, inputKind)
+                errmsg = fileExceptionToString(fname, e, inputKind)
 
                 if exceptionOnError:
                     raiseHandledException(errmsg)
@@ -188,7 +191,7 @@ def loadJson(
         if exceptionOnError:
             raise
         else:
-            errmsg = f"Unable to load {inputKind} from '{Utils.pathDisplay(inputJson)}': A [{type(e).__name__}] exception occurred: {e}"
+            errmsg = f"Unable to load {inputKind} from '{Utils.pathAsDisplay(inputJson)}': A [{type(e).__name__}] exception occurred: {e}"
     except json.JSONDecodeError:
         errmsg = (
             f"Unable to interpret {inputKind}: {sourceDescription} wasn't valid JSON"
@@ -245,6 +248,22 @@ def loadBytesFromFile_orHandledException(
 
     except Exception as e:
         raiseHandledException(fileExceptionToString(inputBinaryFile, e, what))
+
+
+def loadTextFromFile_orHandledException(
+    inputTextFile: str, what: str = "text data"
+) -> bytes:
+    try:
+        if FileUtils.filenameIsStdIO(inputTextFile):
+            inputTextFile = "/dev/stdin"
+        if inputTextFile == "/dev/stdin":
+            appLog.print_info(f"Note: Reading {what} from standard input")
+        with open(inputTextFile, "rb") as file:
+            file_bytes = file.read()
+        return file_bytes
+
+    except Exception as e:
+        raiseHandledException(fileExceptionToString(inputTextFile, e, what))
 
 
 def exportToFile_orHandledException(

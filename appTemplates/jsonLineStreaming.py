@@ -43,7 +43,7 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs import app, appLog, Utils, PrettyText
+from ukko_pylibs import AppChoices, app, appLog, Utils, PrettyText
 from ukko_pylibs.network import BasicTcpServer
 
 #
@@ -58,11 +58,11 @@ class IJsonLineStreamerSpec:
     ADDITIONAL_APP_PARAMETERS: dict[str, Any] | list[dict[str, Any]] | None = None
 
     @staticmethod
-    def onStartup(params: dict[str, Any]):
+    def onStartup(params: AppChoices):
         return None  # < This is optional - but some implementations may want to give a startup message
 
     @staticmethod
-    def getCollectionObject(params: dict[str, Any]) -> Any | None:
+    def getCollectionObject(params: AppChoices) -> Any | None:
         #
         # If this object is a Context Manager (i.e. defines __enter__ and __exit__), the app will automatically call those methods at the appropriate times.
         return None  # < This is optional - some implementations may not need a persistent object
@@ -94,7 +94,7 @@ import ukko_pylibs.app.appSupport as app
 ################################################################################
 
 
-def parseAppDefinition(spec: IJsonLineStreamerSpec) -> dict[str, Any]:
+def parseAppDefinition(spec: IJsonLineStreamerSpec) -> AppChoices:
     app_definition = {
         "version": spec.APP_VERSION,
         "description": f"{spec.DATA_KIND} Monitor Streamer",
@@ -133,17 +133,17 @@ def parseAppDefinition(spec: IJsonLineStreamerSpec) -> dict[str, Any]:
 
 
 class JsonLineStreamingApp:
-    def __init__(self, spec: IJsonLineStreamerSpec, params: dict[str, Any]):
+    def __init__(self, spec: IJsonLineStreamerSpec, params: AppChoices):
         self.spec = spec
         self.params = params
         self.dataStreamer = BasicTcpServer(
-            f"MonitorStreamingServer[{spec.DATA_KIND}]", params["tcpPort"]
+            f"MonitorStreamingServer[{spec.DATA_KIND}]", params.asInt("tcpPort")
         )
 
-        self.option_includeIsoDate: bool = params["include-iso-date"]
-        self.option_includeEmptyValues: bool = params["include-empty-values"]
-        self.option_interval_seconds: float = params["interval_ms"] / 1000.0
-        self.option_tcpPort: int = params["tcpPort"]
+        self.option_includeIsoDate: bool = params.asBool("include-iso-date")
+        self.option_includeEmptyValues: bool = params.asBool("include-empty-values")
+        self.option_interval_seconds: float = params.asFloat("interval_ms") / 1000.0
+        self.option_tcpPort: int = params.asInt("tcpPort")
 
     def waitForConnection(self):
         print(

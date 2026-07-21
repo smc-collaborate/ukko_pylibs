@@ -14,11 +14,10 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic.simpleUtils import (
-    PrettyText,
-    EscapeMgr,
-)
-from ukko_pylibs.basic.prettyTable import PrettyTable, PrettyTable_Rendered
+from ukko_pylibs.basic.logger import appLog
+
+from ukko_pylibs.basic.simpleUtils import PrettyText, EscapeMgr, Utils
+from ukko_pylibs.basic.prettyTable import PrettyTable
 
 
 from ukko_pylibs.basic import styling
@@ -32,6 +31,36 @@ from ukko_pylibs.app.class_Configuration import Configuration
 
 #
 ################################################################################
+
+
+def appDoco_replaceTemplateMarkers(appChoices: AppChoices, docoWithMarkers: Any) -> str:
+    from ukko_pylibs.app.appSupport import app  # < Avoid circular import
+
+    if docoWithMarkers is None:
+        return ""
+    txt = str(docoWithMarkers)
+
+    REPLACEMENTS = {
+        "SAMPLES_DIR": os.path.abspath(f"{app.getMainDir()}/samples"),
+        "exeName": str(appChoices.appValue("exeName")),
+        "exeName+action": str(appChoices.appValue("exeName"))
+        + appChoices.customisingChoicesMade_withLeadingSpace,
+    }
+
+    for oldValue, newValue in REPLACEMENTS.items():
+        _parts = txt.split("<" + oldValue + ">")
+        if len(_parts) > 1:
+            if oldValue.endswith("_DIR"):
+                if not os.path.isdir(newValue):
+                    appLog.print_warning(f"Missing <{oldValue}> directory: {newValue}")
+                newValue = Utils.pathAsDisplay(newValue)
+            if oldValue.endswith("_FILE"):
+                if not os.path.isdir(newValue):
+                    appLog.print_warning(f"Missing <{oldValue}> file: {newValue}")
+                newValue = Utils.pathAsDisplay(newValue)
+            txt = newValue.join(_parts)
+
+    return txt
 
 
 def getAppHelp_asLines(
@@ -135,21 +164,18 @@ def getAppHelp_asLines(
                 )
                 _entry["nameToUse"] = exeNameToUse + " " + _name
 
-        tableOut = PrettyTable()
+        tableOut = PrettyTable.Table()
 
         tableOut.appendRowList(
             [
                 styling.asBold(exeNameDecorated),
                 styling.asBold(verText),
                 "| " + styling.asBold(appChoices.appValue("description")),
-            ],
-            "overview",
+            ]
         )
         if not shorterVersion:
             for x in appChoices.appValue("versions_extra") or []:
-                tableOut.appendRowList(
-                    ["", "", "| " + styling.asBold(x)], "versionInfo"
-                )
+                tableOut.appendRowList(["", "", "| " + styling.asBold(x)])
             tableOut.appendRowBlank()
 
         for _entry in directPrefixes:
@@ -173,12 +199,11 @@ def getAppHelp_asLines(
                         f"{prefix}{styling.asSuggestion(_nameToUse)}",
                         styling.asSuggestion(_params_out),
                         "" if _value == "" else f"| {_value}",
-                    ],
-                    "xx",
+                    ]
                 )
                 prefix = PrettyText.asSpaces(prefix)
 
-        lines_out.extend(PrettyTable_Rendered(tableOut).asLines())
+        lines_out.extend(PrettyTable.Rendered(tableOut).asLines())
 
         ###############
         #
@@ -330,17 +355,17 @@ def getAppHelp_asLines(
                 return ""
             return entries.pop()
 
-        examplesOut = PrettyTable()
+        examplesOut = PrettyTable.Table()
         commentsOut: list[str | None] = []
         tableColWidths: list[int | None] | None = None
         # pipeOut: list[str] = []
         for s in _examplesRaw:
             if isinstance(s, str):
                 txt, comment_suffix = _popLastFromText(
-                    _exeSubstitute(s, exeName, exeNameDecorated), "#"
+                    appDoco_replaceTemplateMarkers(appChoices, s), "#"
                 )
                 # txt, pipe_suffix = _popLastFromText(textSubstitute(s), "|")
-                examplesOut.appendRowList([styling.asSuggestion(txt)], note="examples")
+                examplesOut.appendRowList([styling.asSuggestion(txt)])
                 commentsOut.append(comment_suffix)
                 # pipeOut.append(pipe_suffix)
             elif isinstance(s, dict):
@@ -348,24 +373,23 @@ def getAppHelp_asLines(
 
             else:
                 line_out = [
-                    _exeSubstitute(str(x), exeName, exeNameDecorated).strip() for x in s
+                    appDoco_replaceTemplateMarkers(appChoices, x).strip() for x in s
                 ]
 
                 comment = popLastFromList(line_out, "#")
                 # pipe=popLastFromList(line_out,'|')
                 commentsOut.append(comment)
-                examplesOut.appendRowList(
-                    [styling.asSuggestion(x) for x in line_out], note="examples"
-                )
+                examplesOut.appendRowList([styling.asSuggestion(x) for x in line_out])
                 # pipeOut.append(pipe)
 
         if examplesOut.rows:
 
             lines_out.append("")
             lines_out.append("Examples:")
-
+            # |x| print(Utils.asJsonStr(examplesOut.asDict(),indent=2))
             examplesOut.appendColList(commentsOut)
-            for line in PrettyTable_Rendered(examplesOut, tableColWidths).asLines():
+            # |x| print(Utils.asJsonStr(examplesOut.asDict(),indent=2))
+            for line in PrettyTable.Rendered(examplesOut, tableColWidths).asLines():
                 lines_out.append(f" • {line}")
 
     return [line.replace("\xa0", " ").rstrip() for line in lines_out]
@@ -378,9 +402,3 @@ def _popLastFromText(txt: str, suffixMarker: str) -> tuple[str, str]:
         suffix = suffixMarker + " " + x.pop().strip()
         txt = "#".join(x).strip()
     return txt, suffix
-
-
-def _exeSubstitute(txt: str, exeName: str, exeNameDecorated: str) -> str:
-    txt = txt.replace("<exeName>", exeName)
-    txt = txt.replace("<exeName+action>", exeNameDecorated)
-    return txt

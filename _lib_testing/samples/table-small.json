@@ -1,0 +1,6 @@
+{
+    "titles":["Left","Middle","Right"],
+    "rows":[["Missing Middle",null,"Normal"],
+            ["Short", "--outputFormat=auto/direct","Note"],
+            ["Direct","A","B","C"]]
+}

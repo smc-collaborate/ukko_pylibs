@@ -150,7 +150,7 @@ def getMainDir() -> str:
     try:
         import __main__
 
-        return os.path.abspath(__main__.__file__)
+        return os.path.dirname(os.path.abspath(__main__.__file__))
     except Exception as e:
         appLog.print_error_withException(e, f"getMainDir() ->defaulting to ~")
         return os.path.expanduser("~")
@@ -211,7 +211,7 @@ class IArgLoader_Template:
     def doExtraArgReview(self, arg: str) -> bool:
         return False
 
-    def event_applyingValue(self, name: str, value: Any, style: str):
+    def event_applyingValue(self, name: str, value: Any, style: str, arg: str):
         pass
 
     #########################################
@@ -370,7 +370,7 @@ class IArgLoader_Template:
             self.paramsChosen[_name] = ParamSpecAndValue(spec)
 
         _value, _error = self.paramsChosen[_name].load_withConvert(arg)
-        self.event_applyingValue(_name, _value, "spec")
+        self.event_applyingValue(_name, _value, "spec", arg)
         if _error:
             self.errors.append((_error, None))
 
@@ -590,7 +590,7 @@ class IArgLoader_Template:
                 _chosenSpec = None
             elif (arg == "--") and not (_force_non_options):
                 _force_non_options = True
-                self.event_applyingValue("", "", "--")
+                self.event_applyingValue("", "", "--", "")
             elif not arg.startswith("-") or (_force_non_options):
                 if not self._processCustomisingEntry(arg):
                     specToUse = next(
@@ -948,7 +948,7 @@ class _ArgLoader_ReplaceParams(IArgLoader_Template):
         self.toReplace: dict[str, Any] = deepcopy(replacingArgs)
 
         self.hasModified = False
-        self.outputList = []
+        self.outputList: list[str] = []
 
     def doExtraArgReview(self, arg: str) -> bool:
         key = (
@@ -966,14 +966,14 @@ class _ArgLoader_ReplaceParams(IArgLoader_Template):
             paramAsText = f"--{name}={valueAsText}❓  "
         elif spec.mustBeDirect() or (name == "--"):
             paramAsText = valueAsText
-        elif spec.hasValue():
-            paramAsText = f"--{name}={valueAsText}"
         else:
             paramAsText = f"--{name}"
+            if spec.hasValue():
+                paramAsText += f"={valueAsText}"
 
         return paramAsText
 
-    def event_applyingValue(self, name: str, value: Any, style: str):
+    def event_applyingValue(self, name: str, value: Any, style: str, arg: str):
 
         # |x| _msg=f"Applying[{style:<30}] [ {paramAsText:<30}]"
         # |x| print_cyan([_msg])
@@ -985,14 +985,14 @@ class _ArgLoader_ReplaceParams(IArgLoader_Template):
                 self.hasModified = True
 
         elif style == "spec":
-            paramAsText = self._nameValueToArg(name, value)
+            paramAsText = self._nameValueToArg(name, arg)
         elif style == "--":
             self._appendIfNeeded()
             paramAsText = "--"
         else:
             paramAsText = f"--{name}={value}❓  [style:{style}]"
 
-        self.outputList.append(paramAsText)
+        self.outputList.append(str(paramAsText))
 
     def _appendIfNeeded(self):
         for name, value in self.toReplace.items():

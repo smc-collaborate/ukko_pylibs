@@ -1,9 +1,21 @@
-import os
-import sys
+from copy import deepcopy
 
-from typing import Any, Tuple
+from typing import Any, Tuple, Union
 
-import numpy as np
+################################################################################
+#
+# Shared Libraries
+#
+import os, sys
+
+shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
+if shared_dir not in sys.path:
+    sys.path.append(shared_dir)
+
+from ukko_pylibs.basic.logger import appLog
+
+################################################################################
+#
 
 
 class RangeInt:
@@ -52,6 +64,97 @@ class RangesInt(list[RangeInt]):
 
 
 class SparseList[ContentKind](dict[int, ContentKind]):
+    @staticmethod
+    def create_fromJsonDict_andBlank(
+        spec: dict | list, blankValue: ContentKind
+    ) -> "SparseList[ContentKind]":
+        if isinstance(spec, list):
+            mySrc = list[ContentKind | None]()
+            for x in spec:
+                mySrc.append(SparseList[ContentKind](blankValue)._jsonImportContent(x))
+            return SparseList[ContentKind].create_fromList_andBlank(mySrc, blankValue)
+        elif isinstance(spec, dict):
+            result = SparseList[ContentKind](blankValue)
+            for key, value in spec.items():
+                result[int(key)] = result._jsonImportContent(value)
+            return result
+        else:
+            raise TypeError(
+                self._asCaption()
+                + f".create_fromJsonDict(): Cannot import type {type(spec)}"
+            )
+
+    @staticmethod
+    def create_fromJsonDictOrNone_andBlank(
+        spec: dict | list | None, blankValue: ContentKind
+    ) -> "SparseList[ContentKind]":
+        return (
+            SparseList[ContentKind](blankValue)
+            if spec is None
+            else SparseList[ContentKind].create_fromJsonDict_andBlank(spec, blankValue)
+        )
+
+    @staticmethod
+    def createOrNone_fromJsonDictOrNone_andBlank(
+        spec: dict | list | None, blankValue: ContentKind
+    ) -> Union["SparseList[ContentKind]", None]:
+        return (
+            None
+            if spec is None
+            else SparseList[ContentKind].create_fromJsonDict_andBlank(spec, blankValue)
+        )
+
+    @staticmethod
+    def create_fromList_andBlank(
+        src: list[ContentKind | None], blankValue: ContentKind
+    ) -> "SparseList[ContentKind]":
+        result = SparseList[ContentKind](blankValue)
+
+        if src is not None:
+            for n in range(len(src)):
+                value = src[n]
+                if value is not None:
+                    if type(blankValue) == type(value):
+                        result[n] = value
+                    elif hasattr(
+                        blankValue, "create_fromJsonDict_andBlank"
+                    ) and callable(getattr(blankValue, "create_fromJsonDict_andBlank")):
+                        result[n] = blankValue.create_fromJsonDict_andBlank(
+                            value, blankValue
+                        )  # pyright: ignore[reportAttributeAccessIssue]
+                    elif hasattr(blankValue, "create_fromJsonDict") and callable(
+                        getattr(blankValue, "create_fromJsonDict")
+                    ):
+                        result[n] = blankValue.create_fromJsonDict(
+                            value
+                        )  # pyright: ignore[reportAttributeAccessIssue]
+                    else:
+                        appLog.print_warning(
+                            f"Populating SparseList[type:{type(blankValue)}] with type {type(value)}={value}  - ignoring"
+                        )
+
+        # |x|        result._refresh()
+        return result
+
+    @staticmethod
+    def createOrNone_fromListOrNone_andBlank(
+        src: list[ContentKind | None] | None, blankValue: ContentKind
+    ) -> Union["SparseList[ContentKind]", None]:
+        return (
+            None
+            if src is None
+            else SparseList[ContentKind].create_fromList_andBlank(src, blankValue)
+        )
+
+    @staticmethod
+    def create_fromListOrNone_andBlank(
+        src: list[ContentKind | None] | None, blankValue: ContentKind
+    ) -> "SparseList[ContentKind]":
+        return (
+            SparseList[ContentKind](blankValue)
+            if src is None
+            else SparseList[ContentKind].create_fromList_andBlank(src, blankValue)
+        )
 
     def asDict(self) -> dict[str, Any]:
         result: dict[str, Any] = {}
@@ -60,8 +163,6 @@ class SparseList[ContentKind](dict[int, ContentKind]):
         # |Logging|result['len-withoutBlanks']=self.getLen(includingBlanks=False)
         # |x|result['len-includingBlanks-calc']=max(self.keys())+1 if self else 0
 
-        if self.note:
-            result["note"] = self.note
         if self.hasData():
 
             ranges = RangesInt(list(self.keys()))
@@ -72,28 +173,14 @@ class SparseList[ContentKind](dict[int, ContentKind]):
 
         return result
 
-    def __init__(self, iterableSource: Any | None = None, note: Any | None = None):
-
-        if iterableSource:
-            for n, value in iterableSource:
-                self[n] = value
-        self.note = note
-
-    # |x|        self._refresh()
-
-    @staticmethod
-    def createFromList(
-        src: list[ContentKind | None] | None, note: Any | None = None
-    ) -> "SparseList[ContentKind]":
-        result = SparseList[ContentKind](note=note)
+    def __init__(
+        self,
+        blankValue: ContentKind,
+        src: Union["SparseList[ContentKind]", dict[int, ContentKind], None] = None,
+    ):
+        self._blankValue = blankValue
         if src is not None:
-            for n in range(len(src)):
-                value = src[n]
-                if value is not None:
-                    result[n] = value
-
-        # |x|        result._refresh()
-        return result
+            self.update(src)
 
     # |x|    def _refresh(self):
     # |x|        if self.hasData():
@@ -137,17 +224,35 @@ class SparseList[ContentKind](dict[int, ContentKind]):
             return content_type
         return None
 
+    def _asCaption(self) -> str:
+        return f"SparseList[{typeAsText(self._getContentType)}]"
+
     def _defaultContent(self) -> ContentKind:
         # print(f"Calling self._defaultContent({ContentKind})")
         theType = self._getContentType()
         if callable(theType):
             return theType()  # type: ignore[call-arg]
 
+        return_options = ["", 0]
+
+        for value in ["", 0]:
+            try:
+                return value  # pyright: ignore[reportReturnType]
+            except:
+                pass
+        raise TypeError(self._asCaption() + ": Cannot create default ContentKind")
+
+    def _jsonImportContent(self, valueIn) -> ContentKind:
+        # print(f"Calling self._defaultContent({ContentKind})")
+        theType = self._getContentType()
+        if callable(theType):
+            return theType(valueIn)  # type: ignore[call-arg]
+
         try:
-            return 0  # pyright: ignore[reportReturnType]
+            return valueIn
         except:
             raise TypeError(
-                f"SparceList[{typeAsText(self._getContentType)}]: Cannot create default ContentKind"
+                f"SparceList[{typeAsText(self._getContentType)}]: _defaultJsonImportContent({valueIn}) Failed"
             )
 
     def getOrCreate(self, position: int) -> ContentKind:
@@ -160,7 +265,7 @@ class SparseList[ContentKind](dict[int, ContentKind]):
         if position in self:
             return self[position]
 
-        return self._defaultContent()
+        return deepcopy(self._blankValue)
 
 
 def typeAsText(theType):
@@ -179,7 +284,7 @@ def typeAsText(theType):
 
 class MaxWidths(SparseList[int]):
     def __init__(self):
-        super().__init__()
+        super().__init__(0)
 
     def includeVal(self, colNum: int, width: int):
         self[colNum] = max(self.getOrEmpty(colNum), width)
@@ -190,7 +295,7 @@ class MaxWidths(SparseList[int]):
         # |x| print(f"includeWidths_list_str: {src}")
 
         self.includeWidths_SparseList(
-            SparseList[str].createFromList(src, None), skipIfColIsEmpty
+            SparseList[str].create_fromList_andBlank(src, ""), skipIfColIsEmpty
         )
 
     def includeWidths_SparseList(
@@ -219,8 +324,11 @@ class Sparse2D[CellContentKind]:
     def _getContentTypeAsText(self) -> str:
         return typeAsText(self._getContentType())
 
-    def __init__(self):
-        self.rows = SparseList[SparseList[CellContentKind]]()
+    def __init__(self, blankCellContent: CellContentKind):
+        self.blankEntry = blankCellContent
+        self.rows = SparseList[SparseList[CellContentKind]](
+            SparseList[CellContentKind](blankCellContent)
+        )
 
         self._numCols = 0
 
@@ -271,8 +379,9 @@ class Sparse2D[CellContentKind]:
     def appendRow(self, row: SparseList[CellContentKind]):
         return self.includeRow(row, None)
 
-    def appendCol(self, col: SparseList[CellContentKind]):
-        return self.includeCol(col, None)
+    def appendCol(self, col: SparseList[CellContentKind] | None):
+        if col is not None:
+            return self.includeCol(col, None)
 
     def includeCol(
         self, col: SparseList[CellContentKind], colPosition: int | None = None

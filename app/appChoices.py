@@ -6,6 +6,7 @@
 from copy import deepcopy
 import errno
 import json
+import math
 import os
 import sys
 from typing import Any, Callable, NoReturn, Tuple
@@ -29,6 +30,7 @@ from ukko_pylibs.app.class_ParamSpec import (
     ParamSpecAndValue,
     ParamSpecList,
 )
+from ukko_pylibs.basic.class_JsonData import JsonDict
 
 #
 ################################################################################
@@ -103,6 +105,20 @@ class AppChoices:
     def __getitem__(self, key):
         return self.paramChoice(key)
 
+    def param_asDict(self, name) -> dict:
+        _value = self.paramChoice(name)
+        if _value is None:
+            return {}
+        else:
+            return _value.contents if isinstance(_value, JsonDict) else _value
+
+    def param_asDictOrNone(self, name) -> dict | None:
+        _value = self.paramChoice(name)
+        if _value is None:
+            return None
+        else:
+            return _value.contents if isinstance(_value, JsonDict) else _value
+
     def asStr(self, name) -> str:
         _value = self.paramChoice(name)
         return "" if _value is None else str(_value)
@@ -114,6 +130,14 @@ class AppChoices:
     def asInt(self, name) -> int:
         _value = self.paramChoice(name)
         return 0 if _value is None else int(_value)
+
+    def asBool(self, name) -> bool:
+        _value = self.paramChoice(name)
+        return False if _value is None else bool(_value)
+
+    def asFloat(self, name) -> float:
+        _value = self.paramChoice(name)
+        return math.nan if _value is None else float(_value)
 
     def get(self, key, default=None):
         return self.paramChoice(key, default)
