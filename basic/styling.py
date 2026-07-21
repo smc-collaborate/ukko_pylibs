@@ -172,14 +172,13 @@ def asExpectedOneOf(entries, butHave):
     return f"Expected one of {asSuggestionList(entries)} but have {asError(butHave)}"
 
 
-def asSuggestionList(values: Iterable[Any], quoteIfNeeded: bool = False) -> str:
+def asSuggestionList(
+    values: Iterable[Any], escapeMethod: str = "", separator: str = ", "
+) -> str:
 
-    if quoteIfNeeded:
-        return ", ".join(
-            [asSuggestion(EscapeMgr.escapeIfNeeded(str(x))) for x in values]
-        )
-    else:
-        return ", ".join([asSuggestion(str(x)) for x in values])
+    return separator.join(
+        [asSuggestion(EscapeMgr.asEscapeMethod(x, escapeMethod)) for x in values]
+    )
 
 
 def asOption(value: Any) -> str:

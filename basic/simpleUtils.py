@@ -1281,6 +1281,22 @@ class EscapeMgr:
         )  # json.dumps(value, ensure_ascii=False).removeprefix('"').removesuffix('"').replace('\\"', '"').replace("\\'", "'")
 
     @staticmethod
+    def asEscapeMethod(value: Any, style: str = "none") -> str:
+        if style == "escape":
+            return EscapeMgr.escapeIfNeeded(value)
+        elif style == "bash":
+            return EscapeMgr.asBashParam(value)
+        elif style in ["direct", ""]:
+            return str(value)
+        else:
+            appLog.print_warning(
+                "escapeStyle("
+                + Utils.asJsonStr(style)
+                + "): Expected escape,bash,direct,''"
+            )
+            return str(value)
+
+    @staticmethod
     def escapeIfNeeded(value: Any) -> str:
         x = json.dumps(value, ensure_ascii=False)
         if x.startswith('"') and x.endswith('"') and ((" " in x) or ("\\" in x)):
