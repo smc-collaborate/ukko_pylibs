@@ -51,32 +51,45 @@ def _applyAlways(text: str, styleText: str) -> Tuple[str, str | None]:
 
     x = styleText.split("+")
 
-    color: str | None = ""
-    on_color: str | None = ""
+    colour: str | None = ""
+    on_colour: str | None = ""
     attrs: list[str] | None = []
 
     try:
         import termcolor
 
-        color = x.pop(0)
+        colour = x.pop(0)
 
         while len(x) > 0:
             attr = x.pop(0)
             if attr.startswith("on_"):
-                on_color = attr
+                on_colour = attr
             else:
                 attrs.append(attr)
 
-        return (
-            termcolor.colored(
-                PrettyText.removeAnsiCodes(text),  # < Remove existing styling
-                color=color or None,
-                on_color=on_color or None,
-                attrs=attrs or None,
-                force_color=True,
-            ),
-            None,
-        )
+        if termcolor.VERSION == (1, 1, 0):
+            return (
+                termcolor.colored(
+                    PrettyText.removeAnsiCodes(text),  # < Remove existing styling
+                    color=colour or None,
+                    on_color=on_colour or None,
+                    attrs=attrs or None,
+                ),
+                None,
+            )
+        else:
+
+            return (
+                termcolor.colored(
+                    PrettyText.removeAnsiCodes(text),  # < Remove existing styling
+                    color=colour or None,
+                    on_color=on_colour or None,
+                    attrs=attrs or None,
+                    # force_color=True,
+                ),
+                None,
+            )
+
     except Exception as e:
         # Don't use appLog here as appLog may choose to use styling at some point in the future
         if not isSilent:
