@@ -119,15 +119,19 @@ class SparseList[ContentKind](dict[int, ContentKind]):
                     elif hasattr(
                         blankValue, "create_fromJsonDict_andBlank"
                     ) and callable(getattr(blankValue, "create_fromJsonDict_andBlank")):
-                        result[n] = blankValue.create_fromJsonDict_andBlank(
-                            value, blankValue
-                        )  # pyright: ignore[reportAttributeAccessIssue]
+                        result[n] = (
+                            blankValue.create_fromJsonDict_andBlank(  # pyright: ignore[reportAttributeAccessIssue]
+                                value, blankValue
+                            )
+                        )
                     elif hasattr(blankValue, "create_fromJsonDict") and callable(
                         getattr(blankValue, "create_fromJsonDict")
                     ):
-                        result[n] = blankValue.create_fromJsonDict(
-                            value
-                        )  # pyright: ignore[reportAttributeAccessIssue]
+                        result[n] = (
+                            blankValue.create_fromJsonDict(  # pyright: ignore[reportAttributeAccessIssue]
+                                value
+                            )
+                        )
                     else:
                         appLog.print_warning(
                             f"Populating SparseList[type:{type(blankValue)}] with type {type(value)}={value}  - ignoring"
