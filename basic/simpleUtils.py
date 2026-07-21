@@ -801,7 +801,7 @@ class PrettyText:
 
     @staticmethod
     def textWrapWithPrefixes(
-        txt: str, maxWidth: int | None = None, prefixes: list[str] | bool = True
+        txt: str, maxWidth: int | None = None, prefixes: list[str] | bool | None = True
     ) -> list[str]:
 
         if maxWidth is None or PrettyText.uniLen_approx(txt) <= maxWidth:

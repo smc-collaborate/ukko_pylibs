@@ -448,18 +448,63 @@ class PrettyTable_Rendered:
         def row_asTextLines(
             row: SparseList[PrettyCellContents] | PrettyTable_Row | None,
         ) -> list[str]:
-            lines: list[str] = []
-            if row:
-                txtOut = ""
-                for colNum in range(len(self.proc_visWidths_used)):
+            if row is None:
+                return []
 
-                    wid = self.proc_visWidths_used[colNum]
-                    if wid > 0:
-                        if txtOut != "":
-                            txtOut += self.renderOptions.colDivider
-                        txtOut += PrettyText.padToWidth(row.getOrEmpty(colNum), wid)
-                lines.append(txtOut)
-            return lines
+            class CellInfo:
+                def __init__(
+                    self,
+                    srcText: str,
+                    styleWidth: int = 20,
+                    stylingOption: RenderOptions_SingleCol | None = None,
+                ):
+                    self.lines: list[str] = PrettyText.textWrapWithPrefixes(
+                        srcText,
+                        styleWidth,
+                        (
+                            False
+                            if stylingOption is None
+                            else stylingOption.prefixesToWrapWith
+                        ),
+                    )
+                    self.width: int = styleWidth
+
+                def height(self) -> int:
+                    return len(self.lines)
+
+                def getRowText(self, rowNum: int) -> str:
+                    # @todo: Fix wrapping styling ?
+                    txt = self.lines[rowNum] if rowNum in range(len(self.lines)) else ""
+
+                    return PrettyText.padToWidth(txt, self.width)
+
+            cellsInRow: list[CellInfo] = []
+            for colNum in range(len(self.proc_visWidths_used)):
+
+                wid = self.proc_visWidths_used[colNum]
+                if wid > 0:
+                    cellsInRow.append(
+                        CellInfo(
+                            row.getOrEmpty(colNum),
+                            wid,
+                            self.renderOptions.colOptions.get(colNum),
+                        )
+                    )
+
+            if not cellsInRow:
+                return []
+
+            rowHeight = max([cell.height() for cell in cellsInRow])
+
+            linesOut: list[str] = []
+            for n in range(rowHeight):
+                linesOut.append(
+                    self.renderOptions.colDivider.join(
+                        [cell.getRowText(n) for cell in cellsInRow]
+                    )
+                )
+
+            return linesOut
 
         lines: list[str] = []
         if self.in_table.colTitles.hasData():
