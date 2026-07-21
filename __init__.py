@@ -25,11 +25,8 @@ from ukko_pylibs.basic.simpleUtils import timestampObj_from_ns
 
 
 class DataTypes:
-    from ukko_pylibs.basic.class_DataContents import DataContents
-    from ukko_pylibs.basic.class_JsonData import JsonDict
-
-    JsonDict = JsonDict
-    DataContents = DataContents
+    from ukko_pylibs.basic.class_DataContents import DataContents as DataContents
+    from ukko_pylibs.basic.class_JsonData import JsonDict as JsonDict
 
 
 __all__ = [
