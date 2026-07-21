@@ -5,6 +5,7 @@
 
 import sys, os
 from typing import Any, Iterable, Tuple
+from importlib.metadata import version
 
 
 ################################################################################
@@ -67,7 +68,7 @@ def _applyAlways(text: str, styleText: str) -> Tuple[str, str | None]:
             else:
                 attrs.append(attr)
 
-        if termcolor.VERSION == (1, 1, 0):
+        if version("termcolor").startswith("1."):
             return (
                 termcolor.colored(
                     PrettyText.removeAnsiCodes(text),  # < Remove existing styling
