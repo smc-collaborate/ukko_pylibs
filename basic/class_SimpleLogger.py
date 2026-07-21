@@ -375,6 +375,18 @@ class SimpleLogger:
     def had_error(self) -> bool:
         return self.lastErrorMsg is not None
 
+    def deprecationWarningWithAlternative(
+        self, oldName: str, newName: str, reason: str = ""
+    ):
+        self.deprecationWarning(
+            f"{oldName} is deprecated.  Use {newName} instead.  {reason}".strip()
+        )
+
+    def deprecationWarningRename(self, oldName: str, newName: str):
+        self.deprecationWarning(
+            f"{oldName} has been renamed {newName}.  Please update your code"
+        )
+
     def deprecationWarning(self, message: str):
         try:
             msg = f"Deprecation Warning: {message}"
