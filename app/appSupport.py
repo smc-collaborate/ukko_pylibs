@@ -25,7 +25,6 @@ from ukko_pylibs.basic import fileUtils
 from ukko_pylibs.basic.simpleUtils import (
     Utils,
     PrettyText,
-    EscapeMgr,
     DictUtils,
 )
 
