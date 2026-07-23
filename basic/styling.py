@@ -48,7 +48,7 @@ def isSupported() -> bool:
 # First is always the colour, the rest are attributes (eg: bold, underline, etc)
 #
 def _applyAlways(text: str, styleTextPlus: str) -> Tuple[str, str | None]:
-    isSilent, styleText = Utils.removePrefix(styleTextPlus, "silent:")
+    isSilent, styleText = Utils.hasRemovedPrefix(styleTextPlus, "silent:")
 
     x = styleText.split("+")
 
