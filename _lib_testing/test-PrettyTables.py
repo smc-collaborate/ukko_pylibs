@@ -69,6 +69,7 @@ def main():
                     "# Demonstrate render options including wrapping",
                 ],
             ],
+            "showHiddenOptions": True,
         }
     ).parseParams()
 
