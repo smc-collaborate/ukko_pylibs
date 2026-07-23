@@ -12,7 +12,7 @@ import sys
 import textwrap
 import time
 import traceback
-from typing import Any, Callable
+from typing import Any, Callable, Tuple
 from datetime import datetime as dt_datetime
 from datetime import timezone as dt_timezone
 import numpy as np
@@ -265,119 +265,133 @@ class Utils:
         )  # < Let the exception propagate this time - there isn't much more we can do
 
     @staticmethod
-    def asJsonStr(obj, indent: int | str | None = None):
+    def asJsonStr(obj, indent: int | str | None = None) -> str:
         """Safer version of json.dumps that can handle some extra types like bytes and avoids odd crashes"""
 
-        def stripStartAndEnd(s: Any, prefix: str, suffix: str) -> str | None:
-            if s is None:
-                return None
-            s = str(s).strip()
-            if s.startswith(prefix) and s.endswith(suffix):
-                return s[len(prefix) : -len(suffix)]
-            else:
-                return None
+        def _makeSafe(obj, _note: str = "") -> str:
+            _result = '"_created_":' + Utils.asJsonStr(Utils.makeJsonable(obj), indent)
+            if _note:
+                _result += '"note":' + json.dumps(_note, ensure_ascii=False)
+            return "{" + _result + "}"
 
         class JsonEncoderExtended(json.JSONEncoder):
             def default(self, o):
-                # return f"<Obj[{o.__class__.__name__}:{type(o)}]"
-                try:
-                    if isinstance(o, type):
-                        # if o.__class__.__name__ != "mappingproxy":
-                        #    return o.__class__.__name__
-                        if hasattr(o, "__dict__"):
-                            _items = o.__dict__.items()
-                        elif hasattr(o, "items"):
-                            _items = o.items()
-                        else:
-                            _items = inspect.getmembers(o)
-                        outResult = {}
-                        for k, v in _items:
-                            outResult[f"{k}"] = f"{v}"
-                            returnThis = None
-                            if str(k) == "__weakref__":
-                                returnThis = stripStartAndEnd(
-                                    str(v),
-                                    "<attribute '__weakref__' of '",
-                                    "' objects>",
-                                )
-                            if str(k) == "__str__":
-                                returnThis = stripStartAndEnd(
-                                    str(v), "<slot wrapper '__str__' of '", "' objects>"
-                                )
+                return _makeSafe(obj)
 
-                            if str(k) == "__doc__":
-                                _topLine = str(v).strip().splitlines()[0]
-                                if "->" in _topLine:
-                                    returnThis = _topLine.split("->")[-1]
+        try:
+            return json.dumps(
+                obj,
+                indent=indent,
+                skipkeys=True,
+                separators=None if indent else (",", ":"),
+                ensure_ascii=False,
+                cls=JsonEncoderExtended,
+            )
+        except Exception as e:
+            return _makeSafe(obj)
 
-                            if returnThis is not None:
-                                return f"«{str(returnThis).strip()}»"
-                        return {"«type»": outResult}
+    @staticmethod
+    def makeJsonable(
+        o: Any | None, currentDepth: int = 0, hint: str = ""
+    ) -> dict | str | int | float | bool | list | Any:
+        if o is None:
+            return "⚠️  «None»"  # <- This should never happen - as 'None' -> Null is normally handled elsewhere.  Return this to warn
 
-                    if isinstance(o, bytes):
-                        # UTF-8 is the most common encoding for byte data, so we will try to decode it as UTF-8 first. If that fails, we will fall back to a hex representation.
-                        _len = len(o)
-                        if _len == 0:
-                            return ""
-                        extra = ""
-                        try:
-                            earlyPart = o[:100]
-                            if not (0 in earlyPart) and not (
-                                0xFF in earlyPart
-                            ):  # Just a check to avoid trying to decode obviously non-text data - this is not perfect but should avoid annoyances when trapping raised exceptions
-                                return {"utf-8": o.decode("utf-8")}
-                        except UnicodeDecodeError:
-                            pass
-                        except Exception as e:
-                            extra = f" (decoding error: {e})"
-                        TRUNCATION_LIMIT = None
+        if currentDepth >= 20:
+            return f"⚠️  Unable to convert {hint}[{type(o)}]: Recursion depth of {currentDepth} reached"
 
-                        obj: dict[str, Any] = {"kind": "bytes", "len": _len}
-                        if TRUNCATION_LIMIT is None:
-                            obj["hex"] = o.hex()
-                        elif _len <= TRUNCATION_LIMIT * 2:
-                            obj["hex"] = o.hex()
-                        else:
-                            obj["truncated"] = TRUNCATION_LIMIT
-                            obj["hex"] = (
-                                o[:TRUNCATION_LIMIT].hex()
-                                + "…"
-                                + o[-TRUNCATION_LIMIT:].hex()
-                            )
+        def _showHint(msg: str):
+            pass
+            # if currentDepth <=3 and not msg.startswith("⚠️"):
+            #    print(f"makeJsonable: {hint}Type[{type(o)}] : Depth={currentDepth} : {msg}")
 
-                        if extra != "":
-                            obj["_note"] = extra
-                        return obj
-                    if o.__class__.__name__.startswith("numpy"):
-                        import numpy as np
+        _showHint(f" --- Start")
 
-                        return np.array_str(o)
-                    if not isinstance(o, type) and hasattr(o, "asDict"):
-                        return o.asDict()
-                    if hasattr(o, "__slots__"):
-                        outResult = {}
-                        for field_name in o.__slots__:
-                            value = getattr(o, field_name, None)
-                            outResult[f"{field_name}"] = f"{value}"
-                            if str(field_name) == "__doc__":
-                                _doc = str(value).strip()
-                                if _doc != "None" and _doc != "":
-                                    return f"<doc:{_doc.split()[0]}>"
-                        return outResult
-                    if hasattr(o, "__dict__"):
-                        return o.__dict__
-                    return str(o)
-                except Exception as e:
-                    return f"<Object[{o.__class__.__name__}:{type(o)}] (Note: {e})>"
+        if type(o) in [str, int, float, bool]:
+            _showHint(f" = Direct {o}")
+            return o
+        if str(o) == "<class 'builtin_function_or_method'>":
+            _showHint(f" = «builtin_function_or_method»")
+            return "«builtin_function_or_method»"
+        # |x|        try:
+        # |x|            json.dumps(skipKeys=True)
+        # |x|            return o
+        # |x|        except:
+        # |x|            pass
 
-        return json.dumps(
-            obj,
-            indent=indent,
-            skipkeys=True,
-            separators=None if indent else (",", ":"),
-            ensure_ascii=False,
-            cls=JsonEncoderExtended,
-        )
+        try:
+            if isinstance(o, type):
+                _showHint("type")
+                return {"«type»": _makeJsonable_fromType(o)}
+
+            if isinstance(o, list):
+                _showHint("list")
+                list_out: list[Any] = []
+                for index in range(len(o)):
+                    list_out.append(
+                        Utils.makeJsonable(
+                            o[index],
+                            currentDepth + 1,
+                            hint.removesuffix(".") + "[" + str(index) + "].",
+                        )
+                    )
+                return list_out
+
+            if isinstance(o, dict) or isinstance(o, OrderedDict):
+                _showHint("dictionary")
+                result: dict[str, Any] = {}
+                for key, value in o.items():
+                    result[key] = Utils.makeJsonable(
+                        value, currentDepth + 1, hint + key + "."
+                    )
+                return result
+
+            if isinstance(o, bytes):
+                _showHint("bytes")
+                return _makeJsonable_fromBytes(o)
+
+            if o.__class__.__name__.startswith("numpy"):
+                _showHint("numpy")
+
+                import numpy as np
+
+                return np.array_str(o)
+            if hasattr(o, "asDict"):
+                _showHint("asDict()")
+                return o.asDict()
+
+            if hasattr(o, "items"):  # < Must have type + common first
+                _showHint("_items")
+                _items = o.items()
+                obj_out: dict[str, Any] = {}
+                for _name, _value in _items:
+                    obj_out[_name] = Utils.makeJsonable(
+                        _value, currentDepth + 1, hint + _name + "."
+                    )
+                return obj_out
+
+            if hasattr(o, "__slots__"):
+                _showHint("slots")
+                outResult = {}
+                for field_name in o.__slots__:
+                    value = getattr(o, field_name, None)
+                    outResult[f"{field_name}"] = f"{value}"
+                    if str(field_name) == "__doc__":
+                        _doc = str(value).strip()
+                        if _doc != "None" and _doc != "":
+                            return f"<doc:{_doc.split()[0]}>"
+                return outResult
+            if hasattr(o, "__dict__"):
+                result = _makeJsonable_fromOther(o.__dict__, str(type(o)))
+                _showHint(f" {type(o)}[__dict__] = {result}")
+                return result
+
+            _showHint("⚠️  Other")
+
+            return str(o)
+        except Exception as e:
+            _showHint("⚠️  Unable to convert {e}")
+            return f"⚠️  Unable to convert {hint}[{type(o)}]: {e}"
 
     @staticmethod
     def rangeAsText(
@@ -571,6 +585,100 @@ class Utils:
     @staticmethod
     def getIdSuffix(id):
         return "" if (id is None) or (id == "") else (str(id) + "/")
+
+
+def _makeJsonable_fromType(o: type) -> str:
+    try:
+        # if o.__class__.__name__ != "mappingproxy":
+        #    return o.__class__.__name__
+        if hasattr(o, "__dict__"):
+            _items = o.__dict__.items()
+        elif hasattr(o, "items"):
+            _items = o.items()
+        else:
+            _items = inspect.getmembers(o)
+
+        outResult = {}
+        for k, v in _items:
+            outResult[f"{k}"] = f"{v}"
+            returnThis: str | None = None
+            removeSurroundings: None | Tuple[str, str] = None
+            if str(k) == "__weakref__":
+                removeSurroundings = ("<attribute '__weakref__' of '", "' objects>")
+                returnThis = str(k)
+            elif str(k) == "__str__":
+                removeSurroundings = ("<slot wrapper '__str__' of '", "' objects>")
+                returnThis = str(k)
+            elif str(k) == "__doc__":
+                _topLine = str(v).strip().splitlines()[0]
+                if "->" in _topLine:
+                    returnThis = _topLine.split("->")[-1]
+
+            if returnThis is not None:
+                returnThis = returnThis.strip()
+                if removeSurroundings is not None:
+                    _prefix = removeSurroundings[0]
+                    _suffix = removeSurroundings[1]
+                    if returnThis.startswith(_prefix) and returnThis.endswith(_suffix):
+                        returnThis = returnThis[len(_prefix) : -len(_suffix)].strip()
+                return f"«{returnThis}»"
+        return f"⚠️  Unknown TypeConversion: {str(o)}"
+    except Exception as e:
+        return f"⚠️  Invalid TypeConversion: {e}"
+
+
+def _makeJsonable_fromBytes(o: bytes) -> dict[str, Any] | str:
+
+    # UTF-8 is the most common encoding for byte data, so we will try to decode it as UTF-8 first. If that fails, we will fall back to a hex representation.
+    _len = len(o)
+    if _len == 0:
+        return ""
+    extra = ""
+    try:
+        earlyPart = o[:100]
+        if not (0 in earlyPart) and not (
+            0xFF in earlyPart
+        ):  # Just a check to avoid trying to decode obviously non-text data - this is not perfect but should avoid annoyances when trapping raised exceptions
+            return {"utf-8": o.decode("utf-8")}
+    except UnicodeDecodeError:
+        pass
+    except Exception as e:
+        extra = f" (decoding error: {e})"
+    TRUNCATION_LIMIT = None
+
+    obj: dict[str, Any] = {"kind": "bytes", "len": _len}
+    if TRUNCATION_LIMIT is None:
+        obj["hex"] = o.hex()
+    elif _len <= TRUNCATION_LIMIT * 2:
+        obj["hex"] = o.hex()
+    else:
+        obj["truncated"] = TRUNCATION_LIMIT
+        obj["hex"] = o[:TRUNCATION_LIMIT].hex() + "…" + o[-TRUNCATION_LIMIT:].hex()
+
+    if extra != "":
+        obj["_note"] = extra
+    return obj
+
+
+def _makeJsonable_fromOther(src: Any, kind: str):
+    result: dict[str, Any] = {}
+    try:
+        for key in ["__name__", "__package__", "__file__"]:
+            value = src.get(key)
+            if value is not None:
+                valueText = str(value)
+                if valueText:
+                    result[key.removeprefix("__").removesuffix("__")] = valueText
+        if not result:
+            result["_keys"] = list(src.keys())
+    except Exception as ee:
+        result["error"] = f"⚠️  [Other]: {ee}"
+
+    fullResult: dict[str, Any] = {
+        "type": kind.removeprefix("<class '").removesuffix("'>")
+    }
+    fullResult.update(result)
+    return fullResult
 
 
 class PrettyText:
@@ -817,7 +925,6 @@ class PrettyText:
 
         if maxWidth is None or PrettyText.uniLen_approx(txt) <= maxWidth:
             return [txt]
-
         prefixToAppend = ""
         otherPrefixes = ""
         if prefixes == True and ("=" in txt):
