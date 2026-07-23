@@ -182,6 +182,7 @@ def appValueOrDefault(appValues: dict[str, Any], name: str) -> Any | None:
         "exeName": getExeName(),
         "enableStyling": True,
         "versions_extra": [],
+        "showHiddenOptions": False,
     }
     if name in APP_OPTION_DEFAULTS:
         return APP_OPTION_DEFAULTS[name]
@@ -340,13 +341,15 @@ class IArgLoader_Template:
         _all.append(
             ParamSpec(
                 {
-                    "hidden": True,
+                    "hidden": not self.getAppValue("showHiddenOptions"),
                     "name": "debug-info",
+                    "source": "~appAuto",
+                    "group": "Debug Options",
                     "source": "~appAuto",
                     "position": 1000,
                     "description": "Gives additional information about the app and its configuration",
-                    "lookup": ["", "app-info", "app-as-run", "config-info", "all"],
-                    "default": "",
+                    "lookup": ["none", "app-info", "app-as-run", "config-info", "all"],
+                    "default": "none",
                 }
             )
         )
@@ -547,7 +550,6 @@ class IArgLoader_Template:
         #
         for spec in self.getAvailParamsAll():
             if spec.name() not in self.paramsChosen:
-
                 _defValue = spec.defaultValue_orNoneType()
                 if spec.isCustomisingOptions():
                     if self.nextCustomisationAvail_ is None:
@@ -719,7 +721,6 @@ class Define:
 
     def __init__(self, _app_definition: dict[str, Any]):
         self.app_definition = _app_definition
-        self.app_definition["runningDir"] = os.getcwd()
         self.app_definition["exeName"] = getExeName()
         self.original_params = []
         ###############
@@ -814,8 +815,12 @@ class Define:
         if callable(runner):
             runner(appChoices)
         else:
+            where = appChoices.customisingChoicesMade_withLeadingSpace.strip()
+
+            cause = "Missing" if runner is None else f"Invalid value '{runner}' for"
             error_exit_internalCause(
-                f"Missing runner for action: [{appChoices.customisingChoicesMade_withLeadingSpace.strip()}]"
+                f"{cause} code to run.  Stored in appValue['runner'] "
+                + (f"for action: [{where}]" if where else "")
             )
 
     def parseParams(self, args: list[str] | None = None) -> AppChoices:
@@ -906,19 +911,13 @@ class Define:
             self.giveHelp(shorterVersion=bool(_parseResults.errors))
             exitReason = "Help Info"
 
-        if _parseResults.errors:
-            suggestion = _parseResults.errors[0][1]
-
-            error_exit_withSuggestion(
-                _parseResults.errors[0][0], suggestion if suggestion else "<auto>"
-            )
-
         debug_info = _parseResults.appChoices.params.pop("debug-info", None)
-        if debug_info:
+        if debug_info and debug_info != "none":
             obj: dict[str, Any] = {}
+            obj["_request"] = debug_info
             # debug_info: "app-info","app-as-run","config-info","all"
             if debug_info in ["all", "app-info"]:
-                obj["app-info"] = self.app_definition
+                obj["appInfo"] = self.app_definition
             if debug_info in ["all", "app-as-run"]:
                 asRun = deepcopy(_parseResults.appChoices.asDict())
                 for x in [
@@ -930,12 +929,22 @@ class Define:
                     "_test_only_",
                 ]:
                     asRun["appValues"].pop(x, None)
-                obj["app-as-run"] = asRun
+                asRun.pop("customisingChoices_next", None)
+                asRun["environment"] = _parseResults.runEnvironment
+                obj["appAsRun"] = asRun
+
             if debug_info in ["all", "config-info"]:
-                obj["config-info"] = appConfig.asDict()
+                obj["configInfo"] = appConfig.asDict()
 
             print(Utils.asJsonStr(obj, indent=2))
             exitReason = ""
+
+        if _parseResults.errors:
+            suggestion = _parseResults.errors[0][1]
+
+            error_exit_withSuggestion(
+                _parseResults.errors[0][0], suggestion if suggestion else "<auto>"
+            )
 
         _parseResults.appChoices.appValues.pop("options", None)
 
@@ -1209,6 +1218,7 @@ def doRun(mainFunc_or_appDefinition: dict | Callable[[], None]):
 
 
 def printVerbose_sysInfo():
+    # @todo: Use sysInfo.pyInfo_asDict()
     if appLog.isVerbose():
         lines: list[str] = []
         for key, value in sys.modules.items():
