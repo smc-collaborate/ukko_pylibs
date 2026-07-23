@@ -64,11 +64,18 @@ class Utils:
         return None
 
     @staticmethod
-    def removePrefix(value: str, prefix: str) -> tuple[bool, str]:
+    def hasRemovedPrefix(value: str, prefix: str) -> tuple[bool, str]:
         if not value.startswith(prefix):
             return False, value
         else:
             return True, value[len(prefix) :]
+
+    @staticmethod
+    def hasRemovedSuffix(value: str, suffix: str) -> tuple[bool, str]:
+        if not value.endswith(suffix):
+            return False, value
+        else:
+            return True, value[: -len(suffix)]
 
     @staticmethod
     def is_iterable(obj) -> bool:
