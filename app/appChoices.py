@@ -12,7 +12,6 @@ import sys
 from typing import Any, Callable, NoReturn, Tuple
 from types import NoneType
 
-from ukko_pylibs.basic.class_DataContents import DataContents
 
 ################################################################################
 #
@@ -179,6 +178,10 @@ class AppParamParseResults:
         self.errors = errors
         self.paramSpec_avail = paramSpec_avail
         self.appChoices = appChoices
+        self.runEnvironment = {
+            "runningDir": os.getcwd(),
+            "python": sysInfo.pyInfo_asDict(),
+        }
 
     def asDict(self) -> dict[str, Any]:
         obj = {
