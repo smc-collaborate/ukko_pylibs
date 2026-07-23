@@ -65,12 +65,12 @@ class MsgKind:
 
 
 class SimpleLogger:
-
-    MsgKind_ERROR = 0
-    MsgKind_WARNING = 1
-    MsgKind_INFO = 2
-    MsgKind_DETAIL = 3
-    MsgKind_TEDIOUS = 4
+    MsgKind_ALWAYS = 0
+    MsgKind_ERROR = 1
+    MsgKind_WARNING = 2
+    MsgKind_INFO = 3
+    MsgKind_DETAIL = 4
+    MsgKind_TEDIOUS = 5
 
     @staticmethod
     def get_thresholds() -> Tuple[list[str], str]:
@@ -254,6 +254,9 @@ class SimpleLogger:
     def print_tediousDetail(self, message: Any | None) -> None | str:
         return self.doPrintEntry(self.MsgKind_TEDIOUS, message)
 
+    def print_always(self, message: Any | None) -> None | str:
+        return self.doPrintEntry(self.MsgKind_ALWAYS, message, noPrefix=True)
+
     def print_userError(
         self,
         message: str,
@@ -412,6 +415,8 @@ class SimpleLogger:
                 f"Deprecation Warning: {message} (Also failed to get caller info: {e})"
             )
 
+
+MsgKind.add(SimpleLogger.MsgKind_ALWAYS, "Output", "  ", "")
 
 MsgKind.add(
     SimpleLogger.MsgKind_ERROR, "Error", "❌", "quiet", "red+bold", isDefaultLevel=True
