@@ -117,19 +117,6 @@ class ValueHelpSummary:
         )  # < 4: Wid 102, xxx
 
 
-# |x|    def asWrapped(self) -> "ValueHelpSummary.ColumnsType":
-# |x|        return (
-# |x|            PrettyText.textWrapWithPrefixes(self.shortName),
-# |x|            PrettyText.textWrapWithPrefixes(
-# |x|                self.decoratedNamePlusExtras,
-# |x|                50,
-# |x|            ),
-# |x|            PrettyText.textWrapWithPrefixes(self.extraInfo, 72),
-# |x|            PrettyText.textWrapWithPrefixes(self.defaultInfo),
-# |x|            PrettyText.textWrapWithPrefixes(self.description, 102, [" • "]),
-# |x|        )
-
-
 class ParamSpec:
 
     #
