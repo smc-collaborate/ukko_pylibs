@@ -12,6 +12,14 @@
             "program": "${workspaceFolder}/_lib_testing/test-PrettyTables.py",
             "console": "integratedTerminal",
             "args": ["file:_lib_testing/samples/table-wide.json","--render=file:_lib_testing/samples/render-barred.json"]
+        },
+        {
+            "name": "sysInfo",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/basic/sysInfo.py",
+            "console": "integratedTerminal",
+            "args": ["test-arg1"]
         }
     ]
 }
