@@ -115,7 +115,6 @@ def getAppHelp_asLines(
 
     prefix = f"Usage: "
     for usage in usageSuggestions:
-        print(["usage:", usage])
         if isinstance(usage, str):
             titleAndUsageTable.appendRowList([prefix + styling.asSuggestion(usage)])
         else:
