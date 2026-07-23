@@ -238,7 +238,9 @@ class RenderOptions_SingleCol:
     def __init__(
         self,
         lockedMaxVisWidth: int | None = None,
-        prefixesToWrapWith: list[str] | None = None,
+        prefixesToWrapWith: (
+            list[str] | bool | None
+        ) = True,  # < True = Auto  Anything before *=
         isWrap: bool = True,
     ):
         self.lockedMaxVisWidth: int | None = (
