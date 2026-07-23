@@ -913,7 +913,7 @@ class PrettyText:
         wordsep_re = re.compile(
             r"(\s+|"  # Whitespace
             r"(?<=[\w\!\"\'\&\.\,\?])-{2,}(?=\w)|"  # Em-dash
-            r"(?<=\w)-(?=\w)|"  # Hyphenated words
+            # r"(?<=\w)-(?=\w)|"  # Hyphenated words
             #        r'(?<=[/])|(?=[/]))'                       # Break right before or after a slash
             r"(?<=[/]))"  # Break immediately after a slash
         )
