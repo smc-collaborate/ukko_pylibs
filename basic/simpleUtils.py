@@ -951,7 +951,7 @@ class DictUtils:
 
     @staticmethod
     def get(
-        obj_in: dict[str, Any] | list[Any] | None,
+        obj_in: dict[str, Any] | list[Any] | Any | None,
         keys: str | list[str],
         defaultIfNotFound: Any = None,
         getDeepestFound: bool = False,
@@ -1042,7 +1042,7 @@ class DictUtils:
 
     @staticmethod
     def getInt(
-        obj_in: dict[str, Any] | list[Any] | None,
+        obj_in: Any | None,
         keys: str | list[str],
         defaultIfNotFound: int,
     ) -> int:
@@ -1060,9 +1060,7 @@ class DictUtils:
         return defaultIfNotFound
 
     @staticmethod
-    def getBool(
-        obj: dict[str, Any] | None, key: str | list[str], defaultValue: bool
-    ) -> bool:
+    def getBool(obj: Any | None, key: str | list[str], defaultValue: bool) -> bool:
         result = DictUtils.get(obj, key)
         return (
             defaultValue
@@ -1071,12 +1069,12 @@ class DictUtils:
         )
 
     @staticmethod
-    def getBoolOrFalse(obj: dict[str, Any] | None, key: str | list[str]) -> bool:
+    def getBoolOrFalse(obj: Any | None, key: str | list[str]) -> bool:
         return DictUtils.getBool(obj, key, False)
 
     @staticmethod
     def getIntOrNone(
-        obj: dict[str, Any] | None,
+        obj: Any | None,
         key: str | list[str],
         defaultValue: int | None = None,
     ) -> int | None:
@@ -1097,7 +1095,7 @@ class DictUtils:
             return defaultValue
 
     @staticmethod
-    def getStr(obj: dict[str, Any], key: str | list[str], defaultValue: str) -> str:
+    def getStr(obj: Any | None, key: str | list[str], defaultValue: str) -> str:
         value = DictUtils.get(obj, key)
         if value is None:
             return defaultValue
@@ -1105,7 +1103,7 @@ class DictUtils:
             return str(value)
 
     @staticmethod
-    def getStrOrNone(obj: dict[str, Any] | None, key: str | list[str]) -> str | None:
+    def getStrOrNone(obj: Any | None, key: str | list[str]) -> str | None:
         value = DictUtils.get(obj, key, None)
         if value is None:
             return None
@@ -1114,7 +1112,7 @@ class DictUtils:
 
     @staticmethod
     def getDict(
-        obj_in: dict[str, Any] | None,
+        obj_in: Any | None,
         keys: str | list[str],
         defaultIfNotFound: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
