@@ -26,6 +26,13 @@ This means that it can run with **Ubuntu 22.04**, **Ubuntu 24.04** & **Ubuntu 26
 Issues:
 `ukkoTestCommand verify --stdout='Hello World\n' -- echo 'Hello Worldx'` -> --stdout='Hello World\\n' when giving a suggestion ...
 
+## Hidden Options ##
+
+| Option                                               | Example Use                                                         |
+|------------------------------------------------------|---------------------------------------------------------------------|
+| `--debug-info=[none/app-info/app-as-run/config-info/all]` | `annotatedData --debug-info=app-as-run \| jq '.appAsRun.appValues'` |
+
+
 ## Style ##
 
 Style can be enforced with **`pre-commit install`**<br>
