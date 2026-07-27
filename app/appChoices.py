@@ -183,6 +183,19 @@ class AppParamParseResults:
             "python": sysInfo.pyInfo_asDict(),
         }
 
+    def asBashParams(self) -> dict[str, str]:
+        results: dict[str, str] = {}
+        for paramChosen in self.paramSpec_chosen.values():
+            if len(paramChosen.asProvidedArg) > 0:
+                results[paramChosen.name()] = " ".join(
+                    [
+                        paramChosen.spec.asBashParam(arg)
+                        for arg in paramChosen.asProvidedArg
+                    ]
+                )
+
+        return results
+
     def asDict(self) -> dict[str, Any]:
         obj = {
             "paramSpec_chosen": {
