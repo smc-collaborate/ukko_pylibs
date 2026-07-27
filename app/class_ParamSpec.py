@@ -570,7 +570,8 @@ class ParamSpec:
                 return (
                     DataContents(
                         arg,
-                        formatIn=self.spec.get("format", "default"),
+                        intrepretAsCommandLineEntry=True,
+                        formatIn=self.spec.get("format", ""),
                         optionalNameSuggestion=_name,
                     ),
                     None,
