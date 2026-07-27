@@ -171,6 +171,17 @@ class DataSourceWithInfo:
         else:
             return self.getNewPrefix() + self.asProvidedAfterPrefix
 
+    def isEmpty(self) -> bool:
+        return (
+            self.sourceType.isEmpty()
+            and self.contentType.isEmpty()
+            and self.prefix == ""
+            and (
+                (self.asProvidedAfterPrefix is None)
+                or (self.asProvidedAfterPrefix == "")
+            )
+        )
+
     def __init__(self, interpretPrefix: bool, src: Any | None, formatIn: str = ""):
         if isinstance(src, DataContents):
             raise ValueError("DataSourceWithInfo(DataSourceWithInfo) is not supported")
@@ -188,7 +199,19 @@ class DataSourceWithInfo:
         self.prefixIssues: list[str] = []
         self.prefix = ""
 
-        if not src or not isinstance(src, str) or not interpretPrefix:
+        if not src or not isinstance(src, str):
+
+            return
+
+        if not interpretPrefix:
+            if src.strip().startswith("{") and self.sourceType.isEmpty():
+                try:
+                    self.asProvidedAfterPrefix = json.loads(src)
+                    self.contentType = ContentType("json")
+                except:
+                    pass
+
+        if not interpretPrefix:
             return
 
         if src.startswith("@"):
@@ -280,7 +303,7 @@ class DataSourceWithInfo:
 
             self.contentType.thisValue = formatIn
 
-    def asDict(self) -> dict[str, Any]:
+    def asDict(self) -> dict[str, Any] | str:
         result: dict[str, Any] = {}
 
         if type(self.asProvidedOrig) is str and self.prefix:
@@ -417,33 +440,44 @@ class DataContents(DataSourceWithInfo):
         elif isinstance(self.asData, int):
             resultTxt = str(self.asData)
         else:
-            resultTxt = "⚠️  " + str(self.asProvidedAfterPrefix)
-            appLog.print_warning(
-                f"DataContents.asParamText(): {self.asData} (type: {type(self.asData)})"
-            )
-            appLog.print_info("-----")
-            appLog.print_info(f"asParamTxt: {resultTxt}")
+            try:
+                resultTxt = Utils.asJsonRStr(self.asData, sortKeys=True)
+            except Exception as e:
+                resultTxt = "⚠️  " + str(self.asProvidedAfterPrefix)
+                appLog.print_warning(
+                    f"DataContents.asParamText(): {self.asData} (type: {type(self.asData)})"
+                )
+                appLog.print_info("-----")
+                appLog.print_info(f"asParamTxt: {resultTxt}")
 
-            appLog.print_info(f"asProvidedAfterPrefix: {self.asProvidedAfterPrefix}")
-            appLog.print_info("-----")
+                appLog.print_info(
+                    f"asProvidedAfterPrefix: {self.asProvidedAfterPrefix}"
+                )
+                appLog.print_info("-----")
 
         return resultTxt
 
-    def asDict(self) -> dict[str, Any]:
-        out = {
-            "dataSource": super().asDict(),
+    def asDict(self, isFull: bool = True) -> dict[str, Any] | str:
+        out: dict[str, Any] = {
             "warnings": self.getWarnings(),
-            "asFormatted": self.asFormatted,
-            "asObj": self.asObj,
             "asData": self.asData,
             "interpretAs": self.interpretAs,
             "fname": self.fname,
         }
 
+        if isFull:
+            out.update(
+                {
+                    "dataSource": super().asDict(),
+                    "asFormatted": self.asFormatted,
+                    "asObj": self.asObj,
+                }
+            )
+
         cleaned = DictUtils.getWithDefaultValuesRemoved(
             out,
             {
-                "warning": None,
+                "warnings": [],
                 "interpretAs": "",
                 "format": "auto",
                 "formatExtras": {},
@@ -455,6 +489,12 @@ class DataContents(DataSourceWithInfo):
             },
         )
 
+        if (
+            len(cleaned) == 1
+            and "asData" in cleaned
+            and isinstance(cleaned["asData"], str)
+        ):
+            return cleaned["asData"]
         return cleaned
 
     def isTextFormat(self):
@@ -603,7 +643,7 @@ class DataContents(DataSourceWithInfo):
             raise HandledException(f"Error reading file {json.dumps(fname)}", e)
 
     def doErrorExit(self, msg: str, e: Exception | None = None) -> NoReturn:
-        from ukko_pylibs.app.appSupport import (
+        from ukko_pylibs.appAssist.appSupport import (
             error_msg_exit,
         )  # < Not permitted to be imported at module-level
 
@@ -614,6 +654,8 @@ class DataContents(DataSourceWithInfo):
             return self.asData
         elif isinstance(self.asData, str):
             return self.asData.encode("utf-8")
+        elif isinstance(self.asData, dict):
+            return Utils.asJsonStr(self.asData).encode("utf-8")
         else:
             raise ValueError(
                 f"Cannot convert asData of type {type(self.asData)} to bytes"
@@ -629,7 +671,7 @@ class DataContents(DataSourceWithInfo):
             return False
         try:
             with tempfile.NamedTemporaryFile(
-                mode="w+b",
+                mode="wb",
                 suffix="."
                 + (
                     "output"
@@ -681,7 +723,7 @@ class DataContents(DataSourceWithInfo):
                 self.setBaseFormatIfAuto("text")
             elif self.contentType.isJson():
                 try:
-                    self.asObj = json.loads(_txtToReview)
+                    self.asData = json.loads(_txtToReview)
                 except Exception as e:
                     self.warning = f"Unable to parse JSON: {e}"
                     self.contentType.extras["invalid"] = True
