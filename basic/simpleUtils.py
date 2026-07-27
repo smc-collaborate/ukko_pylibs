@@ -586,6 +586,18 @@ class Utils:
     def getIdSuffix(id):
         return "" if (id is None) or (id == "") else (str(id) + "/")
 
+    @staticmethod
+    def typeOfAsStr(obj) -> str:
+        return Utils.typeAsStr(type(obj), withBrackets=True)
+
+    @staticmethod
+    def typeAsStr(dataType, withBrackets: bool = False) -> str:
+        txt = str(dataType).removeprefix("<class '").removesuffix("'>")
+        if withBrackets:
+            return "«" + txt + "»"
+        else:
+            return txt
+
 
 def _makeJsonable_fromType(o: type) -> str:
     try:
@@ -1454,7 +1466,7 @@ class EscapeMgr:
             resultTxt += "'" + valueTxt.replace("'", "'\\''") + "'"
 
         appLog.print_tediousDetail(
-            f"asBashParam({json.dumps(value)} -> {resultTxt}) [issues: {bashIssues}]"
+            f"asBashParam({Utils.asJsonStr(value)} -> {resultTxt}) [issues: {bashIssues}]"
         )
         return resultTxt
 

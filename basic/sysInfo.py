@@ -111,10 +111,6 @@ def _modulesListAsPackageTree(moduleList: list[dict[str, Any]]) -> dict[str, Any
     return packages
 
 
-def typeOfAsStr(obj) -> str:
-    return str(type(obj)).removeprefix("<class '").removesuffix("'>")
-
-
 class WalkedEntry:
     def __init__(
         self,
