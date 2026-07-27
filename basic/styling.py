@@ -27,10 +27,11 @@ def isSupported() -> bool:
     output, error = _applyAlways("test", "silent:blue")
 
     def disableReason(reason: str) -> bool:
-        appLog.print_info(
-            f"Styling is not supported in this environment - disabling styling.\n{reason}"
-        )
-        doDisable(True)
+        if doDisable(True):
+            appLog.print_info(
+                f"Styling is not supported in this environment - disabling styling.\n{reason}"
+            )
+
         return False
 
     if error:
@@ -218,7 +219,10 @@ def asErrorList(values: list[Any], singularUnit: str = "") -> str:
         )
 
 
-def doDisable(disable: bool | None):
+def doDisable(disable: bool | None) -> bool:
     global g_appColoursAreEnabled
+
+    prevValue = g_appColoursAreEnabled
     if disable:
         g_appColoursAreEnabled = False
+    return prevValue != g_appColoursAreEnabled
