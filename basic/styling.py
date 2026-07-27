@@ -45,6 +45,16 @@ def isSupported() -> bool:
         return True
 
 
+def asStylingRemoved(src: str | list[str] | Any | None) -> str:
+    if src is None:
+        return ""
+    if isinstance(src, str):
+        return PrettyText.removeAnsiCodes(src)
+    if isinstance(src, list):
+        return "\n".join([asStylingRemoved(x) for x in src])
+    return PrettyText.removeAnsiCodes(str(src))
+
+
 # First is always the colour, the rest are attributes (eg: bold, underline, etc)
 #
 def _applyAlways(text: str, styleTextPlus: str) -> Tuple[str, str | None]:
