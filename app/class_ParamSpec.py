@@ -743,6 +743,17 @@ class ParamSpec:
 
         return spec
 
+    def asBashParam(self, argText) -> str:
+
+        if self.mustBeDirect() or (self.name() == "--"):
+            paramAsText = EscapeMgr.asBashParam(argText)
+        else:
+            paramAsText = "--" + EscapeMgr.asBashParam(self.name())
+            if self.hasValue():
+                paramAsText += "=" + EscapeMgr.asBashParam(argText)
+
+        return paramAsText
+
 
 class ParamSpecAndValue:
     def __init__(
@@ -756,6 +767,7 @@ class ParamSpecAndValue:
         self.value = value
         self.valueSource: str = valueSource
         self.errorNotes: list[str] = []
+        self.asProvidedArg: list[str] = []
         if convert is not None:
             self.value, _ = self.load_withConvert(convert)
 
@@ -799,7 +811,7 @@ class ParamSpecAndValue:
         return errmsg
 
     def load_withConvert(self, arg: str) -> Tuple[Any, str | None]:
-
+        self.asProvidedArg.append(arg)
         _value, errmsg = self.spec._convertArg(arg)
 
         if errmsg is not None:

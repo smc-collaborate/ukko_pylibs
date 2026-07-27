@@ -888,6 +888,18 @@ class Define:
 
         return self.parseResults.appChoices
 
+    def getParamsAsProvided(self, skipIfEmpty: bool = True) -> dict[str, list[str]]:
+
+        _paramsAsProvidedArg: dict[str, list[str]] = {}
+        if self.parseResults is not None:
+            for key, _value in self.parseResults.paramSpec_chosen.items():
+                if not skipIfEmpty or len(_value.asProvidedArg):
+                    _paramsAsProvidedArg[key] = _value.asProvidedArg
+        return _paramsAsProvidedArg
+
+    def getBashParamsAsProvided(self) -> dict[str, str]:
+        return {} if self.parseResults is None else self.parseResults.asBashParams()
+
     def doRunOnParseResults(self, _parseResults: AppParamParseResults) -> str | None:
         appInfo_appendStr(
             "APP_AS_USED.post_exe",
@@ -972,6 +984,16 @@ def getValue(name: str, default: Any | None = None) -> Any | None:
         return default
 
 
+def getRunningApp_paramsAsProvided() -> dict[str, list[str]]:
+    global g_runningApp
+    return {} if g_runningApp is None else g_runningApp.getParamsAsProvided()
+
+
+def getRunningApp_bashParamsAsProvided() -> dict[str, str]:
+    global g_runningApp
+    return {} if g_runningApp is None else g_runningApp.getBashParamsAsProvided()
+
+
 #
 #
 ##################################################################################################
@@ -1007,15 +1029,9 @@ class _ArgLoader_ReplaceParams(IArgLoader_Template):
     def _nameValueToBashArg(self, name: str, valueAsText: str):
         spec = self.getParamSpec(name)
         if spec is None:
-            paramAsText = self._nameValueToBadBashArg(name, valueAsText)
-        elif spec.mustBeDirect() or (name == "--"):
-            paramAsText = EscapeMgr.asBashParam(valueAsText)
+            return self._nameValueToBadBashArg(name, valueAsText)
         else:
-            paramAsText = "--" + EscapeMgr.asBashParam(name)
-            if spec.hasValue():
-                paramAsText += "=" + EscapeMgr.asBashParam(valueAsText)
-
-        return paramAsText
+            return spec.asBashParam(valueAsText)
 
     def event_applyingValue(self, name: str, value: Any, style: str, arg: str):
 
