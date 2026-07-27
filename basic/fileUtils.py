@@ -2,6 +2,7 @@ import base64
 import hashlib
 import json
 import os
+from pathlib import Path
 import shutil
 import sys
 import tempfile
@@ -22,9 +23,6 @@ from ukko_pylibs.basic.class_HandledException import HandledException
 
 ################################################################################
 #
-
-
-FileUtils = sys.modules[__name__]
 
 
 def filenameIsStdIO(filename: str) -> bool:
@@ -94,7 +92,7 @@ def loadJsonDictFromFile(
     errmsg = "Unknown Error"
     showWarning = True
 
-    from ukko_pylibs.app.appSupport import (
+    from ukko_pylibs.appAssist.appSupport import (
         exitOnException,
     )  # < Not permitted to be imported at module-level
 
@@ -238,7 +236,7 @@ def loadBytesFromFile_orHandledException(
     inputBinaryFile: str, what: str = "binary data"
 ) -> bytes:
     try:
-        if FileUtils.filenameIsStdIO(inputBinaryFile):
+        if filenameIsStdIO(inputBinaryFile):
             inputBinaryFile = "/dev/stdin"
         if inputBinaryFile == "/dev/stdin":
             appLog.print_info(f"Note: Reading {what} from standard input")
@@ -254,7 +252,7 @@ def loadTextFromFile_orHandledException(
     inputTextFile: str, what: str = "text data"
 ) -> bytes:
     try:
-        if FileUtils.filenameIsStdIO(inputTextFile):
+        if filenameIsStdIO(inputTextFile):
             inputTextFile = "/dev/stdin"
         if inputTextFile == "/dev/stdin":
             appLog.print_info(f"Note: Reading {what} from standard input")
@@ -267,18 +265,29 @@ def loadTextFromFile_orHandledException(
 
 
 def exportToFile_orHandledException(
-    outputFilename: str, fileContents, format: str = "data", isText: bool = False
+    outputFilename: str,
+    fileContents_: Any | None,
+    format: str = "data",
+    isText_: bool | None = None,
 ) -> Tuple[str, int]:
+
+    if isinstance(fileContents_, dict):
+        fileContentsOut = Utils.asJsonStr(fileContents_, indent=2, sortKeys=True) + "\n"
+    else:
+        fileContentsOut = fileContents_
+
+    isText = (type(fileContentsOut) is str) if (isText_ is None) else isText_
+
     try:
         if filenameIsStdIO(outputFilename):
             outputFilename = "/dev/stdout"
         appLog.print_verbose(
-            f"Exporting {format:<4} to {outputFilename} ({'None' if (fileContents is None) else PrettyText.pluralize(len(fileContents), 'byte')})"
+            f"Exporting {format:<4} to {outputFilename} ({'None' if (fileContentsOut is None) else PrettyText.pluralize(len(fileContentsOut), 'byte')})"
         )
 
         if outputFilename == "/dev/null":
             return outputFilename, 0
-        if fileContents is None:
+        if fileContentsOut is None:
             if not outputFilename.startswith("/dev/"):
                 appLog.print_verbose(
                     f"Exporting {format:<4} -- erasing output file '{outputFilename}'"
@@ -316,8 +325,11 @@ def exportToFile_orHandledException(
                         )
                     errMsg += "\n • You can also set the environment variable `STDOUT_IS_TTY=0` to disable this check."
                     raise HandledException(errMsg)
-        with open(outputFilename, "wb") as file:
-            file_bytes = file.write(fileContents)
+
+        if not outputFilename.startswith("/dev/"):
+            Path(outputFilename).parent.mkdir(parents=True, exist_ok=True)
+        with open(outputFilename, "wt" if isText else "wb") as file:
+            file_bytes = file.write(fileContentsOut)
             return outputFilename, file_bytes
     except HandledException:
         raise

@@ -21,20 +21,20 @@ from ukko_pylibs.basic.prettyTable import PrettyTable
 
 
 from ukko_pylibs.basic import styling
-from ukko_pylibs.app.class_ParamSpec import (
+from ukko_pylibs.appAssist.class_ParamSpec import (
     ParamSpec,
     ParamSpecList,
     ValueHelpSummaries,
 )
-from ukko_pylibs.app.appChoices import AppChoices
-from ukko_pylibs.app.class_Configuration import Configuration
+from ukko_pylibs.appAssist.appChoices import AppChoices
+from ukko_pylibs.appAssist.class_Configuration import Configuration
 
 #
 ################################################################################
 
 
 def appDoco_replaceTemplateMarkers(appChoices: AppChoices, docoWithMarkers: Any) -> str:
-    from ukko_pylibs.app.appSupport import app  # < Avoid circular import
+    import ukko_pylibs.appAssist.appSupport as app  # < Avoid circular import
 
     if docoWithMarkers is None:
         return ""
@@ -86,7 +86,7 @@ def getAppHelp_asLines(
 
     verText = f"v{appChoices.appValue('version')}"
 
-    # |Logging| from ukko_pylibs.app.appSupport import print_cyan
+    # |Logging| from ukko_pylibs.appAssist.appSupport import print_cyan
     # |Logging| print_cyan(visibleParams)
 
     # |if _customisedChoiceNext:

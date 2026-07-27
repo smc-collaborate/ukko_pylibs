@@ -34,22 +34,20 @@ from ukko_pylibs.basic.class_HandledException import (
     getPrettyExceptionInfo,
 )
 from ukko_pylibs.basic import styling
-from ukko_pylibs.app.class_Configuration import Configuration
-from ukko_pylibs.app.class_ParamSpec import (
+from ukko_pylibs.appAssist.class_Configuration import Configuration
+from ukko_pylibs.appAssist.class_ParamSpec import (
     ParamSpec,
     ParamSpecAndValue,
     ParamSpecList,
     ParamSpecAndValue_collection,
 )
 
-from ukko_pylibs.app.appChoices import AppParamParseResults, AppChoices
-import ukko_pylibs.app.appHelp as appHelp
+from ukko_pylibs.appAssist.appChoices import AppParamParseResults, AppChoices
+import ukko_pylibs.appAssist.appHelp as appHelp
 
 #
 ################################################################################
 
-
-app = sys.modules[__name__]
 
 ######################################
 #
@@ -1329,7 +1327,9 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
         )
 
 
-def returnJsonData(resultFull: Any, elementNameIfNotFull: str | None = None):
+def returnJsonData(
+    resultFull: Any, elementNameIfNotFull: str | None = None
+) -> NoReturn:
     outputFormat = getValue("output-format", None)
     if outputFormat is None:
         isJson = getValue("json", None)

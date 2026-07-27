@@ -19,7 +19,7 @@ if shared_dir not in sys.path:
 from ukko_pylibs.basic.simpleUtils import DictUtils, Utils
 from ukko_pylibs.basic.class_SimpleLogger import SimpleLogger
 from ukko_pylibs.basic.class_HandledException import HandledException
-from ukko_pylibs.app.class_ParamSpec import ParamSpec
+from ukko_pylibs.appAssist.class_ParamSpec import ParamSpec
 from ukko_pylibs.basic import styling
 
 #

@@ -194,7 +194,7 @@ class LinkToDevice(Generic[T_LinkedDataType]):
 
         if not (":" in self.link_via):
 
-            import ukko_pylibs.app.appSupport as app  # <--- Import here to avoid circular import issues
+            import ukko_pylibs.appAssist.appSupport as app  # <--- Import here to avoid circular import issues
 
             DEFAULT_PORT_NUMBER = app.getValue("DEFAULT_PORT", 12302)
             appLog.print_verbose(

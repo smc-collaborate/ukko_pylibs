@@ -38,8 +38,8 @@ def get_cwdOnStartup():
 
     if not cwdOnStartup:
         try:
-            if sys.modules.get("ukko_pylibs.app.appSupport") is not None:
-                from ukko_pylibs.app.appSupport import appInfo_get
+            if sys.modules.get("ukko_pylibs.appAssist.appSupport") is not None:
+                from ukko_pylibs.appAssist.appSupport import appInfo_get
 
                 runningDir = appInfo_get("APP_DEFINITION.runningDir", "")
                 cwdOnStartup = runningDir
@@ -194,8 +194,10 @@ class Utils:
             return ""
         elif isinstance(data, str):
             return data
+        elif isinstance(data, dict):
+            return Utils.asJsonStr(data)
         else:
-            return f"[{type(data).__name__}]:{str(data)}"
+            return f"❓  [{type(data).__name__}]:{str(data)}"
 
     @staticmethod
     def load_file_to_text(file_path):
@@ -265,7 +267,7 @@ class Utils:
         )  # < Let the exception propagate this time - there isn't much more we can do
 
     @staticmethod
-    def asJsonStr(obj, indent: int | str | None = None) -> str:
+    def asJsonStr(obj, indent: int | str | None = None, sortKeys: bool = False) -> str:
         """Safer version of json.dumps that can handle some extra types like bytes and avoids odd crashes"""
 
         def _makeSafe(obj, _note: str = "") -> str:
@@ -274,21 +276,53 @@ class Utils:
                 _result += '"note":' + json.dumps(_note, ensure_ascii=False)
             return "{" + _result + "}"
 
-        class JsonEncoderExtended(json.JSONEncoder):
-            def default(self, o):
-                return _makeSafe(obj)
-
         try:
+
+            class JsonEncoderExtended(json.JSONEncoder):
+                def default(self, o):
+                    return _makeSafe(o)
+
             return json.dumps(
                 obj,
                 indent=indent,
                 skipkeys=True,
+                sort_keys=sortKeys,
                 separators=None if indent else (",", ":"),
                 ensure_ascii=False,
                 cls=JsonEncoderExtended,
             )
         except Exception as e:
             return _makeSafe(obj)
+
+    @staticmethod
+    def asJsonRStr(obj, indent: int | str | None = None, sortKeys: bool = False) -> str:
+        """Safer version of json.dumps that can handle some extra types like bytes and avoids odd crashes"""
+        try:
+            import json5
+
+            def _makeSafe(obj, _note: str = "") -> str:
+                _result = '"_created_":' + Utils.asJsonStr(
+                    Utils.makeJsonable(obj), indent
+                )
+                if _note:
+                    _result += '"note":' + json.dumps(_note, ensure_ascii=False)
+                return "{" + _result + "}"
+
+            class Json5EncoderExtended(json5.JSON5Encoder):
+                def default(self, obj):
+                    return _makeSafe(obj)
+
+            return json5.dumps(
+                obj,
+                indent=indent,
+                skipkeys=True,
+                sort_keys=sortKeys,
+                separators=None if indent else (",", ":"),
+                ensure_ascii=False,
+                cls=Json5EncoderExtended,
+            )
+        except Exception:
+            return Utils.asJsonStr(obj, indent)
 
     @staticmethod
     def makeJsonable(

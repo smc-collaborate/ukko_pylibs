@@ -39,7 +39,7 @@ def schema_getDir(kind: str = "commands") -> str:
     """
     global g_app_schemasDir
     if g_app_schemasDir == "":
-        import ukko_pylibs.app.appSupport as app  # < Import here to avoid circular import issues
+        import ukko_pylibs.appAssist.appSupport as app  # < Import here to avoid circular import issues
 
         _dir = str(Path(app.getDir("schemas")).resolve(strict=False))
         _dir2 = _dir.removesuffix("/") + "/dataDefinitions"
@@ -933,8 +933,8 @@ class SchemaDocMarkdown:
 
         srcObj = deepcopy(srcObj_)
         out_name = name_in
-        out_type = srcObj.pop("type", None)
-        out_description = srcObj.pop("description", "")
+        out_type: str = srcObj.pop("type", None)
+        out_description: str = srcObj.pop("description", "")
         out_notes = ""
         out_required = "🔒" if required else " "
 

@@ -11,7 +11,7 @@ if shared_dir not in sys.path:
 
 #
 #
-import ukko_pylibs.app.appSupport as app
+import ukko_pylibs.appAssist.appSupport as app
 import ukko_pylibs.basic.fileUtils as fileUtils
 from ukko_pylibs.basic.simpleUtils import Utils as Utils, appLog
 from ukko_pylibs.schemaHandling.schemaProcessing import Schema, schema_list
@@ -117,8 +117,8 @@ def runApp(appDescription: str, args: list[str]):
 
     params = app.Define(appDefinition).parseParams(args)
 
-    isStrict = params.get(
-        "strict", True
+    isStrict = bool(
+        params.get("strict", True)
     )  # Only given option in validation - otherwise default to true
     ###########
     # Load Schema into JSON
@@ -127,11 +127,13 @@ def runApp(appDescription: str, args: list[str]):
     schema: Schema | None = None
     fileKind = ""
     if params["kind"] == "ref":
-        schema = Schema.fromRef(params["name"].removeprefix("$"), isStrict=isStrict)
+        schema = Schema.fromRef(
+            params.asStr("name").removeprefix("$"), isStrict=isStrict
+        )
         fileKind = "Interface Specification"
-        schemasShow[params["name"]] = schema.asDict()
+        schemasShow[params.asStr("name")] = schema.asDict()
     elif params["kind"] == "json":
-        fname = params["json"]
+        fname = params.asStr("json")
         if (fname == "-") or (fname == ""):
             fname = "/dev/stdin"
         name = Utils.pathAsDisplay(fname)
@@ -146,18 +148,22 @@ def runApp(appDescription: str, args: list[str]):
                 Schema.fromCmdAndPart(name, "request", isStrict=isStrict).asDict(),
                 Schema.fromCmdAndPart(name, "reply", isStrict=isStrict).asDict(),
             ]
-    elif (params["piece"] == "request+reply") and (params["action"] != "validate"):
+    elif (params.asStr("piece") == "request+reply") and (
+        params["action"] != "validate"
+    ):
         fileKind = f"Command Specification[{params['name']}]"
-        name = params["name"]
+        name = params.asStr("name")
         schemasShow[name] = [
             Schema.fromCmdAndPart(name, "request", isStrict=isStrict).asDict(),
             Schema.fromCmdAndPart(name, "reply", isStrict=isStrict).asDict(),
         ]
     else:
         fileKind = f"Interface Specification: {params['name']}[{params['piece']}]"
-        schemasShow[params["name"] + "." + params["piece"]] = Schema.fromCmdAndPart(
-            params["name"], params["piece"], isStrict=isStrict
-        ).asDict()
+        schemasShow[params.asStr("name") + "." + params.asStr("piece")] = (
+            Schema.fromCmdAndPart(
+                params.asStr("name"), params.asStr("piece"), isStrict=isStrict
+            ).asDict()
+        )
 
     appLog.print_verbose(f"Loaded schemas: {Utils.asJsonStr(schemasShow,indent=2)}")
     if params["action"] == "show":
@@ -166,7 +172,10 @@ def runApp(appDescription: str, args: list[str]):
         from ukko_pylibs.schemaHandling.class_MarkdownSchemaDoc import MarkdownSchemaDoc
 
         for caption, md in MarkdownSchemaDoc(
-            schemasShow, fileKind, params["exportPath"], namePartIsLiteralQuoted=True
+            schemasShow,
+            fileKind,
+            params.asStr("exportPath"),
+            namePartIsLiteralQuoted=True,
         ).makeLinesPlus():
             if caption != "":
                 appLog.print_info(caption)
@@ -177,11 +186,13 @@ def runApp(appDescription: str, args: list[str]):
         if schema is None:
             errmsg = "No schema to validate"
         else:
-            errmsg = schema.doValidateJson(fileUtils.loadJson(params["inputJson"]))
+            errmsg = schema.doValidateJson(
+                fileUtils.loadJson(params.asStr("inputJson"))
+            )
 
         if errmsg is None:
             print(
                 f"✓ Schema validate[{"Untitled" if schema is None else schema.name}] : OK"
             )
         else:
-            app.error_exit(errmsg, withSuggestion=False)
+            app.error_msg_exit(errmsg)

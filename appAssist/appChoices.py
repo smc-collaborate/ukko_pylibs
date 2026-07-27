@@ -25,7 +25,7 @@ from ukko_pylibs.basic.simpleUtils import (
     PrettyText,
 )
 from ukko_pylibs.basic.logger import appLog
-from ukko_pylibs.app.class_ParamSpec import (
+from ukko_pylibs.appAssist.class_ParamSpec import (
     ParamSpecAndValue,
     ParamSpecList,
 )
@@ -62,7 +62,7 @@ class AppChoices:
         if name in self.appValues:
             return self.appValues[name]
 
-        from ukko_pylibs.app.appSupport import getExeName
+        from ukko_pylibs.appAssist.appSupport import getExeName
 
         APP_OPTION_DEFAULTS = {
             "settings": None,
