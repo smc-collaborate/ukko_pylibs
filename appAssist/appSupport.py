@@ -632,22 +632,6 @@ class IArgLoader_Template:
         if _chosenSpec is not None:
             self.appendError(f"Missing value for option: {_chosenSpec.name()}")
 
-        if self.nextCustomisationAvail_ is not None and "help" not in self.paramsChosen:
-            self.errors.append(
-                (
-                    f"Expected one of {styling.asSuggestionList(self.nextCustomisationAvail_.keys())}",
-                    None,
-                )
-            )
-
-        self.NOT_NEEDED_customisingChoicesMade_ = []
-        for paramSpec in [
-            x for x in self.getAvailParamsAll().doFilterByAttr("isCustomisingChoice")
-        ]:
-            self.NOT_NEEDED_customisingChoicesMade_.append(
-                (paramSpec.name(), paramSpec.spec["customisationChoice"])
-            )
-
     def _processCustomisingEntry(
         self, param: str
     ) -> bool:  # <- True=Handled, so don't treat it differently
