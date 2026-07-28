@@ -5,7 +5,7 @@ import os, sys
 
 import traceback
 from typing import Any, Tuple
-import parse
+
 
 ################################################################################
 #
@@ -361,8 +361,9 @@ class DataHeaderFormat:
                     entry_bytes = rawDataStream.read(entry_numBytes)
                     entry_value = entry_bytes.decode("utf-8", errors="replace")
                     if code == "text[format]":
-                        extractFormat = str(conversionEntry.get("extractFormat", ""))
+                        import parse
 
+                        extractFormat = str(conversionEntry.get("extractFormat", ""))
                         result = parse.parse(
                             extractFormat, str(entry_value)
                         )  # .format(**theDict)
