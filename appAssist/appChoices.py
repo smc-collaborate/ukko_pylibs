@@ -170,7 +170,7 @@ class AppParamParseResults:
     def __init__(
         self,
         paramSpec_chosen: dict[str, ParamSpecAndValue],
-        errors: list[Tuple[str, str | None]],
+        errors: list[str],
         paramSpec_avail: ParamSpecList,
         appChoices: AppChoices,
     ):
@@ -206,19 +206,6 @@ class AppParamParseResults:
         }
 
         if self.errors:
-            errorsOut = []
-            for x in self.errors:
-                msg = PrettyText.removeAnsiCodes(str(x[0]))
-                if x[1] is None:
-                    errorsOut.append(msg)
-                else:
-                    errorsOut.append(
-                        {
-                            "message": msg,
-                            "suggestion": PrettyText.removeAnsiCodes(str(x[1])),
-                        }
-                    )
-
-            obj["errors"] = errorsOut
+            obj["errors"] = self.errors
 
         return obj

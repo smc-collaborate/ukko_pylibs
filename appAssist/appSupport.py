@@ -197,7 +197,7 @@ class IArgLoader_Template:
     def __init__(self, app_definition):
         self.buildingParamsFromAppDef = ParamSpecList()
 
-        self.errors: list[Tuple[str, str | None]] = []
+        self.errors: list[str] = []
         self.nextCustomisationAvail_: dict[str, Any] | None = None
         self.paramsChosen = ParamSpecAndValue_collection()
         self.appValues: dict[str, Any] = {}
@@ -374,7 +374,7 @@ class IArgLoader_Template:
         _value, _error = self.paramsChosen[_name].load_withConvert(arg)
         self.event_applyingValue(_name, _value, "spec", arg)
         if _error:
-            self.errors.append((_error, None))
+            self.appendError(_error)
 
     def _noteGroupInfo(
         self,
@@ -565,7 +565,18 @@ class IArgLoader_Template:
                             if _suggestionStyled:
                                 _errmsg += "\nSuggestion: " + _suggestionStyled
 
-                        self.errors.append((_errmsg, None))
+                        self.appendError(_errmsg)
+
+        if (
+            self.nextCustomisationAvail_ is not None
+            and not self.paramsChosen["help"].value
+        ):
+            self.appendError(
+                f"Expected one of {styling.asSuggestionList(self.nextCustomisationAvail_.keys())}"
+            )
+
+    def appendError(self, errmsg: str):
+        self.errors.append(errmsg)
 
     def doIterateArgs(self, args: list[str]):
 
@@ -600,7 +611,7 @@ class IArgLoader_Template:
                     if specToUse is not None:
                         self.loadNamed_fromArg(specToUse, arg)
                     else:
-                        self.errors.append((f"Unexpected direct argument: {arg}", None))
+                        self.appendError(f"Unexpected direct argument: {arg}")
 
             else:
                 foundSpec, _value = self.getAvailParamsAll().getMatchedSpecAndValue(arg)
@@ -614,15 +625,13 @@ class IArgLoader_Template:
                     if action_suffix is None or (str(action_suffix).strip() == ""):
                         action_suffix = ""
 
-                    self.errors.append((f"Unknown{action_suffix} option: {arg}", None))
+                    self.appendError(f"Unknown{action_suffix} option: {arg}")
 
         #####################
         #
         # Done - now review the results
         if _chosenSpec is not None:
-            self.errors.append(
-                (f"Missing value for option: {_chosenSpec.name()}", None)
-            )
+            self.appendError(f"Missing value for option: {_chosenSpec.name()}")
 
         if self.nextCustomisationAvail_ is not None and "help" not in self.paramsChosen:
             self.errors.append(
@@ -660,8 +669,8 @@ class IArgLoader_Template:
             return False
 
         if chosenAction not in _customisations:
-            self.errors.append(
-                (styling.asExpectedOneOf(_customisations.keys(), chosenAction), None)
+            self.appendError(
+                styling.asExpectedOneOf(_customisations.keys(), chosenAction)
             )
             return True  # < Failed - but still handled as a customisation, so we don't want to treat it as a normal option
 
@@ -692,7 +701,7 @@ class ArgLoader_withApplyConfig(IArgLoader_Template):
         _done, errMsg = appConfig.setting_applyIfMatchesWithErrMsg((name, value))
 
         if errMsg:
-            self.errors.append((errMsg, None))
+            self.appendError(errMsg)
             return True
 
         return _done
@@ -929,11 +938,7 @@ class Define:
             exitReason = ""
 
         if _parseResults.errors:
-            suggestion = _parseResults.errors[0][1]
-
-            error_exit_withSuggestion(
-                _parseResults.errors[0][0], suggestion if suggestion else "<auto>"
-            )
+            error_exit_withSuggestion(_parseResults.errors[0], "<auto>")
 
         _parseResults.appChoices.appValues.pop("options", None)
 
@@ -1394,10 +1399,11 @@ def error_exit_withSuggestion(
 ) -> NoReturn:
     # print_verbose(f"error_exit: {msg} | withAutoSuggestion={withSuggestion}")
 
-    if suggestionText == "<auto>" and not "--help" in sys.argv:
-        suggestionText = appInfo_getStr("name+actions") + " --help"
-    else:
-        suggestionText = ""
+    if suggestionText == "<auto>":
+        if not ("--help" in sys.argv) and not ("\nSuggestion:" in msg):
+            suggestionText = appInfo_getStr("name+actions") + " --help"
+        else:
+            suggestionText = ""
 
     if exception is not None:
         msg += f" | Exception: {str(exception)}"
