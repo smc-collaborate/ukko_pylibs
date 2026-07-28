@@ -1055,7 +1055,9 @@ def appInfo_cmdWithVariant_styled(
 
     argReplacer.doIterateArgs(app.original_params)
 
-    return argReplacer.getReplacedParams_styled(appInfo_getStr("exeFullName"), False)
+    return argReplacer.getReplacedParams_styled(
+        styling.asSuggestion(appInfo_getStr("exeFullName")), False
+    )
 
 
 def appInfo_normalisedCommand_styled() -> str:
