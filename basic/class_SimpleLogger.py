@@ -418,9 +418,7 @@ class SimpleLogger:
 
 MsgKind.add(SimpleLogger.MsgKind_ALWAYS, "Output", "  ", "")
 
-MsgKind.add(
-    SimpleLogger.MsgKind_ERROR, "Error", "❌", "quiet", "red+bold", isDefaultLevel=True
-)
+MsgKind.add(SimpleLogger.MsgKind_ERROR, "Error", "❌", "quiet", "red+bold")
 MsgKind.add(SimpleLogger.MsgKind_WARNING, "Warning", "⚠️", "")
 MsgKind.add(SimpleLogger.MsgKind_INFO, "Info", "ℹ️", "info")
 MsgKind.add(SimpleLogger.MsgKind_DETAIL, "Detail", "Ⓜ️", "details")
