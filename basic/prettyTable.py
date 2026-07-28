@@ -244,6 +244,20 @@ class PrettyTable_Contents:
 
         return result
 
+    def renderAs(
+        self, options: Union["RenderOptions_Table", str | None] = None
+    ) -> "PrettyTable_Rendered":
+
+        optionsToUse = RenderOptions_Table | None
+        if not isinstance(options, str):
+            optionsToUse = options
+        else:
+            optionsToUse = RenderOptions_Table(
+                Borders.createOrNoneFrom_name(options), None
+            )
+
+        return PrettyTable_Rendered(self, optionsToUse)
+
 
 class RenderOptions_SingleCol:
     """Options to Render a PrettyTable column
@@ -360,15 +374,216 @@ class RenderOptions_Columns(SparseList[RenderOptions_SingleCol]):
         return None if spec is None else RenderOptions_Columns.create_fromList(spec)
 
 
+class Borders:
+    #                                   0...4...8...12..16..20..24
+    # | eg:            top___________= "┏━━━┳━━━┳━━━┯━━━┳━━━┳━━━┓",
+    # | eg:            title_________= "┃ A ┃ B ┃ C │ D ┃ E ┃ F ┃",
+    # | eg:            undTopTitle___= "┣━━━╋━━━╋━━━┿━━━╋━━━╋━━━┫",
+    # | eg:            entry_1_______= "┃ A ┃ B ┃ n │ n ┃ E ┃ F ┃",
+    # | eg:            betweenEntries= "┠───╂───╂───┼───╂───╂───┨",
+    # | eg:            entry_2_______= "┃ A ┃ B ┃ n │ n ┃ E ┃ F ┃",
+    # | eg:            overBotTitle__= "┣━━━╋━━━╋━━━┿━━━╋━━━╋━━━┫",
+    # | eg:            title_________= "┃ A ┃ B ┃ C │ D ┃ E ┃ F ┃",
+    # | eg:            bottom________= "┗━━━┻━━━┻━━━┷━━━┻━━━┻━━━┛")
+
+    class RowBorders:
+
+        def __init__(
+            self,
+            blankEquiv: str,
+            middleDiv: str,
+            leftLimit: str = "",
+            leftTitleMiddle: str = "",
+            leftTitleEdge: str = "",
+            rightTitleEdge: str = "",
+            rightTitleMiddle: str = "",
+            rightLimit: str = "",
+        ):
+            self.blankEquiv = blankEquiv
+            self.midDiv = middleDiv
+
+            self.leftLimit = leftLimit
+            self.leftTitleMiddle = leftTitleMiddle
+            self.leftTitleEdge = leftTitleEdge
+            self.rightTitleEdge = rightTitleEdge
+            self.rightTitleMiddle = rightTitleMiddle
+            self.rightLimit = rightLimit
+
+    @staticmethod
+    def createRowBordersFrom_div(divider: str | None = None) -> RowBorders:
+        return Borders.RowBorders(" ", " " if divider is None else divider)
+
+    @staticmethod
+    def createRowBordersFrom_template(
+        paddingCount: int, template: str = ""
+    ) -> RowBorders | None:
+
+        if template == "":
+            return None
+
+        # isEmpty=(template=='')
+
+        if len(template) != 25:  # not isEmpty and len(template)!=25:
+            appLog.print_warning(
+                f"RowBorders.createFrom_template(): Expecting template of length 25: '{template}'"
+            )
+            return None
+
+        # if isEmpty:
+        #    paddingText=' '*paddingCount
+        #    return Borders.RowBorders(' ',paddingText+'│'+paddingText)
+        # else:
+
+        blankEquiv = template[1]
+
+        leftLimit = template[0]
+        leftTitleMiddle = template[4]
+        leftTitleEdge = template[8]
+        midDiv = template[12]
+        rightTitleEdge = template[16]
+        rightTitleMiddle = template[20]
+        rightLimit = template[24]
+
+        paddingText = blankEquiv * paddingCount
+
+        return Borders.RowBorders(
+            blankEquiv,
+            paddingText + midDiv + paddingText,
+            leftLimit + paddingText,
+            paddingText + leftTitleMiddle + paddingText,
+            paddingText + leftTitleEdge + paddingText,
+            paddingText + rightTitleEdge + paddingText,
+            paddingText + rightTitleMiddle + paddingText,
+            paddingText + rightLimit,
+        )
+
+    def __init__(self):
+        self.rowBorders: dict[str, Borders.RowBorders] = {}
+
+    def get(self, name: str) -> Union["Borders.RowBorders", None]:
+        return self.rowBorders.get(name)
+
+    @staticmethod
+    def createOrNoneFrom_name(name: str) -> Union["Borders", None]:
+
+        standard_borders: dict[str, Borders] = {
+            "outer+vert": Borders.createFrom_template(
+                1,
+                top___________="┏━━━┳━━━┳━━━┯━━━┳━━━┳━━━┓",
+                title_________="┃ A ┃ B ┃ C │ D ┃ E ┃ F ┃",
+                undTopTitle___="┣━━━╋━━━╋━━━┿━━━╋━━━╋━━━┫",
+                entry_1_______="┃ A ┃ B ┃ n │ n ┃ E ┃ F ┃",
+                betweenEntries="",  # "┠───╂───╂───┼───╂───╂───┨",
+                entry_2_______="┃ A ┃ B ┃ n │ n ┃ E ┃ F ┃",
+                overBotTitle__="┣━━━╋━━━╋━━━┿━━━╋━━━╋━━━┫",
+                bottom________="┗━━━┻━━━┻━━━┷━━━┻━━━┻━━━┛",
+            ),
+            "blank": Borders.createFrom_divider(" "),
+            "|": Borders.createFrom_divider(" │ "),
+        }
+        if name in standard_borders:
+            return standard_borders[name]
+        else:
+            appLog.print_warning(
+                f"Borders.createOrNoneFrom_name({name}) ignored.  Only valid entries are {Utils.asJsonStr(list(standard_borders.keys()))}"
+            )
+            return None
+
+    @staticmethod
+    def createFrom_template(
+        paddingCount: int,
+        top___________: str,
+        title_________: str,
+        undTopTitle___: str,
+        entry_1_______: str,
+        betweenEntries: str,
+        entry_2_______: str,
+        overBotTitle__: str,
+        bottom________: str,
+    ) -> "Borders":
+        result = Borders()
+
+        def setIfNotNone(name: str, entry: Borders.RowBorders | None):
+            if entry:
+                result.rowBorders[name] = entry
+
+        setIfNotNone(
+            "top___________",
+            Borders.createRowBordersFrom_template(paddingCount, top___________),
+        )
+        setIfNotNone(
+            "title_________",
+            Borders.createRowBordersFrom_template(paddingCount, title_________),
+        )
+        setIfNotNone(
+            "undTopTitle___",
+            Borders.createRowBordersFrom_template(paddingCount, undTopTitle___),
+        )
+        setIfNotNone(
+            "entry_________",
+            Borders.createRowBordersFrom_template(paddingCount, entry_1_______),
+        )
+        setIfNotNone(
+            "betweenEntries",
+            Borders.createRowBordersFrom_template(paddingCount, betweenEntries),
+        )
+        setIfNotNone(
+            "overBotTitle__",
+            Borders.createRowBordersFrom_template(paddingCount, overBotTitle__),
+        )
+        setIfNotNone(
+            "bottom________",
+            Borders.createRowBordersFrom_template(paddingCount, bottom________),
+        )
+        return result
+
+    @staticmethod
+    def createFrom_divider(divider: str | None) -> "Borders":
+        result = Borders()
+        result.rowBorders["entry_________"] = Borders.createRowBordersFrom_div(divider)
+        result.rowBorders["title_________"] = result.rowBorders["entry_________"]
+        return result
+
+    @staticmethod
+    def createFrom_dict(src: dict[str, Any] | str | Any | None) -> "Borders":
+
+        if type(src) is str:
+            result = Borders.createOrNoneFrom_name(src)
+            if result is not None:
+                return result
+        if type(src) is dict:
+
+            if "divider" in src:
+                return Borders.createFrom_divider(src["divider"])
+
+            if "template" in src:
+                template: dict[str, Any] = src["template"]
+                return Borders.createFrom_template(
+                    template.get("paddingCount", 0),
+                    template.get("top___________", ""),
+                    template.get("title_________", ""),
+                    template.get("undTopTitle___", ""),
+                    template.get("entry_________", ""),
+                    template.get("betweenEntries", ""),
+                    "",
+                    template.get("overBotTitle__", ""),
+                    template.get("bottom________", ""),
+                )
+        return Borders.createFrom_divider(" ")
+
+
 class RenderOptions_Table:
     """Options to Render a PrettyTable"""
 
     def __init__(
         self,
-        colDivider: str | None = None,
+        border: Borders | str | None = None,
         colOptions: RenderOptions_Columns | None = None,
     ):
-        self.colDivider = " " if colDivider is None else colDivider  # ' ' # = "│",
+        if isinstance(border, Borders):
+            self.border = border
+        else:
+            self.border = Borders.createFrom_divider(border)
         self.colOptions = RenderOptions_Columns() if colOptions is None else colOptions
 
     @staticmethod
@@ -378,12 +593,15 @@ class RenderOptions_Table:
         if spec is None:
             return None
 
-        _colDivider = spec.get("colDivider")
         _colOptions = RenderOptions_Columns.createOrNone_fromJsonDictOrNone(
             spec.get("colOptions")
         )
 
-        return RenderOptions_Table(_colDivider, _colOptions)
+        result = RenderOptions_Table(
+            Borders.createFrom_dict(spec.get("borders")), _colOptions
+        )
+
+        return result
 
     @staticmethod
     def create_fromLockedVisWidths(
@@ -425,7 +643,7 @@ class PrettyTable_Rendered:
 
         self.out_lines: list[str] = self.doBuild()
 
-    def asLines(self) -> list[str]:
+    def asTextLines(self) -> list[str]:
         return self.out_lines
 
     def doBuild(self) -> list[str]:
@@ -445,7 +663,9 @@ class PrettyTable_Rendered:
 
         def row_asTextLines(
             row: SparseList[PrettyCellContents] | PrettyTable_Row | None,
+            borderStyleSource: str,
         ) -> list[str]:
+
             if row is None:
                 return []
 
@@ -493,50 +713,111 @@ class PrettyTable_Rendered:
                 return []
 
             rowHeight = max([cell.height() for cell in cellsInRow])
-
             linesOut: list[str] = []
-            for n in range(rowHeight):
-                linesOut.append(
-                    self.renderOptions.colDivider.join(
-                        [cell.getRowText(n) for cell in cellsInRow]
+
+            if rowHeight:
+
+                rowBorders = self.renderOptions.border.get(borderStyleSource)
+
+                leftBorder = "" if rowBorders is None else rowBorders.leftLimit
+                midDiv = " " if rowBorders is None else rowBorders.midDiv
+                rightBorder = "" if rowBorders is None else rowBorders.rightLimit
+
+                for n in range(rowHeight):
+                    linesOut.append(
+                        leftBorder
+                        + midDiv.join([cell.getRowText(n) for cell in cellsInRow])
+                        + rightBorder
                     )
-                )
 
             return linesOut
 
+        def dividerAsTextLines(kind: str) -> list[str]:
+
+            src = self.renderOptions.border.get(kind)
+            if not src:
+                return []
+
+            return [
+                line.replace(" ", src.blankEquiv)
+                for line in row_asTextLines(SparseList[str](""), kind)
+            ]
+
         lines: list[str] = []
+
+        # | Box characters| ─	━	┄	┅   ┈	┉	╌	╍	═	╼	╾   ╸	╺	╴	╶
+        # | Box characters|
+        # | Box characters| │	┃	┆	┇	┊	┋	╎	╏   ║	╽	╿   ╻   ╹	╵	╷
+        # | Box characters|
+        # | Box characters| ┌	┍	┎	┏   ╒	╓   ╔   ╭
+        # | Box characters| ┐	┑	┒	┓	╕	╖	╗	╮
+        # | Box characters|
+        # | Box characters| └	┕	┖	┗	╘	╙	╚	╰
+        # | Box characters| ┘	┙	┚	┛	╛	╜	╝   ╯
+        # | Box characters| ├	┝	┞	┟   ┠	┡	┢	┣	╟   ╠   ╞
+        # | Box characters| ┤	┥	┦	┧	┨	┩	┪	┫	╢	╣   ╡
+        # | Box characters| ┬	┭	┮   ┯   ┰	┱	┲	┳	╤	╥	╦
+        # | Box characters|
+        # | Box characters| ┴	┵	┶	┷	┸	┹	┺	┻	╧	╨	╩
+        # | Box characters|
+        # | Box characters| ┼	┽	┾	┿   ╀	╁	╂	╃	╪	╫	╬
+        # | Box characters|
+        # | Box characters| ╄	╅	╆	╇	╈	╉	╊	╋
+        # | Box characters|
+        # | Box characters| ╱   ╲   ╳
+        # | Box characters|
+
+        #
+        # Top:           ╭───────────┬────────────┬─────────────┬────────────╮
+        # TopTitleBlock: │           │            │             │            │
+        # TopTitleBlock: │           │            │             │            │
+        # UnderTitle:    ├───────────┼────────────┼─────────────┼────────────┤
+        # Entry          │           │            │             │            │
+        # Entry          │           │            │             │            │
+        # UnderEntry     ├───────────┼────────────┼─────────────┼────────────┤
+        # Entry          │           │            │             │            │
+        # Entry          │           │            │             │            │
+        # UnderEntry     ├───────────┼────────────┼─────────────┼────────────┤
+        # Entry          │           │            │             │            │
+        # Entry          │           │            │             │            │
+        # Bottom:        ╰───────────┴────────────┴─────────────┴────────────╯
+        #
+
+        # |Other|            borders=Borders(len(self.renderOptions.colDivPre)-1,
+        # |Other|                            top___________= "┌───┬───┬───┬───┬───┬───┐",
+        # |Other|                            title_________= "│ A │ B │ C │ D │ E │ F │",
+        # |Other|                            undTopTitle___= "├───┼───┼───┼───┼───┼───┤",
+        # |Other|                            entry_1_______= "│ A │ B │ n │ n │ E │ F │",
+        # |Other|                            betweenEntries= "├───┼───┼───┼───┼───┼───┤",
+        # |Other|                            entry_2_______= "│ A │ B │ n │ n │ E │ F │",
+        # |Other|                            overBotTitle__= "├───┼───┼───┼───┼───┼───┤",
+        # |Other|                            bottom________= "└───┴───┴───┴───┴───┴───┘")
+        # |Other|        elif self.renderOptions.colDivPre.startswith('║'):
+        # |Other|            borders=Borders(len(self.renderOptions.colDivPre)-1,
+        # |Other|                            top___________= "╔═══╦═══╦═══╤═══╦═══╦═══╗",
+        # |Other|                            title_________= "║ A ║ B ║ C │ D ║ E ║ F ║",
+        # |Other|                            undTopTitle___= "╠═══╬═══╬═══╪═══╬═══╬═══╣",
+        # |Other|                            entry_1_______= "║ A ║ B ║ n │ n ║ E ║ F ║",
+        # |Other|                            betweenEntries= "╟───╫───╫───┼───╫───╫───╢",
+        # |Other|                            entry_2_______= "║ A ║ B ║ n │ n ║ E ║ F ║",
+        # |Other|                            overBotTitle__= "╠═══╬═══╬═══╪═══╬═══╬═══╣",
+        # |Other|                            bottom________= "╚═══╩═══╩═══╧═══╩═══╩═══╝")
+        # |Other|
+        lines.extend(dividerAsTextLines("top___________"))
+
         if self.in_table.colTitles.hasData():
-            lines.extend(row_asTextLines(self.in_table.colTitles))
+            lines.extend(row_asTextLines(self.in_table.colTitles, "title_________"))
+
+        kind = "undTopTitle___"
         for row in self.in_table.rows().values():
-            lines.extend(row_asTextLines(row))
 
-        if False:
+            lines.extend(dividerAsTextLines(kind))
+            kind = "betweenEntries"
 
-            def widsAsText(wids: list[int], caption: str):
-                txt: str = ""
-                for wid in self.proc_visWidths_used:
-                    if txt != "":
-                        txt += "|"
-                    if wid > 0:
-                        txt += "-" * wid
-                return txt + " : " + caption + "=" + str(wids)
+            lines.extend(row_asTextLines(row, "entry_________"))
 
-            lines.insert(
-                0,
-                (
-                    widsAsText(self.proc_visWidths_used, "proc_visWidths_used"),
-                    "_debugNote",
-                ),
-            )
-            lines.insert(
-                0,
-                (
-                    widsAsText(
-                        self.proc_visWidths_calc.asList(), "proc_visWidths_calc"
-                    ),
-                    "_debugNote",
-                ),
-            )
+        lines.extend(dividerAsTextLines("bottom________"))
+
         return lines
 
     def doDump(self):

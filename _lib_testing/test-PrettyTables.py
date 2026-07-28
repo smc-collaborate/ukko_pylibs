@@ -73,7 +73,7 @@ def main():
         }
     ).parseParams()
 
-    print("Normalised    : " + app.appInfo_normalisedCommand())
+    print("Normalised    : " + app.appInfo_normalisedCommand_styled())
     # app.print_cyan(params)
 
     table_spec = params.param_asDict("contents")
@@ -86,7 +86,7 @@ def main():
     )
 
     app.print_cyan(["renderOptions", Utils.asJsonStr(renderOptions, indent=2)])
-    lines_out = PrettyTable.Rendered(table, renderOptions).asLines()
+    lines_out = PrettyTable.Rendered(table, renderOptions).asTextLines()
 
     for line in lines_out:
         print(line)

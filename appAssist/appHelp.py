@@ -132,7 +132,7 @@ def getAppHelp_asLines(
     )
 
     lines_out: list[str] = []
-    lines_out.extend(PrettyTable.Rendered(titleAndUsageTable).asLines())
+    lines_out.extend(PrettyTable.Rendered(titleAndUsageTable).asTextLines())
     lines_out.append("")
 
     ############################################
@@ -184,7 +184,7 @@ def getAppHelp_asLines(
     #
     # Done
     #
-    lines_out.extend(optionSummaries.asLines())
+    lines_out.extend(optionSummaries.asTextLines())
 
     subscripts = ""
     for d in visibleParams:
@@ -210,7 +210,7 @@ def getAppHelp_asLines(
             lines_out.append("")
             lines_out.append("Examples:")
 
-            for line in PrettyTable.Rendered(examplesTable, tableStyling).asLines():
+            for line in PrettyTable.Rendered(examplesTable, tableStyling).asTextLines():
                 lines_out.append(f" • {line}")
 
     return [line.replace("\xa0", " ").rstrip() for line in lines_out]

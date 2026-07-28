@@ -982,7 +982,7 @@ class ValueHelpSummaries:
 
         return combinedTables
 
-    def asLines(self) -> list[str]:
+    def asTextLines(self) -> list[str]:
         table = self.asTable()
         rendered = PrettyTable_Rendered(
             table,
@@ -990,7 +990,7 @@ class ValueHelpSummaries:
         )
 
         lines: list[str] = []
-        for line in rendered.asLines():
+        for line in rendered.asTextLines():
             lines.append(line)
         return lines
 

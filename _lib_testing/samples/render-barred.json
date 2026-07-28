@@ -1,5 +1,5 @@
 {
-    "colDivider":" | ",
+    "borders":"outer+vert",
     "colOptions":
         [null,{"lockedMaxWidth":30,"isWrap":true,"prefixesToWrapWith":true},{"lockedMaxWidth":30}]
 
