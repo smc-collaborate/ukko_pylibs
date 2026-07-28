@@ -128,7 +128,7 @@ def getAppHelp_asLines(
         prefix = PrettyText.asSpaces(prefix)
 
     _examplesOut.extend(
-        customisedChoicePart_getTopSuggestions_(appChoices.customisingChoices_next)
+        customisedChoicePart_getTopSuggestions(appChoices.customisingChoices_next)
     )
 
     lines_out: list[str] = []
@@ -273,7 +273,7 @@ def replaceWithin(txt: str | list[str], needle: str, replacement: str):
         return txt
 
 
-def customisedChoicePart_getTopSuggestions_(
+def customisedChoicePart_getTopSuggestions(
     customisedChoiceEntry: dict[str, Any] | None,
 ) -> list[str | list[str]]:
 
@@ -295,7 +295,7 @@ def customisedChoicePart_getTopSuggestions_(
         if "options" in entry:
             for x in entry["options"]:
                 actionSuggestions.extend(
-                    customisedChoicePart_getTopSuggestions_(x.get("customising"))
+                    customisedChoicePart_getTopSuggestions(x.get("customising"))
                 )
 
         for _suggestion in actionSuggestions:
