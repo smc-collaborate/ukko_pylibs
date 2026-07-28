@@ -127,9 +127,9 @@ def getAppHelp_asLines(
             )
         prefix = PrettyText.asSpaces(prefix)
 
-    if appChoices.customisingChoices_next:
-        for action, entry in appChoices.customisingChoices_next.items():
-            _examplesOut.extend(customisedChoicePart_getTopSuggestions(action, entry))
+    _examplesOut.extend(
+        customisedChoicePart_getTopSuggestions_(appChoices.customisingChoices_next)
+    )
 
     lines_out: list[str] = []
     lines_out.extend(PrettyTable.Rendered(titleAndUsageTable).asLines())
@@ -209,9 +209,7 @@ def getAppHelp_asLines(
 
             lines_out.append("")
             lines_out.append("Examples:")
-            # |x| print(Utils.asJsonStr(examplesOut.asDict(),indent=2))
 
-            # |x| print(Utils.asJsonStr(examplesOut.asDict(),indent=2))
             for line in PrettyTable.Rendered(examplesTable, tableStyling).asLines():
                 lines_out.append(f" • {line}")
 
@@ -275,47 +273,61 @@ def replaceWithin(txt: str | list[str], needle: str, replacement: str):
         return txt
 
 
-def customisedChoicePart_getTopSuggestions(
-    action: str, entry: dict[str, Any]
+def customisedChoicePart_getTopSuggestions_(
+    customisedChoiceEntry: dict[str, Any] | None,
 ) -> list[str | list[str]]:
 
-    results = []
+    _examplesOut = []
+    if not (customisedChoiceEntry):
+        return _examplesOut
 
-    topSuggestion = entry.get("topSuggestion", None)
-    if topSuggestion is None:
-        kindExamples = entry.get("examples", [])
-        if len(kindExamples) > 0:
-            topSuggestion = kindExamples[0]
+    for action, entry in customisedChoiceEntry.items():
 
-    if topSuggestion is not None:
-        topSuggestion = replaceWithin(
-            topSuggestion,
-            "<exeName+action>",
-            "<exeName+action> " + EscapeMgr.escapeIfNeeded(action),
-        )
-        if isinstance(topSuggestion, str):
-            topSuggestion = topSuggestion.strip()
+        actionSuggestions: list[str | list[str]] = []
 
-            _restyle = topSuggestion.startswith("<exeName+action>")
+        if "topSuggestion" in entry:
+            actionSuggestions.append(entry["topSuggestion"])
         else:
-            _restyle = False
+            kindExamples = entry.get("examples", [])
+            if len(kindExamples) > 0:
+                actionSuggestions.append(kindExamples[0])
 
-        if _restyle and isinstance(topSuggestion, str):
+        if "options" in entry:
+            for x in entry["options"]:
+                actionSuggestions.extend(
+                    customisedChoicePart_getTopSuggestions_(x.get("customising"))
+                )
 
-            comment_suffix = ""
-            x = topSuggestion.split("#")
-            if len(x) > 1:
-                comment_suffix = " # " + x.pop()
-                topSuggestion = "#".join(x).strip()
+        for _suggestion in actionSuggestions:
+            suggestion = replaceWithin(
+                _suggestion,
+                "<exeName+action>",
+                "<exeName+action> "
+                + action,  # (' '.join([EscapeMgr.escapeIfNeeded(action) for action in actions_depth]))
+            )
+            if isinstance(suggestion, str):
+                suggestion = suggestion.strip()
 
-            topSuggestion = topSuggestion.split(" ") + [comment_suffix]
+                _restyle = suggestion.startswith("<exeName+action>")
+            else:
+                _restyle = False
 
-    if isinstance(topSuggestion, str):
-        results.append(topSuggestion)
-    elif isinstance(topSuggestion, list):
-        results.append(topSuggestion)
+            if _restyle and isinstance(suggestion, str):
 
-    return results
+                comment_suffix = ""
+                x = suggestion.split("#")
+                if len(x) > 1:
+                    comment_suffix = " # " + x.pop()
+                    suggestion = "#".join(x).strip()
+
+                suggestion = suggestion.split(" ") + [comment_suffix]
+
+            if isinstance(suggestion, str):
+                _examplesOut.append(suggestion)
+            elif isinstance(suggestion, list):
+                _examplesOut.append(suggestion)
+
+    return _examplesOut
 
 
 def getUsageSuggestions(appChoices, visibleParams) -> list[Tuple[str, str, str] | str]:
