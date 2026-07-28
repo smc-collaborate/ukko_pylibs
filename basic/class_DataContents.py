@@ -750,6 +750,9 @@ class DataContents(DataSourceWithInfo):
     def print_info(self, msg: str):
         appLog.print_info(f"DataContents[{self.optionalName}]: {msg}")
 
+    def print_verbose(self, msg: str):
+        appLog.print_verbose(f"DataContents[{self.optionalName}]: {msg}")
+
     def doReformat(
         self,
         newContentBase: str | None,
@@ -760,15 +763,28 @@ class DataContents(DataSourceWithInfo):
             newOptionalSubstitutions is not None
             and newOptionalSubstitutions != self.optionalSubstitutions
         ):
-            self.optionalSubstitutions = newOptionalSubstitutions
+            if appLog.isVerbose():
+                msgOld = deepcopy(self.optionalSubstitutions) or {}
+                msgOld.pop("[warning_format]", None)
+
+                msgNew = deepcopy(newOptionalSubstitutions) or {}
+                msgNew.pop("[warning_format]", None)
+
+                self.print_verbose(
+                    "Reformatting Data contents: Substitutions : "
+                    + Utils.asJsonRStr(msgOld)
+                    + " → "
+                    + Utils.asJsonRStr(msgNew)
+                )
+
             modified = True
-            self.print_info("Reformatting Data contents: New substitutions")
+            self.optionalSubstitutions = newOptionalSubstitutions
 
         if (newContentBase) and self.contentType.isValue(newContentBase):
 
             oldFormatStyle = self.contentType.asDisplayText()
             self.contentType.thisValue = newContentBase
-            self.print_info(
+            self.print_verbose(
                 f"Reformatting Data contents: Formatting: {oldFormatStyle} -> {self.contentType.asDisplayText()}"
             )
             modified = True
