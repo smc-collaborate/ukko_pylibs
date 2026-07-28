@@ -1288,7 +1288,7 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
 
         elif getRunningApp() is not None:
             msg += f"Suggestion: {appInfo_cmdWithVariant_styled({'verbosity':'details'})} for more information"
-        error_msg_exit(msg)
+        error_exit(msg)
     elif e.srcException is not None:
         if appLog.isVerbose() or [x for x in os.environ if x.startswith("VSCODE_")]:
             msg = "\n".join(
@@ -1298,7 +1298,7 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
             msg = f"Suggestion: {appInfo_cmdWithVariant_styled({'verbosity':'details'})} for more information"
         else:
             msg = ""
-        error_msg_exit(f"{action}{emsgSuffix}\n{msg}")
+        error_exit(f"{action}{emsgSuffix}\n{msg}")
 
     else:
         error_exit_withAutoSuggestion(
@@ -1342,7 +1342,7 @@ def returnJsonData(
         if suggestion != "":
             msg += f"\nSuggestion: {suggestion} for more information"
 
-        error_msg_exit(f"{msg}")
+        error_exit(f"{msg}")
     else:
         appLog.print_verbose(f"Output full: {Utils.asJsonStr(resultFull, indent=2)}")
 
@@ -1369,9 +1369,13 @@ def returnJsonData(
     doExit(exitCode)
 
 
-def error_msg_exit(msg: str, exception: Exception | None = None) -> NoReturn:
-
+def error_exit(msg: str, exception: Exception | None = None) -> NoReturn:
     return error_exit_withSuggestion(msg, "", "", exception)
+
+
+def error_msg_exit(msg: str, exception: Exception | None = None) -> NoReturn:
+    appLog.deprecationWarningRename("error_msg_exit", "error_exit")
+    return error_exit(msg, exception)
 
 
 def error_exit_withAutoSuggestion(
@@ -1387,7 +1391,7 @@ def error_exit_internalCause(
     msg: str,
     exception: Exception | None = None,
 ) -> NoReturn:
-    return error_msg_exit("Error[Internal]: " + msg, exception)
+    return error_exit("Error[Internal]: " + msg, exception)
 
 
 def error_exit_withSuggestion(
@@ -1447,7 +1451,7 @@ def exeInfo_doUninstall():
 
             sys.exit(0)
         except Exception as e:
-            error_msg_exit(f"Unable to uninstall {exeInfo_getName()}: {e}")
+            error_exit(f"Unable to uninstall {exeInfo_getName()}: {e}")
     return "PYAPP_INSTALL_SOURCE" in os.environ
 
 

@@ -641,10 +641,10 @@ class DataContents(DataSourceWithInfo):
 
     def doErrorExit(self, msg: str, e: Exception | None = None) -> NoReturn:
         from ukko_pylibs.appAssist.appSupport import (
-            error_msg_exit,
+            error_exit,
         )  # < Not permitted to be imported at module-level
 
-        error_msg_exit(f"DataContents -- {msg}", e)
+        error_exit(f"DataContents -- {msg}", e)
 
     def asBytes(self) -> bytes:
         if isinstance(self.asData, bytes):

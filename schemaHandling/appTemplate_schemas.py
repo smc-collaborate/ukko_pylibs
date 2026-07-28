@@ -195,4 +195,4 @@ def runApp(appDescription: str, args: list[str]):
                 f"✓ Schema validate[{"Untitled" if schema is None else schema.name}] : OK"
             )
         else:
-            app.error_msg_exit(errmsg)
+            app.error_exit(errmsg)
