@@ -875,6 +875,8 @@ class Define:
 
         self.parseResults = argLoader.getAppParamParseResults()
 
+        styling.noteSupport()
+
         exitReason = self.doRunOnParseResults(self.parseResults)
 
         if exitReason is not None:

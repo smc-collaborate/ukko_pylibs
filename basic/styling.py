@@ -21,16 +21,27 @@ from ukko_pylibs.basic.logger import appLog
 
 g_appColoursAreEnabled = True
 
+g_stylingDisableReason: str = ""
+
+
+def noteSupport(reason: str | None = None):
+    global g_stylingDisableReason
+
+    if reason is not None:
+        g_stylingDisableReason = reason
+    elif g_stylingDisableReason:
+        appLog.print_info(
+            f"Styling is not supported in this environment - disabling styling.\n{g_stylingDisableReason}"
+        )
+
 
 def isSupported() -> bool:
     # These are safe, known options that should always work. If this doesn't give different text - styling is not supported in this environment
     output, error = _applyAlways("test", "silent:blue")
 
     def disableReason(reason: str) -> bool:
-        if doDisable(True):
-            appLog.print_info(
-                f"Styling is not supported in this environment - disabling styling.\n{reason}"
-            )
+        noteSupport(reason)
+        doDisable(True)
 
         return False
 
@@ -90,14 +101,13 @@ def _applyAlways(text: str, styleTextPlus: str) -> Tuple[str, str | None]:
                 None,
             )
         else:
-
             return (
                 termcolor.colored(
                     PrettyText.removeAnsiCodes(text),  # < Remove existing styling
                     color=colour or None,
                     on_color=on_colour or None,
                     attrs=attrs or None,
-                    # force_color=True,
+                    force_color=True,
                 ),
                 None,
             )
