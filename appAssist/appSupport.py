@@ -305,7 +305,6 @@ class IArgLoader_Template:
                 ParamSpec(
                     {
                         "name": "config-view",
-                        "group": self.customisingChoices_asText_calc("+"),
                         "source": "~appAuto",
                         "shortName": "C",
                         "description": "Gives the current configuration",
