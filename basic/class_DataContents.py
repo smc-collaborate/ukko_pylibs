@@ -314,15 +314,12 @@ class DataSourceWithInfo:
         else:
             result["contents"] = Utils.typeOfAsStr(self.asProvidedOrig)
 
-        # |x|        if self.additionalOptions:
-        # |x|            result['additionalOptions']=self.additionalOptions
-
         if self.prefixIssues:
             result["prefixIssues"] = styling.asStylingRemoved(self.prefixIssues)
 
         if self.getFilename():
             result["filename"] = self.getFilename()
-        # |x|        result['formatting']=self.formatObj
+
         result["asShouldBeProvided"] = self.asShouldBeProvided()
         return result
 

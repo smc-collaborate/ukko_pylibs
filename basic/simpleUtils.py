@@ -347,11 +347,6 @@ class Utils:
         if str(o) == "<class 'builtin_function_or_method'>":
             _showHint(f" = «builtin_function_or_method»")
             return "«builtin_function_or_method»"
-        # |x|        try:
-        # |x|            json.dumps(skipKeys=True)
-        # |x|            return o
-        # |x|        except:
-        # |x|            pass
 
         try:
             if isinstance(o, type):

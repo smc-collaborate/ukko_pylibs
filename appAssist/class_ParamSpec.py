@@ -894,11 +894,6 @@ class ParamSpecList(list[ParamSpec]):
         for _entry in self:
             if _entry.isCustomisingOptions():
                 return _entry
-        # |x|->Tuple[ParamSpec,int]|None:
-        # |x|for n in range(0,len(self)):
-        # |x|    _entry=self[n]
-        # |x|    if _entry.isCustomising():
-        # |x|        return (_entry,n)
 
         return None
 
@@ -926,8 +921,6 @@ class ValueHelpSummaries:
                 f"Internal issue: ValueHelpSummaries.appendItem({groupCaption},item:{type(item)})"
             )
 
-            # |x| print("!!! b: ",groupCaption)
-
             if isinstance(item, dict):
                 item = ParamSpec(item)
 
@@ -952,7 +945,6 @@ class ValueHelpSummaries:
     def _addNewItem(
         self, groupCaption: str, summary: ValueHelpSummary, position: int | None = None
     ):
-        # |x| print("!!! a: ",groupCaption)
         if groupCaption not in self.collection:
             self.collection[groupCaption] = ValueHelpSummaries.Group(
                 groupCaption, len(self.collection) if position is None else position

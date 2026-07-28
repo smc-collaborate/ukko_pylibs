@@ -137,7 +137,6 @@ class SparseList[ContentKind](dict[int, ContentKind]):
                             f"Populating SparseList[type:{type(blankValue)}] with type {type(value)}={value}  - ignoring"
                         )
 
-        # |x|        result._refresh()
         return result
 
     @staticmethod
@@ -162,10 +161,6 @@ class SparseList[ContentKind](dict[int, ContentKind]):
 
     def asDict(self) -> dict[str, Any]:
         result: dict[str, Any] = {}
-        # |x|result["_kind"]=f"SparseList[{typeAsText(self._getContentType())}]"
-        # |Logging|result['len-includingBlanks']=self.getLen(includingBlanks=True)
-        # |Logging|result['len-withoutBlanks']=self.getLen(includingBlanks=False)
-        # |x|result['len-includingBlanks-calc']=max(self.keys())+1 if self else 0
 
         if self.hasData():
 
@@ -185,12 +180,6 @@ class SparseList[ContentKind](dict[int, ContentKind]):
         self._blankValue = blankValue
         if src is not None:
             self.update(src)
-
-    # |x|    def _refresh(self):
-    # |x|        if self.hasData():
-    # |x|            self._maxKeyPlusOne=max(self.keys())+1
-    # |x|        else:
-    # |x|            self._maxKeyPlusOne=0
 
     def hasData(self) -> bool:
         return len(self) > 0
@@ -275,9 +264,6 @@ class SparseList[ContentKind](dict[int, ContentKind]):
 def typeAsText(theType):
 
     try:
-        # |x|if hasattr(theType,'__mro__'):
-        # |x|    txt=str(theType.__mro__)
-        # |x|else:
         txt = str(theType)
 
         txt = txt.removeprefix("<class '").removesuffix("'>")
@@ -296,7 +282,6 @@ class MaxWidths(SparseList[int]):
     def includeWidths_list_str(
         self, src: list[str | None], skipIfColIsEmpty: bool = False
     ):
-        # |x| print(f"includeWidths_list_str: {src}")
 
         self.includeWidths_SparseList(
             SparseList[str].create_fromList_andBlank(src, ""), skipIfColIsEmpty
@@ -305,16 +290,11 @@ class MaxWidths(SparseList[int]):
     def includeWidths_SparseList(
         self, src: SparseList[str], skipIfColIsEmpty: bool = False
     ):
-        # |x| print(f"includeWidths_SparseList: {Utils.asJsonStr(src.asDict())}")
         for colNum, colText in src.items():
             if not skipIfColIsEmpty or self.getOrEmpty(colNum) > 0:
                 from ukko_pylibs.basic.simpleUtils import PrettyText as PrettyText
 
                 self.includeVal(colNum, PrettyText.uniLen_approx(colText))
-            # |x|     print(f"{colNum}: {colText}")
-            # |x| else:
-            # |x|     print(f"{colNum}: SKIP: {colText}")
-        # |x| print(f"includeWidths_SparseList -> {self.asDict()}")
 
 
 class Sparse2D[CellContentKind]:

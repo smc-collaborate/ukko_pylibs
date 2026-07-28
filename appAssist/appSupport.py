@@ -376,17 +376,6 @@ class IArgLoader_Template:
         if _error:
             self.errors.append((_error, None))
 
-    # |x|    def loadNamed_withValue(self,spec:ParamSpec, value:Any):
-    # |x|        _name: str = spec.name()
-    # |x|
-    # |x|        self.event_applyingValue(_name, str(value),'???')  #<- Could be short but this will do for the moment
-    # |x|        if not (_name in self.paramSpec_chosen):
-    # |x|            self.paramSpec_chosen[_name] = ParamSpecAndValue(spec)
-    # |x|
-    # |x|        _error = self.paramSpec_chosen[_name].load_appendValue(value)
-    # |x|        if _error:
-    # |x|            self.errors.append((_error, None))
-
     def _noteGroupInfo(
         self,
         _actionInfo: dict[str, Any],
@@ -658,12 +647,6 @@ class IArgLoader_Template:
 
         if chosenAction == "":
             return False
-
-        # |x|availParam_index = -1
-        # |x|for nn in range(len(self.buildingParamsFromAppDef)):
-        # |x|    if self.buildingParamsFromAppDef[nn].isCustomising():
-        # |x|        availParam_index = nn
-        # |x|        break
         customisingOptions = (
             self.buildingParamsFromAppDef.nextCustomisationOptions_get()
         )
@@ -906,12 +889,6 @@ class Define:
             _parseResults.appChoices.customisingChoicesMade_withLeadingSpace,
         )
 
-        # |x|for name, obj in parseResults.paramSpec_chosen.items():
-        # |x|    self.appChoices.params[name] = obj.value
-
-        # |x| for name, value in self.appChoices.customisingChoicesMade:
-        # |x|    self.appChoices.params[name] = value
-
         ####################################
         #
         if _parseResults.appChoices.params.pop("version", None):
@@ -1034,9 +1011,6 @@ class _ArgLoader_ReplaceParams(IArgLoader_Template):
             return spec.asBashParam(valueAsText)
 
     def event_applyingValue(self, name: str, value: Any, style: str, arg: str):
-
-        # |x| _msg=f"Applying[{style:<30}] [ {paramAsText:<30}]"
-        # |x| print_cyan([_msg])
 
         withUnderline = False
         if name in self.toReplace:
@@ -1439,34 +1413,6 @@ def error_exit_withSuggestion(
     printVerbose_sysInfo()
     doHalt("Exiting with error")
     sys.exit(1)
-
-
-# |x|def error_exit(
-# |x|    msg: str, exception: Exception | None = None, withSuggestion: bool | str = True
-# |x|) -> NoReturn:
-# |x|    # print_verbose(f"error_exit: {msg} | withAutoSuggestion={withSuggestion}")
-# |x|
-# |x|    if exception is not None:
-# |x|        msg += f" | Exception: {str(exception)}"
-# |x|
-# |x|    prefixOrNone = appLog.print_error(msg, noPrefix=True)
-# |x|    if prefixOrNone is not None:
-# |x|        if withSuggestion and not '\nSuggestion:' in msg:
-# |x|            suggestionTxt = ""
-# |x|            if isinstance(withSuggestion, str):
-# |x|                suggestionTxt = withSuggestion.removeprefix("Suggest:").strip()
-# |x|            elif not "--help" in sys.argv:
-# |x|                suggestionTxt = appInfo_getStr("name+actions") + " --help"
-# |x|
-# |x|            if suggestionTxt != "":
-# |x|                print(
-# |x|                    f"{prefixOrNone}Suggestion: {styling.asSuggestion(suggestionTxt)}",
-# |x|                    file=sys.stderr,
-# |x|                )
-# |x|
-# |x|    printVerbose_sysInfo()
-# |x|    doHalt("Exiting with error")
-# |x|    sys.exit(1)
 
 
 def doExitWithCode() -> NoReturn:

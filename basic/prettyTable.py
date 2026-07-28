@@ -41,7 +41,6 @@ class MaxWidths:
     def includeWidths_list_str(
         self, src: list[str | None], skipIfColIsEmpty: bool = False
     ):
-        # |x| print(f"includeWidths_list_str: {src}")
 
         self.includeWidths_SparseList(
             SparseList[str].create_fromList_andBlank(src, ""), skipIfColIsEmpty
@@ -50,14 +49,9 @@ class MaxWidths:
     def includeWidths_SparseList(
         self, src: SparseList[str], skipIfColIsEmpty: bool = False
     ):
-        # |x| print(f"includeWidths_SparseList: {Utils.asJsonStr(src.asDict())}")
         for colNum, colText in src.items():
             if not skipIfColIsEmpty or self.data.getOrEmpty(colNum) > 0:
                 self.includeVal(colNum, PrettyText.uniLen_approx(colText))
-            # |x|     print(f"{colNum}: {colText}")
-            # |x| else:
-            # |x|     print(f"{colNum}: SKIP: {colText}")
-        # |x| print(f"includeWidths_SparseList -> {self.asDict()}")
 
 
 PrettyCellContents = str
@@ -397,8 +391,6 @@ class PrettyTable_Rendered:
         tableSrc: PrettyTable_Contents,
         renderOptions: RenderOptions_Table | list[int | None] | None = None,
     ):
-        # |x| print("!!! PrettyTable_Rendered()")
-
         self.in_table = tableSrc
 
         if renderOptions is None:
@@ -412,11 +404,6 @@ class PrettyTable_Rendered:
 
         self.out_lines: list[str] = self.doBuild()
 
-        # |x|print("----------------")
-        # |x|print("PrettyTable_Rendered.out_lines():")
-        # |x|print(Utils.asJsonStr(self.out_lines,indent=2))
-        # |x|print("----------------")
-
     def asLines(self) -> list[str]:
         return self.out_lines
 
@@ -426,20 +413,8 @@ class PrettyTable_Rendered:
             self.in_table.getMaxWidths()
         )  # < Before clipping, wrapping etc.
         self.proc_visWidths_used: list[int] = []
-
-        # |x|print("----------------")
-        # |x|print("PrettyTable_Rendered.proc_visWidths_calc:")
-        # |x|print(Utils.asJsonStr(self.proc_visWidths_calc.asDict()))
-        # |x|print("----------------")
-        # |x|print("PrettyTable_Rendered.in_table:")
-        # |x|print(Utils.asJsonStr(self.in_table.asDict(),indent=2))
-        # |x|print("----------------")
-        # |x|print("renderOptions:")
-        # |x|print(Utils.asJsonStr(self.renderOptions,indent=2))
-        # |x|print("----------------")
         for colNum in range(self.proc_visWidths_calc.getLen()):
             maxVisWidth = self.renderOptions.getMaxVisWidth(colNum)
-            # |x| print("MaxVisWidth: ",maxVisWidth)
             calc = self.proc_visWidths_calc[colNum]
             used = calc
             if maxVisWidth is not None:
@@ -511,11 +486,8 @@ class PrettyTable_Rendered:
         lines: list[str] = []
         if self.in_table.colTitles.hasData():
             lines.extend(row_asTextLines(self.in_table.colTitles))
-            # |x| lines.append((str(self.in_table.colTitles.asDict()),"_debugNote:colTitles"))
         for row in self.in_table.rows().values():
-            # |x| print(f"row[type:{type(row)}]: {row}")
             lines.extend(row_asTextLines(row))
-            # |x| lines.append((str(row.asDict()),"_debugNote:row"))
 
         if False:
 
