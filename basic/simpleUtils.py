@@ -17,6 +17,11 @@ from datetime import datetime as dt_datetime
 from datetime import timezone as dt_timezone
 import numpy as np
 
+
+NameValuePair = Tuple[str, Any | None]
+NameValuePairList = list[NameValuePair]
+
+
 ################################################################################
 #
 # Add project root directory to system path

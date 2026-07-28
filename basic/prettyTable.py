@@ -16,7 +16,12 @@ if shared_dir not in sys.path:
 
 from ukko_pylibs.basic.class_JsonData import JsonDict
 from ukko_pylibs.basic.logger import appLog
-from ukko_pylibs.basic.simpleUtils import PrettyText, Utils
+from ukko_pylibs.basic.simpleUtils import (
+    PrettyText,
+    Utils,
+    NameValuePair,
+    NameValuePairList,
+)
 from ukko_pylibs.basic.sparseLists import SparseList, Sparse2D
 
 
@@ -205,7 +210,6 @@ class PrettyTable_Contents:
         table = PrettyTable_Contents(
             PrettyTable_RowList(_titles) if _titles is not None else None
         )
-
         if isinstance(_rows, dict):
             raise NotImplementedError(
                 f"PrettyTable.import[_rows]: import of {type(_rows)} not implemented yet"
@@ -222,6 +226,23 @@ class PrettyTable_Contents:
                 )
 
         return table
+
+    @staticmethod
+    def create_fromValuePairs(
+        nameValuePairRows: list[NameValuePairList],
+    ) -> "PrettyTable_Contents":
+
+        if len(nameValuePairRows) == 0:
+            return PrettyTable_Contents()
+
+        result = PrettyTable_Contents([name for name, _value in nameValuePairRows[0]])
+
+        for row in nameValuePairRows:
+            result.appendRow(
+                [(None if value is None else str(value)) for _name, value in row]
+            )
+
+        return result
 
 
 class RenderOptions_SingleCol:
