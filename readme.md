@@ -39,7 +39,7 @@ source .venv/bin/activate # to enter the virtual environment - may be at other l
 python3_subver="$(python3 --version | sed 's|^Python 3\.||g' | sed 's|\..*$||g')"
 
 requirements_fname="requirements/requirements-python3.${python3_subver}.txt"
-pip install -r "${requirements_fname}"
+pip install -r "${requirements_fname}" | grep -v "^Requirement already satisfied:"
 echo "Installed from: ${requirements_fname}"
 
 font_target=".venv/lib/python3.${python3_subver}/site-packages/cv2/qt/fonts"

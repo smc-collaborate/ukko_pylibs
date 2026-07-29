@@ -20,3 +20,4 @@ pyserial
 types-pyserial
 termcolor
 deepdiff
+json5
