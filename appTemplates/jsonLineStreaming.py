@@ -88,7 +88,7 @@ common_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if common_dir not in sys.path:
     sys.path.append(common_dir)
 
-import ukko_pylibs.app.appSupport as app
+from ukko_pylibs import app
 
 #
 ################################################################################
@@ -237,7 +237,7 @@ class JsonLineStreamingApp:
             f"No more connections - ending {self.spec.DATA_KIND} Monitoring"
         )
 
-    print(f"📡  End collection & broadcasting")
+        print(f"📡  End collection & broadcasting")
 
 
 def jsonLineStreamingApp_doRun(spec: IJsonLineStreamerSpec):

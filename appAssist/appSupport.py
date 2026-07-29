@@ -11,8 +11,6 @@ import sys
 from typing import Any, Callable, NoReturn, Tuple
 from types import NoneType
 
-from ukko_pylibs.basic.simpleUtils import EscapeMgr
-
 ################################################################################
 #
 # Shared Libraries
@@ -34,6 +32,7 @@ from ukko_pylibs.basic.class_HandledException import (
     getPrettyExceptionInfo,
 )
 from ukko_pylibs.basic import styling
+from ukko_pylibs.basic.escapeFormatting import asBashParam
 from ukko_pylibs.appAssist.class_Configuration import Configuration
 from ukko_pylibs.appAssist.class_ParamSpec import (
     ParamSpec,
@@ -164,24 +163,25 @@ appConfig = Configuration(
 
 entries, default = appLog.get_thresholds()
 
+APP_OPTION_DEFAULTS = {
+    "settings": None,
+    "show-config": False,
+    "examples": [],
+    "description": "Application",
+    "runner": None,
+    "escapeArguments": None,
+    "additional_parameters": "",
+    "exeName": getExeName(),
+    "enableStyling": True,
+    "versions_extra": [],
+    "showHiddenOptions": False,
+}
+
 
 def appValueOrDefault(appValues: dict[str, Any], name: str) -> Any | None:
     if name in appValues:
         return appValues[name]
 
-    APP_OPTION_DEFAULTS = {
-        "settings": None,
-        "show-config": False,
-        "examples": [],
-        "description": "Application",
-        "runner": None,
-        "escapeArguments": None,
-        "additional_parameters": "",
-        "exeName": getExeName(),
-        "enableStyling": True,
-        "versions_extra": [],
-        "showHiddenOptions": False,
-    }
     if name in APP_OPTION_DEFAULTS:
         return APP_OPTION_DEFAULTS[name]
 
@@ -989,7 +989,7 @@ class _ArgLoader_ReplaceParams(IArgLoader_Template):
 
     @staticmethod
     def _nameValueToBadBashArg(name: str, valueAsText: str, badReason: str = ""):
-        return EscapeMgr.asBashParam(f"--{name}={valueAsText}❓  {badReason}")
+        return asBashParam(f"--{name}={valueAsText}❓  {badReason}")
 
     def _nameValueToBashArg(self, name: str, valueAsText: str):
         spec = self.getParamSpec(name)
@@ -1033,7 +1033,7 @@ class _ArgLoader_ReplaceParams(IArgLoader_Template):
         newList: list[str] = [exeName]
         newList.extend(self._outputList)
 
-        return " ".join(newList)  # [EscapeMgr.asBashParam(x) for x in newList])
+        return " ".join(newList)  # [asBashParam(x) for x in newList])
 
 
 ##################################################################################################

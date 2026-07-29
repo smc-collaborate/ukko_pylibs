@@ -16,7 +16,7 @@ if shared_dir not in sys.path:
 
 from ukko_pylibs.basic.logger import appLog
 
-from ukko_pylibs.basic.simpleUtils import PrettyText, EscapeMgr, Utils
+from ukko_pylibs.basic.simpleUtils import PrettyText, Utils
 from ukko_pylibs.basic.prettyTable import PrettyTable
 
 
@@ -303,7 +303,7 @@ def customisedChoicePart_getTopSuggestions(
                 _suggestion,
                 "<exeName+action>",
                 "<exeName+action> "
-                + action,  # (' '.join([EscapeMgr.escapeIfNeeded(action) for action in actions_depth]))
+                + action,  # (' '.join([escapeIfNeeded(action) for action in actions_depth]))
             )
             if isinstance(suggestion, str):
                 suggestion = suggestion.strip()

@@ -13,10 +13,10 @@ if shared_dir not in sys.path:
 #
 from ukko_pylibs.basic.logger import appLog
 from ukko_pylibs.basic.simpleUtils import PrettyText
-from ukko_pylibs.basic.simpleUtils import EscapeMgr
 from ukko_pylibs.basic.simpleUtils import DictUtils
 from ukko_pylibs.basic.simpleUtils import Utils
 from ukko_pylibs.basic.simpleUtils import ImageInfo
+import ukko_pylibs.basic.escapeFormatting as escapeFormatting
 
 from ukko_pylibs.basic.prettyTable import PrettyTable
 
@@ -46,17 +46,17 @@ asJsonStr = Utils.asJsonStr
 asJsonRStr = Utils.asJsonRStr
 
 __all__ = [
+    "escapeFormatting",
+    "app",
+    "styling",
     "appLog",
     "AppDefinition",
     "appConfig",
     "PrettyText",
-    "EscapeMgr",
     "DictUtils",
     "Utils",
     "FileUtils",
     "DataTypes",
-    "app",
-    "styling",
     "HandledException",
     "ImageInfo",
     "timestampObj_from_ns",

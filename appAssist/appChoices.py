@@ -59,30 +59,10 @@ class AppChoices:
         )
 
     def appValue(self, name: str) -> Any | None:
-        if name in self.appValues:
-            return self.appValues[name]
 
-        from ukko_pylibs.appAssist.appSupport import getExeName
+        from ukko_pylibs.appAssist.appSupport import appValueOrDefault
 
-        APP_OPTION_DEFAULTS = {
-            "settings": None,
-            "show-config": False,
-            "examples": [],
-            "description": "Application",
-            "runner": None,
-            "escapeArguments": None,
-            "additional_parameters": "",
-            "exeName": getExeName(),
-            "enableStyling": True,
-            "versions_extra": [],
-        }
-        if name in APP_OPTION_DEFAULTS:
-            return APP_OPTION_DEFAULTS[name]
-
-        appLog.print_warning(
-            f"AppChoices.appValue() - Unknown option requested: {name}"
-        )
-        return None
+        return appValueOrDefault(self.appValues, name)
 
     def paramChoice(self, name: str, default: Any | None = None) -> Any | None:
         return self.params.get(name, default)

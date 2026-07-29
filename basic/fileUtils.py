@@ -250,15 +250,14 @@ def loadBytesFromFile_orHandledException(
 
 def loadTextFromFile_orHandledException(
     inputTextFile: str, what: str = "text data"
-) -> bytes:
+) -> str:
     try:
         if filenameIsStdIO(inputTextFile):
             inputTextFile = "/dev/stdin"
         if inputTextFile == "/dev/stdin":
             appLog.print_info(f"Note: Reading {what} from standard input")
-        with open(inputTextFile, "rb") as file:
-            file_bytes = file.read()
-        return file_bytes
+        with open(inputTextFile, "rt") as file:
+            return file.read()
 
     except Exception as e:
         raiseHandledException(fileExceptionToString(inputTextFile, e, what))

@@ -16,8 +16,9 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic.simpleUtils import PrettyText, EscapeMgr, Utils
+from ukko_pylibs.basic.simpleUtils import PrettyText, Utils
 from ukko_pylibs.basic.logger import appLog
+import ukko_pylibs.basic.escapeFormatting as escapeFormatting
 
 g_appColoursAreEnabled = True
 
@@ -131,7 +132,7 @@ def isEnabled() -> bool:
 #
 def apply(value: Any | None, styleText: str) -> str:
 
-    if not value:
+    if (value == "") or (value is None):
         return ""
 
     if not styleText or not isEnabled():
@@ -203,7 +204,7 @@ def asSuggestionList(
 ) -> str:
 
     return separator.join(
-        [asSuggestion(EscapeMgr.asEscapeMethod(x, escapeMethod)) for x in values]
+        [asSuggestion(escapeFormatting.asEscapeMethod(x, escapeMethod)) for x in values]
     )
 
 
@@ -211,7 +212,7 @@ def asOption(value: Any) -> str:
     if not isinstance(value, str) and isinstance(value, (list, tuple)):
         return "/".join([asOption(x) for x in value])
     else:
-        return asBold(EscapeMgr.escapeIfNeeded(str(value)))
+        return asBold(escapeFormatting.escapeIfNeeded(str(value)))
 
 
 def asError(value: Any | None) -> str:

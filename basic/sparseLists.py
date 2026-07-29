@@ -80,8 +80,7 @@ class SparseList[ContentKind](dict[int, ContentKind]):
             return result
         else:
             raise TypeError(
-                self._asCaption()
-                + f".create_fromJsonDict(): Cannot import type {type(spec)}"
+                f"SparseList.create_fromJsonDict(): Cannot import type {type(spec)}"
             )
 
     @staticmethod
@@ -226,11 +225,10 @@ class SparseList[ContentKind](dict[int, ContentKind]):
         if callable(theType):
             return theType()  # type: ignore[call-arg]
 
-        return_options = ["", 0]
-
         for value in ["", 0]:
             try:
-                return value  # pyright: ignore[reportReturnType]
+                valueOut: ContentKind = value  # Throws an exception if not possible
+                return valueOut
             except:
                 pass
         raise TypeError(self._asCaption() + ": Cannot create default ContentKind")

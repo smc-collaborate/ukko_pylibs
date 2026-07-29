@@ -141,7 +141,7 @@ class WalkedEntry:
             return False
         elif isinstance(self.parentRef.entry, dict):
             return True
-        elif isinstance(self.parentRef, list) and type(self.key) is int:
+        elif isinstance(self.parentRef.entry, list) and type(self.key) is int:
             return True
         else:
             return False

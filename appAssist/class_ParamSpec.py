@@ -19,7 +19,7 @@ if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
 from ukko_pylibs.basic.class_HandledException import HandledException
-from ukko_pylibs.basic.simpleUtils import PrettyText, EscapeMgr, Utils
+from ukko_pylibs.basic.simpleUtils import PrettyText, Utils
 from ukko_pylibs.basic.prettyTable import (
     RenderOptions_Columns,
     PrettyTable,
@@ -32,7 +32,7 @@ from ukko_pylibs.basic.prettyTable import (
 from ukko_pylibs.basic.logger import appLog
 from ukko_pylibs.basic.class_DataContents import DataContents
 from ukko_pylibs.basic.class_JsonData import JsonDict
-
+import ukko_pylibs.basic.escapeFormatting as escapeFormatting
 import ukko_pylibs.basic.styling as styling
 
 #
@@ -404,9 +404,7 @@ class ParamSpec:
         if style == ParamSpec.InfoStyle.EXPECTED_SENTENCE and not noExample:
             example = self.getExample()
             if example is not None:
-                result += (
-                    f"{self.getParamFormat()} (eg: {EscapeMgr.asBashParam(example)})"
-                )
+                result += f"{self.getParamFormat()} (eg: {escapeFormatting.asBashParam(example)})"
 
         return result.strip()
 
@@ -556,7 +554,7 @@ class ParamSpec:
                 )
         elif _type is str:
             if self.isEscaped():
-                return EscapeMgr.fromEscapedText(arg), None
+                return escapeFormatting.fromEscapedText(arg), None
             else:
                 return arg, None
         elif _type is JsonDict or JsonDict in typing.get_args(_type):
@@ -630,7 +628,7 @@ class ParamSpec:
 
             envValue = os.environ.get(envVarName, None)
             if envValue is not None:
-                _envNote += f"={EscapeMgr.escapeIfNeeded(envValue)}"
+                _envNote += f"={escapeFormatting.escapeIfNeeded(envValue)}"
 
                 otherDefault = self.defaultValue_orNoneType(withoutEnv=True)
                 if (otherDefault != envValue) and otherDefault is not NoneType:
@@ -747,11 +745,11 @@ class ParamSpec:
     def asBashParam(self, argText) -> str:
 
         if self.mustBeDirect() or (self.name() == "--"):
-            paramAsText = EscapeMgr.asBashParam(argText)
+            paramAsText = escapeFormatting.asBashParam(argText)
         else:
-            paramAsText = "--" + EscapeMgr.asBashParam(self.name())
+            paramAsText = "--" + escapeFormatting.asBashParam(self.name())
             if self.hasValue():
-                paramAsText += "=" + EscapeMgr.asBashParam(argText)
+                paramAsText += "=" + escapeFormatting.asBashParam(argText)
 
         return paramAsText
 

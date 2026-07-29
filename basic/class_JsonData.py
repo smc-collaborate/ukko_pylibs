@@ -13,9 +13,9 @@ if shared_dir not in sys.path:
 
 
 from ukko_pylibs.basic import fileUtils
-from ukko_pylibs.basic.simpleUtils import PrettyText, EscapeMgr
+from ukko_pylibs.basic.simpleUtils import PrettyText
 from ukko_pylibs.basic.class_HandledException import HandledException
-
+import ukko_pylibs.basic.escapeFormatting as escapeFormatting
 
 #
 ################################################################################
@@ -36,12 +36,13 @@ class JsonDict:
         self,
         value: str,
         formatIn: str | None = None,
+        fname_provided: str = "",
     ):
         self.contents: dict = {}
         self.asProvided: str = value.strip()
 
         self.formatIn: str = "JSON" if not formatIn else formatIn
-        self.fname_provided: str = ""
+        self.fname_provided = fname_provided
         self.jsonText = ""
 
         self._doLoadExtendedData()  # < Can modify .interpretAs & .format
@@ -51,7 +52,7 @@ class JsonDict:
             return f"Contents of '{self.fname_provided}'"
         else:
             return PrettyText.asClipped(
-                EscapeMgr.asEscapeMethod(self.fname_provided, "bash")
+                escapeFormatting.asEscapeMethod(self.fname_provided, "bash")
             )
 
     def _doLoadExtendedData(self):
@@ -87,6 +88,6 @@ class JsonDict:
         }
 
         if self.fname_provided:
-            out["format"] = self.fname_provided
+            out["filename"] = self.fname_provided
 
         return out

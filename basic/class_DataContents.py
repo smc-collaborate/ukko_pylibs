@@ -18,11 +18,11 @@ if shared_dir not in sys.path:
 
 
 from ukko_pylibs.basic import styling
-from ukko_pylibs.basic.simpleUtils import Utils, DictUtils, PrettyText, EscapeMgr
+from ukko_pylibs.basic.simpleUtils import Utils, DictUtils, PrettyText
 from ukko_pylibs.basic.logger import appLog
 from ukko_pylibs.basic.class_HandledException import HandledException
 from ukko_pylibs._external.parseProtoBuf import decodeProtobuf_binToDict
-
+import ukko_pylibs.basic.escapeFormatting as escapeFormatting
 
 #
 ################################################################################
@@ -402,7 +402,9 @@ class DataContents(DataSourceWithInfo):
         self._warning: str | None = None
 
         if intrepretAsCommandLineEntry and isinstance(self.asProvidedAfterPrefix, str):
-            self.asData: Any = EscapeMgr.fromEscapedText(self.asProvidedAfterPrefix)
+            self.asData: Any = escapeFormatting.fromEscapedText(
+                self.asProvidedAfterPrefix
+            )
         else:
             self.asData = self.asProvidedAfterPrefix
 
@@ -699,10 +701,8 @@ class DataContents(DataSourceWithInfo):
                 self._loadFromFile(_fname, caption)
 
             if (
-                (isinstance(self.asData, bytes))
-                and self.contentType.isDefault()
-                or self.contentType.isTextType()
-            ):
+                isinstance(self.asData, bytes) and self.contentType.isDefault()
+            ) or self.contentType.isTextType():
                 _txtToReview = Utils.asUtf8orBytes(self.asData)
 
                 if not isinstance(_txtToReview, str):
@@ -742,7 +742,9 @@ class DataContents(DataSourceWithInfo):
             raise HandledException(f"DataContents[{self.optionalName}]: {errmsg}", e)
 
     def asBashParam(self) -> str:
-        return EscapeMgr.asBashParam(self.asParamTxt(), name_optional=self.optionalName)
+        return escapeFormatting.asBashParam(
+            self.asParamTxt(), name_optional=self.optionalName
+        )
 
     def print_info(self, msg: str):
         appLog.print_info(f"DataContents[{self.optionalName}]: {msg}")
