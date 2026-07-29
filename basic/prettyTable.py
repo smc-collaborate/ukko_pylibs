@@ -133,6 +133,29 @@ class PrettyTable_Contents:
         if row is not None:
             self.contentsGrid.appendRow(PrettyTable_Row(row).data)
 
+    def appendRow_namePairList(self, pairsIn: NameValuePairList | None):
+        if pairsIn is None:
+            return
+
+        rowOut = SparseList[str]("")
+
+        def getColNum(title: str):
+            for (
+                colNum,
+                titleFound,
+            ) in (
+                self.colTitles.data.items()
+            ):  # @todo: Can be made more efficient by having a second index by value..
+                if titleFound == title:
+                    return colNum
+
+            return self.colTitles.data.append(title)
+
+        for name, value in pairsIn:
+            if value is not None:
+                rowOut[getColNum(name)] = str(value)
+        self.contentsGrid.appendRow(rowOut)
+
     def appendRow(
         self,
         row: (
@@ -233,15 +256,49 @@ class PrettyTable_Contents:
         nameValuePairRows: list[NameValuePairList],
     ) -> "PrettyTable_Contents":
 
-        if len(nameValuePairRows) == 0:
-            return PrettyTable_Contents()
-
-        result = PrettyTable_Contents([name for name, _value in nameValuePairRows[0]])
+        result = PrettyTable_Contents()
 
         for row in nameValuePairRows:
-            result.appendRow(
-                [(None if value is None else str(value)) for _name, value in row]
-            )
+            result.appendRow_namePairList(row)
+
+        return result
+
+    @staticmethod
+    def createFrom_dict(
+        src: dict, keyTitle: str | None, option_multiLineValues: bool = True
+    ) -> "PrettyTable_Contents":
+
+        result = PrettyTable_Contents()
+
+        for key, value in src.items():
+
+            nameValues = NameValuePairList()
+
+            if keyTitle is None:
+                nameValues.append(("Name", key))
+
+                if option_multiLineValues and isinstance(value, dict):
+
+                    lines: list[str] = []
+                    keyLen = max(
+                        [len(key2) for key2 in value if value is not None], default=0
+                    )
+
+                    for key2, value2 in value.items():
+                        if value2 is not None:
+                            lines.append(f"{key2:<{keyLen}} : {Utils.asStr(value2)}")
+                    nameValues.append(("Value", "\n".join(lines)))
+                else:
+                    nameValues.append(("Value", Utils.asStr(value)))
+            elif isinstance(value, dict):
+                nameValues.append((keyTitle, key))
+                for key2, value2 in value.items():
+                    if value2 is not None:
+                        nameValues.append((key2, Utils.asStr(value2)))
+            else:
+                nameValues.append((keyTitle, Utils.asStr(value)))
+
+            result.appendRow_namePairList(nameValues)
 
         return result
 
@@ -462,7 +519,15 @@ class Borders:
         self.rowBorders: dict[str, Borders.RowBorders] = {}
 
     def get(self, name: str) -> Union["Borders.RowBorders", None]:
-        return self.rowBorders.get(name)
+        result = self.rowBorders.get(name.strip("_ \t"))
+        # |x| print(f"!!! Borders.get({Utils.asJsonStr(name)}) in {Utils.asJsonStr(list(self.rowBorders.keys()))}={result}")
+
+        return result
+
+    def set(self, name: str | list[str], entry: RowBorders | None):
+        if entry:
+            for singleName in [name] if isinstance(name, str) else name:
+                self.rowBorders[singleName.strip("_")] = entry
 
     @staticmethod
     def createOrNoneFrom_name(name: str) -> Union["Borders", None]:
@@ -504,36 +569,32 @@ class Borders:
     ) -> "Borders":
         result = Borders()
 
-        def setIfNotNone(name: str, entry: Borders.RowBorders | None):
-            if entry:
-                result.rowBorders[name] = entry
-
-        setIfNotNone(
-            "top___________",
+        result.set(
+            "top",
             Borders.createRowBordersFrom_template(paddingCount, top___________),
         )
-        setIfNotNone(
-            "title_________",
+        result.set(
+            "title",
             Borders.createRowBordersFrom_template(paddingCount, title_________),
         )
-        setIfNotNone(
-            "undTopTitle___",
+        result.set(
+            "undTopTitle",
             Borders.createRowBordersFrom_template(paddingCount, undTopTitle___),
         )
-        setIfNotNone(
-            "entry_________",
+        result.set(
+            "entry",
             Borders.createRowBordersFrom_template(paddingCount, entry_1_______),
         )
-        setIfNotNone(
+        result.set(
             "betweenEntries",
             Borders.createRowBordersFrom_template(paddingCount, betweenEntries),
         )
-        setIfNotNone(
-            "overBotTitle__",
+        result.set(
+            "overBotTitle",
             Borders.createRowBordersFrom_template(paddingCount, overBotTitle__),
         )
-        setIfNotNone(
-            "bottom________",
+        result.set(
+            "bottom",
             Borders.createRowBordersFrom_template(paddingCount, bottom________),
         )
         return result
@@ -541,8 +602,7 @@ class Borders:
     @staticmethod
     def createFrom_divider(divider: str | None) -> "Borders":
         result = Borders()
-        result.rowBorders["entry_________"] = Borders.createRowBordersFrom_div(divider)
-        result.rowBorders["title_________"] = result.rowBorders["entry_________"]
+        result.set(["entry", "title"], Borders.createRowBordersFrom_div(divider))
         return result
 
     @staticmethod
@@ -804,20 +864,20 @@ class PrettyTable_Rendered:
         # |Other|                            overBotTitle__= "╠═══╬═══╬═══╪═══╬═══╬═══╣",
         # |Other|                            bottom________= "╚═══╩═══╩═══╧═══╩═══╩═══╝")
         # |Other|
-        lines.extend(dividerAsTextLines("top___________"))
+        lines.extend(dividerAsTextLines("top"))
 
         if self.in_table.colTitles.hasData():
-            lines.extend(row_asTextLines(self.in_table.colTitles, "title_________"))
+            lines.extend(row_asTextLines(self.in_table.colTitles, "title"))
 
-        kind = "undTopTitle___"
+        kind = "undTopTitle"
         for row in self.in_table.rows().values():
 
             lines.extend(dividerAsTextLines(kind))
             kind = "betweenEntries"
 
-            lines.extend(row_asTextLines(row, "entry_________"))
+            lines.extend(row_asTextLines(row, "entry"))
 
-        lines.extend(dividerAsTextLines("bottom________"))
+        lines.extend(dividerAsTextLines("bottom"))
 
         return lines
 

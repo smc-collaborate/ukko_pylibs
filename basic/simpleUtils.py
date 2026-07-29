@@ -967,7 +967,6 @@ class PrettyText:
 
     @staticmethod
     def textWrap(txt: str, maxWidth: int | None = None) -> list[str]:
-
         return PrettyText.textWrapWithPrefixes(txt, maxWidth, prefixes=False)
 
     class SlashTextWrapper(textwrap.TextWrapper):
@@ -984,39 +983,53 @@ class PrettyText:
 
     @staticmethod
     def textWrapWithPrefixes(
-        txt: str, maxWidth: int | None = None, prefixes: list[str] | bool | None = True
+        _txt: str, maxWidth: int | None = None, prefixes: list[str] | bool | None = True
     ) -> list[str]:
+        # |x|print(f"!!textWrapWithPrefixes({Utils.asJsonStr(_txt)},maxWidth={maxWidth},prefixes={Utils.asJsonStr(prefixes)})")
+        if _txt == "":
+            return [""]
+        linesIn = _txt.splitlines()
 
-        if maxWidth is None or PrettyText.uniLen_approx(txt) <= maxWidth:
-            return [txt]
-        prefixToAppend = ""
-        otherPrefixes = ""
-        if prefixes == True and ("=" in txt):
-            prefixes = [txt.split("=")[0] + "="]
+        if maxWidth is None:
+            return linesIn
+        maxWid_ = maxWidth
+        if (
+            max([PrettyText.uniLen_approx(line) for line in linesIn], default=0)
+            <= maxWidth
+        ):
+            return linesIn
 
-        if isinstance(prefixes, list):
-            for prefix in prefixes:
-                if txt.startswith(prefix):
-                    txt = txt[len(prefix) :]
-                    wid = PrettyText.uniLen_approx(prefix)
-                    prefixToAppend = prefix
-                    otherPrefixes = " " * wid
-                    maxWidth -= wid
-                    break
+        linesOut: list[str] = []
+        for txt in linesIn:
+            prefixToAppend = ""
+            otherPrefixes = ""
+            if prefixes == True and ("=" in txt):
+                prefixes = [txt.split("=")[0] + "="]
 
-        if maxWidth is None or maxWidth <= 0:
-            return [prefixToAppend.rstrip()] if prefixToAppend else [""]
+            if isinstance(prefixes, list):
+                for prefix in prefixes:
+                    if txt.startswith(prefix):
+                        txt = txt[len(prefix) :]
+                        wid = PrettyText.uniLen_approx(prefix)
+                        prefixToAppend = prefix
+                        otherPrefixes = " " * wid
+                        maxWid_ -= wid
+                        break
 
-        parts = PrettyText.SlashTextWrapper(width=maxWidth).wrap(txt)
-        if not parts:
-            return [prefixToAppend.rstrip()] if prefixToAppend else [""]
+            parts = (
+                None
+                if maxWid_ <= 0
+                else PrettyText.SlashTextWrapper(width=maxWid_).wrap(txt)
+            )
 
-        lines: list[str] = []
-        lines.append(prefixToAppend + parts.pop(0))
-        for part in parts:
-            lines.append(otherPrefixes + part.strip())
+            if not parts:
+                linesOut.append(prefixToAppend.rstrip() if prefixToAppend else "")
+            else:
+                linesOut.append(prefixToAppend + parts.pop(0))
+                for part in parts:
+                    linesOut.append(otherPrefixes + part.strip())
 
-        return lines
+        return linesOut
 
     @staticmethod
     def bulletPoints(msgs: list[str] | str, prefix: str = " • ") -> str:

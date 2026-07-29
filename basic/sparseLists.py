@@ -202,13 +202,18 @@ class SparseList[ContentKind](dict[int, ContentKind]):
             pos: int = position
         return pos
 
-    def append(self, entry: ContentKind):
-        self.setEntry(entry, None)
+    def append(self, entry: ContentKind) -> int:
+        return self._setEntry(entry, None)[1]
 
-    def setEntry(self, entry: ContentKind, position: int | None = None) -> ContentKind:
+    def _setEntry(
+        self, entry: ContentKind, position: int | None = None
+    ) -> Tuple[ContentKind, int]:
         posUsed = self._newKey(position)
         self[posUsed] = entry
-        return self[posUsed]
+        return self[posUsed], posUsed
+
+    def setEntry(self, entry: ContentKind, position: int | None = None) -> ContentKind:
+        return self._setEntry(entry, position)[0]
 
     def _getContentType(self) -> Any | None:
         orig_class = getattr(self, "__orig_class__", None)
