@@ -1,10 +1,11 @@
 import io
+from os import path
 import struct
 import os, sys
 
 import traceback
 from typing import Any, Tuple
-import parse
+
 
 ################################################################################
 #
@@ -26,15 +27,7 @@ import ukko_pylibs.basic.fileUtils as fileUtils
 
 #
 ################################################################################
-
-CUSTOM_FORMAT_SUFFIXES_TO_IGNORE = [
-    "/reply",
-    "/request",
-    "/stream/start",
-    "/stream/stop",
-    "/stream",
-    "/image",
-]  # Suffixes for custom formats that should not trigger a warning if no specific format definition is found (e.g. because they are more generic formats that are handled in a more flexible way)
+CUSTOM_FORMATS_TO_IGNORE = ["device/reading"]
 
 CUSTOM_FORMAT_SUFFIXES_TO_IGNORE = [
     "/reply",
@@ -236,7 +229,6 @@ class CustomisedContents:
                         )
 
         if not self.hasErrors():
-            # |Logging| appLog.print_info(f"{self.name}: {self}")
             return True
         else:
             appLog.print_error(f"{self.name}: {self.errorMsgs(' | ')}")
@@ -369,8 +361,9 @@ class DataHeaderFormat:
                     entry_bytes = rawDataStream.read(entry_numBytes)
                     entry_value = entry_bytes.decode("utf-8", errors="replace")
                     if code == "text[format]":
-                        extractFormat = str(conversionEntry.get("extractFormat", ""))
+                        import parse
 
+                        extractFormat = str(conversionEntry.get("extractFormat", ""))
                         result = parse.parse(
                             extractFormat, str(entry_value)
                         )  # .format(**theDict)
@@ -805,9 +798,13 @@ def customFormat_get(
 
             result = CustomContentsFormatDefinition(definition)
 
-        elif (customFormatName != "") and not any(
-            customFormatName.endswith(suffix)
-            for suffix in CUSTOM_FORMAT_SUFFIXES_TO_IGNORE
+        elif (
+            (customFormatName != "")
+            and (customFormatName not in CUSTOM_FORMATS_TO_IGNORE)
+            and not any(
+                customFormatName.endswith(suffix)
+                for suffix in CUSTOM_FORMAT_SUFFIXES_TO_IGNORE
+            )
         ):
             appLog.print_warning(
                 f"No custom format found for {customFormatName}.  Options include {list(formatLookup.keys())+['image:mono12_1024x1024','image:mono8_640x480', ' …']}"
@@ -818,7 +815,7 @@ def customFormat_get(
 
 def app_getMainDir() -> str:
     """Get the main directory of the application, which is the directory containing the main script."""
-    import ukko_pylibs.app.appSupport as app  # <-- Import here to avoid circular import issues
+    import ukko_pylibs.appAssist.appSupport as app  # <-- Import here to avoid circular import issues
 
     return app.getMainDir()
 
@@ -833,7 +830,6 @@ def relPathOrDefault(path: Any, default: str) -> str:
 def customFormat_getBasicInfo(
     src: CustomContentsFormatDefinition | None,
 ) -> dict[str, Any]:
-
     raw_type = "bitstream"
     raw_type_extra = " (such as a .bin file)"
     annotated_file_ext = ".data+"
@@ -844,9 +840,37 @@ def customFormat_getBasicInfo(
         "input.raw": "input.raw",
         "/path/to/sample.raw": "/path/to/input.raw",
         "/path/to/sample.data+": "/path/to/input.data+",
+        "/path/to/sample.annotations.json": "/path/to/input.annotations.json",
         ".raw": ".raw",
     }
-    if src is not None:
+
+    def replaceWithFileIfExists(key: str, relPath: str):
+        if not path.exists(relPath):
+            errmsg = f"customFormat[{result['kind']}]:Unable to find example file for key '{key}': {relPath}"
+            if relPath in ["data.bin", "image.img", "image.bin"] or result[
+                "kind"
+            ].startswith("generic/"):
+                appLog.print_verbose(errmsg)
+            else:
+                appLog.print_warning(errmsg)
+        else:
+            result[key] = relPath
+
+    if src is None:
+        appModule = sys.modules["__main__"]
+        appPaths = appModule.PATHS
+        replaceWithFileIfExists(
+            "/path/to/sample.raw",
+            f"{appPaths['SAMPLES_DIR']}/arrow/arrow_mono8.raw_mono8_100x100",
+        )
+        replaceWithFileIfExists(
+            "/path/to/sample.data+", f"{appPaths['SAMPLES_DIR']}/arrow/arrow_mono8.img+"
+        )
+        replaceWithFileIfExists(
+            "/path/to/sample.annotations.json",
+            f"{appPaths['SAMPLES_DIR']}/arrow/arrow_mono8.annotations.json",
+        )
+    else:
         raw_type = str(src.definition("description", raw_type))
         annotated_file_ext = (
             str(src.definition("suggested_file_ext", ".data+")).removesuffix("+") + "+"
@@ -858,14 +882,20 @@ def customFormat_getBasicInfo(
         result["includes"] = includes
 
         result["kind"] = src.KIND
-        result["input.raw"] = src.suggestSampleFileName()
-        result["/path/to/sample.raw"] = relPathOrDefault(
-            src.definition("examples/bitstream/0"),
-            "/path/to/" + src.suggestSampleFileName(),
+        replaceWithFileIfExists("input.raw", src.suggestSampleFileName())
+        replaceWithFileIfExists(
+            "/path/to/sample.raw",
+            relPathOrDefault(
+                src.definition("examples/bitstream/0"),
+                "/path/to/" + src.suggestSampleFileName(),
+            ),
         )
-        result["/path/to/sample.data+"] = relPathOrDefault(
-            src.definition("examples/annotatedData/0"),
-            "/path/to/input" + annotated_file_ext,
+        replaceWithFileIfExists(
+            "/path/to/sample.data+",
+            relPathOrDefault(
+                src.definition("examples/annotatedData/0"),
+                "/path/to/input" + annotated_file_ext,
+            ),
         )
 
         result[".raw"] = src.definition("suggested_file_ext_raw", ".raw")
@@ -898,6 +928,13 @@ def getCustomFormat_fromFile(fname: str) -> CustomContentsFormatDefinition | Non
             k: [os.path.abspath(v.replace("<definition_dir>", dirname)) for v in vs]
             for k, vs in examples.items()
         }
+
+        for example_kind, example_files in jsonData["examples"].items():
+            for example_file in example_files:
+                if not os.path.isfile(example_file):
+                    appLog.print_warning(
+                        f"CustomFormat[{Utils.pathAsDisplay(fname)}].examples[{example_kind}]: Missing file: {Utils.pathAsDisplay(example_file)}"
+                    )
     return CustomContentsFormatDefinition(jsonData, fname)
 
 
@@ -914,7 +951,6 @@ def _customFormatList_load() -> Tuple[
     def __getCustomFormatsInDir(
         dirToSearch: str, prefix: str = "", lookForDefaults: bool = False
     ) -> dict[str, CustomContentsFormatDefinition]:
-        # |Logging| appLog.print_info(f"__getCustomFormatsInDir: Scanning directory: {dirToSearch}")
 
         results = {}
         if os.path.isdir(dirToSearch):

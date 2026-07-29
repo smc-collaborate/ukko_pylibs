@@ -135,8 +135,6 @@ class ICmdServer:
         if not data is None:
             try:
                 return doProcessCommand(dataLink, data, self.commands)
-            # |x|except HandledException as ee:
-            # |x|    pass
             except Exception as e:
                 self.print_error(f"Error processing data: {e}")
 

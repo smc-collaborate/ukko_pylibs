@@ -4,7 +4,8 @@
 
 
 import sys, os
-from typing import Any, Tuple
+from typing import Any, Iterable, Tuple
+from importlib.metadata import version
 
 
 ################################################################################
@@ -15,10 +16,24 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic.simpleUtils import PrettyText, EscapeMgr, Utils
+from ukko_pylibs.basic.simpleUtils import PrettyText, Utils
 from ukko_pylibs.basic.logger import appLog
+import ukko_pylibs.basic.escapeFormatting as escapeFormatting
 
 g_appColoursAreEnabled = True
+
+g_stylingDisableReason: str = ""
+
+
+def noteSupport(reason: str | None = None):
+    global g_stylingDisableReason
+
+    if reason is not None:
+        g_stylingDisableReason = reason
+    elif g_stylingDisableReason:
+        appLog.print_info(
+            f"Styling is not supported in this environment - disabling styling.\n{g_stylingDisableReason}"
+        )
 
 
 def isSupported() -> bool:
@@ -26,10 +41,9 @@ def isSupported() -> bool:
     output, error = _applyAlways("test", "silent:blue")
 
     def disableReason(reason: str) -> bool:
-        appLog.print_info(
-            f"Styling is not supported in this environment - disabling styling.\n{reason}"
-        )
+        noteSupport(reason)
         doDisable(True)
+
         return False
 
     if error:
@@ -44,38 +58,61 @@ def isSupported() -> bool:
         return True
 
 
+def asStylingRemoved(src: str | list[str] | Any | None) -> str:
+    if src is None:
+        return ""
+    if isinstance(src, str):
+        return PrettyText.removeAnsiCodes(src)
+    if isinstance(src, list):
+        return "\n".join([asStylingRemoved(x) for x in src])
+    return PrettyText.removeAnsiCodes(str(src))
+
+
 # First is always the colour, the rest are attributes (eg: bold, underline, etc)
 #
-def _applyAlways(text: str, styleText: str) -> Tuple[str, str | None]:
-    isSilent, styleText = Utils.removePrefix(styleText, "silent:")
+def _applyAlways(text: str, styleTextPlus: str) -> Tuple[str, str | None]:
+    isSilent, styleText = Utils.hasRemovedPrefix(styleTextPlus, "silent:")
 
     x = styleText.split("+")
 
-    color: str | None = ""
-    on_color: str | None = ""
+    colour: str | None = ""
+    on_colour: str | None = ""
     attrs: list[str] | None = []
 
     try:
         import termcolor
 
-        color = x.pop(0)
+        colour = x.pop(0)
 
         while len(x) > 0:
             attr = x.pop(0)
             if attr.startswith("on_"):
-                on_color = attr
+                on_colour = attr
             else:
                 attrs.append(attr)
 
-        return (
-            termcolor.colored(
-                PrettyText.removeAnsiCodes(text),  # < Remove existing styling
-                color=color or None,
-                on_color=on_color or None,
-                attrs=attrs or None,
-            ),
-            None,
-        )
+        if version("termcolor").startswith("1."):
+            return (
+                termcolor.colored(
+                    PrettyText.removeAnsiCodes(text),  # < Remove existing styling
+                    color=colour or None,
+                    on_color=on_colour or None,
+                    attrs=attrs or None,
+                ),
+                None,
+            )
+        else:
+            return (
+                termcolor.colored(
+                    PrettyText.removeAnsiCodes(text),  # < Remove existing styling
+                    color=colour or None,
+                    on_color=on_colour or None,
+                    attrs=attrs or None,
+                    force_color=True,
+                ),
+                None,
+            )
+
     except Exception as e:
         # Don't use appLog here as appLog may choose to use styling at some point in the future
         if not isSilent:
@@ -95,14 +132,25 @@ def isEnabled() -> bool:
 #
 def apply(value: Any | None, styleText: str) -> str:
 
-    if not value:
+    if (value == "") or (value is None):
         return ""
 
-    return _applyAlways(str(value), styleText)[0] if isEnabled() else str(value)
+    if not styleText or not isEnabled():
+        return str(value)
+
+    return _applyAlways(str(value), styleText)[0]
+
+
+def isStyled(text: str) -> bool:
+    return PrettyText.containsAnsiCode(text)
 
 
 def asSuggestion(value: Any | None) -> str:
     return apply(value, "blue+bold")
+
+
+def asUnderlinedSuggestion(value: Any | None) -> str:
+    return apply(value, "blue+bold+underline")
 
 
 def asExceptFor(
@@ -147,14 +195,24 @@ def asBold(value: Any | None) -> str:
     return apply(value, "+bold")
 
 
-def asSuggestionList(values: list[Any], quoteIfNeeded: bool = False) -> str:
+def asExpectedOneOf(entries, butHave):
+    return f"Expected one of {asSuggestionList(entries)} but have {asError(butHave)}"
 
-    if quoteIfNeeded:
-        return ", ".join(
-            [asSuggestion(EscapeMgr.escapeIfNeeded(str(x))) for x in values]
-        )
+
+def asSuggestionList(
+    values: Iterable[Any], escapeMethod: str = "", separator: str = ", "
+) -> str:
+
+    return separator.join(
+        [asSuggestion(escapeFormatting.asEscapeMethod(x, escapeMethod)) for x in values]
+    )
+
+
+def asOption(value: Any) -> str:
+    if not isinstance(value, str) and isinstance(value, (list, tuple)):
+        return "/".join([asOption(x) for x in value])
     else:
-        return ", ".join([asSuggestion(str(x)) for x in values])
+        return asBold(escapeFormatting.escapeIfNeeded(str(value)))
 
 
 def asError(value: Any | None) -> str:
@@ -172,7 +230,10 @@ def asErrorList(values: list[Any], singularUnit: str = "") -> str:
         )
 
 
-def doDisable(disable: bool | None):
+def doDisable(disable: bool | None) -> bool:
     global g_appColoursAreEnabled
+
+    prevValue = g_appColoursAreEnabled
     if disable:
         g_appColoursAreEnabled = False
+    return prevValue != g_appColoursAreEnabled

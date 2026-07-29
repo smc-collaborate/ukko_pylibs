@@ -122,7 +122,7 @@ class BasicTcpServer(Interface_BasicServerOut):
                 appAccess.doHalt("By user [a]")
 
         if not appAccess.isRunning():
-            appLog.print_info("Server exiting  [a]")
+            self._print_info("Server exiting")
 
         self.tcpServer_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         self.tcpServer_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 5)

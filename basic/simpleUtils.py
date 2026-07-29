@@ -1,5 +1,6 @@
 import array
 import base64
+
 from collections import OrderedDict
 from copy import deepcopy
 import hashlib
@@ -11,10 +12,15 @@ import sys
 import textwrap
 import time
 import traceback
-from typing import Any, Callable
+from typing import Any, Callable, Tuple
 from datetime import datetime as dt_datetime
 from datetime import timezone as dt_timezone
 import numpy as np
+
+
+NameValuePair = Tuple[str, Any | None]
+NameValuePairList = list[NameValuePair]
+
 
 ################################################################################
 #
@@ -37,8 +43,8 @@ def get_cwdOnStartup():
 
     if not cwdOnStartup:
         try:
-            if sys.modules.get("ukko_pylibs.app.appSupport") is not None:
-                from ukko_pylibs.app.appSupport import appInfo_get
+            if sys.modules.get("ukko_pylibs.appAssist.appSupport") is not None:
+                from ukko_pylibs.appAssist.appSupport import appInfo_get
 
                 runningDir = appInfo_get("APP_DEFINITION.runningDir", "")
                 cwdOnStartup = runningDir
@@ -52,11 +58,29 @@ def get_cwdOnStartup():
 
 class Utils:
     @staticmethod
-    def removePrefix(value: str, prefix: str) -> tuple[bool, str]:
+    def toBool(value: Any) -> bool | None:
+        if isinstance(value, bool):
+            return value
+        txt = str(value).strip().lower()
+        if txt in ["true", "1", "yes", "y", "on"]:
+            return True
+        elif txt in ["false", "0", "no", "n", "off"]:
+            return False
+        return None
+
+    @staticmethod
+    def hasRemovedPrefix(value: str, prefix: str) -> tuple[bool, str]:
         if not value.startswith(prefix):
             return False, value
         else:
             return True, value[len(prefix) :]
+
+    @staticmethod
+    def hasRemovedSuffix(value: str, suffix: str) -> tuple[bool, str]:
+        if not value.endswith(suffix):
+            return False, value
+        else:
+            return True, value[: -len(suffix)]
 
     @staticmethod
     def is_iterable(obj) -> bool:
@@ -79,9 +103,14 @@ class Utils:
         return isConsoleOut
 
     @staticmethod
-    def pathDisplay(pathName: str) -> str:
+    def pathAsDisplay(pathName: str) -> str:
         """Converts a path to a friendly display format."""
         return Utils.pathConvert(pathName, kind="friendly").removesuffix(os.sep)
+
+    @staticmethod
+    def pathDisplay(pathName: str) -> str:
+        appLog.deprecationWarningRename("pathDisplay", "pathAsDisplay")
+        return Utils.pathAsDisplay(pathName)
 
     @staticmethod
     def pathConvert(pathName: str, kind: str = "friendly") -> str:
@@ -139,11 +168,13 @@ class Utils:
             options.append(path)
 
         path = min(options, key=lambda x: len(x))
-
-        # |Logging| print(f"----------")
-        # |Logging| print(f"pathConvert[{kind}] {extra}\n: {pathName}\n→ {path}")
-        # |Logging| print(f"----------")
         return path
+
+    @staticmethod
+    def asUtf8orBytesOrNone(data: Any) -> str | bytes | None:
+
+        result = Utils.asUtf8orBytes(data)
+        return result if result != "" else None
 
     @staticmethod
     def asUtf8orBytes(data: Any) -> str | bytes:
@@ -168,8 +199,10 @@ class Utils:
             return ""
         elif isinstance(data, str):
             return data
+        elif isinstance(data, dict):
+            return Utils.asJsonStr(data)
         else:
-            return f"[{type(data).__name__}]:{str(data)}"
+            return f"❓  [{type(data).__name__}]:{str(data)}"
 
     @staticmethod
     def load_file_to_text(file_path):
@@ -239,120 +272,160 @@ class Utils:
         )  # < Let the exception propagate this time - there isn't much more we can do
 
     @staticmethod
-    def asJsonStr(obj, indent: int | str | None = None):
+    def asJsonStr(obj, indent: int | str | None = None, sortKeys: bool = False) -> str:
         """Safer version of json.dumps that can handle some extra types like bytes and avoids odd crashes"""
 
-        def stripStartAndEnd(s: Any, prefix: str, suffix: str) -> str | None:
-            if s is None:
-                return None
-            s = str(s).strip()
-            if s.startswith(prefix) and s.endswith(suffix):
-                return s[len(prefix) : -len(suffix)]
-            else:
-                return None
+        def _makeSafe(obj, _note: str = "") -> str:
+            _result = '"_created_":' + Utils.asJsonStr(Utils.makeJsonable(obj), indent)
+            if _note:
+                _result += '"note":' + json.dumps(_note, ensure_ascii=False)
+            return "{" + _result + "}"
 
-        class JsonEncoderExtended(json.JSONEncoder):
-            def default(self, o):
-                # return f"<Obj[{o.__class__.__name__}:{type(o)}]"
-                try:
-                    if isinstance(o, type):
-                        # if o.__class__.__name__ != "mappingproxy":
-                        #    return o.__class__.__name__
-                        if hasattr(o, "__dict__"):
-                            _items = o.__dict__.items()
-                        elif hasattr(o, "items"):
-                            _items = o.items()
-                        else:
-                            _items = inspect.getmembers(o)
-                        outResult = {}
-                        for k, v in _items:
-                            outResult[f"{k}"] = f"{v}"
-                            returnThis = None
-                            if str(k) == "__weakref__":
-                                returnThis = stripStartAndEnd(
-                                    str(v),
-                                    "<attribute '__weakref__' of '",
-                                    "' objects>",
-                                )
-                            if str(k) == "__str__":
-                                returnThis = stripStartAndEnd(
-                                    str(v), "<slot wrapper '__str__' of '", "' objects>"
-                                )
+        try:
 
-                            if str(k) == "__doc__":
-                                _topLine = str(v).strip().splitlines()[0]
-                                if "->" in _topLine:
-                                    returnThis = _topLine.split("->")[-1]
+            class JsonEncoderExtended(json.JSONEncoder):
+                def default(self, o):
+                    return _makeSafe(o)
 
-                            if returnThis is not None:
-                                return f"«{str(returnThis).strip()}»"
-                        return {"«type»": outResult}
+            return json.dumps(
+                obj,
+                indent=indent,
+                skipkeys=True,
+                sort_keys=sortKeys,
+                separators=None if indent else (",", ":"),
+                ensure_ascii=False,
+                cls=JsonEncoderExtended,
+            )
+        except Exception as e:
+            return _makeSafe(obj)
 
-                    if isinstance(o, bytes):
-                        # UTF-8 is the most common encoding for byte data, so we will try to decode it as UTF-8 first. If that fails, we will fall back to a hex representation.
-                        _len = len(o)
-                        if _len == 0:
-                            return ""
-                        extra = ""
-                        try:
-                            earlyPart = o[:100]
-                            if not (0 in earlyPart) and not (
-                                0xFF in earlyPart
-                            ):  # Just a check to avoid trying to decode obviously non-text data - this is not perfect but should avoid annoyances when trapping raised exceptions
-                                return {"utf-8": o.decode("utf-8")}
-                        except UnicodeDecodeError:
-                            pass
-                        except Exception as e:
-                            extra = f" (decoding error: {e})"
-                        TRUNCATION_LIMIT = None
+    @staticmethod
+    def asJsonRStr(obj, indent: int | str | None = None, sortKeys: bool = False) -> str:
+        """Safer version of json.dumps that can handle some extra types like bytes and avoids odd crashes"""
+        try:
+            import json5
 
-                        obj: dict[str, Any] = {"kind": "bytes", "len": _len}
-                        if TRUNCATION_LIMIT is None:
-                            obj["hex"] = o.hex()
-                        elif _len <= TRUNCATION_LIMIT * 2:
-                            obj["hex"] = o.hex()
-                        else:
-                            obj["truncated"] = TRUNCATION_LIMIT
-                            obj["hex"] = (
-                                o[:TRUNCATION_LIMIT].hex()
-                                + "…"
-                                + o[-TRUNCATION_LIMIT:].hex()
-                            )
+            def _makeSafe(obj, _note: str = "") -> str:
+                _result = '"_created_":' + Utils.asJsonStr(
+                    Utils.makeJsonable(obj), indent
+                )
+                if _note:
+                    _result += '"note":' + json.dumps(_note, ensure_ascii=False)
+                return "{" + _result + "}"
 
-                        if extra != "":
-                            obj["_note"] = extra
-                        return obj
-                    elif o.__class__.__name__.startswith("numpy"):
-                        import numpy as np
+            class Json5EncoderExtended(json5.JSON5Encoder):
+                def default(self, obj):
+                    return _makeSafe(obj)
 
-                        return np.array_str(o)
-                    elif not isinstance(o, type) and hasattr(o, "asDict"):
-                        return o.asDict()
-                    elif hasattr(o, "__slots__"):
-                        outResult = {}
-                        for field_name in o.__slots__:
-                            value = getattr(o, field_name, None)
-                            outResult[f"{field_name}"] = f"{value}"
-                            if str(field_name) == "__doc__":
-                                _doc = str(value).strip()
-                                if _doc != "None" and _doc != "":
-                                    return f"<doc:{_doc.split()[0]}>"
-                        return outResult
-                    elif hasattr(o, "__dict__"):
-                        return o.__dict__
-                    else:
-                        return str(o)
-                except Exception as e:
-                    return f"<Object[{o.__class__.__name__}:{type(o)}] (Note: {e})>"
+            return json5.dumps(
+                obj,
+                indent=indent,
+                skipkeys=True,
+                sort_keys=sortKeys,
+                separators=None if indent else (",", ":"),
+                ensure_ascii=False,
+                cls=Json5EncoderExtended,
+            )
+        except Exception:
+            return Utils.asJsonStr(obj, indent)
 
-        return json.dumps(
-            obj,
-            indent=indent,
-            skipkeys=True,
-            separators=None if indent else (",", ":"),
-            ensure_ascii=False,
-            cls=JsonEncoderExtended,
-        )
+    @staticmethod
+    def makeJsonable(
+        o: Any | None, currentDepth: int = 0, hint: str = ""
+    ) -> dict | str | int | float | bool | list | Any:
+        if o is None:
+            return "⚠️  «None»"  # <- This should never happen - as 'None' -> Null is normally handled elsewhere.  Return this to warn
+
+        if currentDepth >= 20:
+            return f"⚠️  Unable to convert {hint}[{type(o)}]: Recursion depth of {currentDepth} reached"
+
+        def _showHint(msg: str):
+            pass
+            # if currentDepth <=3 and not msg.startswith("⚠️"):
+            #    print(f"makeJsonable: {hint}Type[{type(o)}] : Depth={currentDepth} : {msg}")
+
+        _showHint(f" --- Start")
+
+        if type(o) in [str, int, float, bool]:
+            _showHint(f" = Direct {o}")
+            return o
+        if str(o) == "<class 'builtin_function_or_method'>":
+            _showHint(f" = «builtin_function_or_method»")
+            return "«builtin_function_or_method»"
+
+        try:
+            if isinstance(o, type):
+                _showHint("type")
+                return {"«type»": _makeJsonable_fromType(o)}
+
+            if isinstance(o, list):
+                _showHint("list")
+                list_out: list[Any] = []
+                for index in range(len(o)):
+                    list_out.append(
+                        Utils.makeJsonable(
+                            o[index],
+                            currentDepth + 1,
+                            hint.removesuffix(".") + "[" + str(index) + "].",
+                        )
+                    )
+                return list_out
+
+            if isinstance(o, dict) or isinstance(o, OrderedDict):
+                _showHint("dictionary")
+                result: dict[str, Any] = {}
+                for key, value in o.items():
+                    result[key] = Utils.makeJsonable(
+                        value, currentDepth + 1, hint + key + "."
+                    )
+                return result
+
+            if isinstance(o, bytes):
+                _showHint("bytes")
+                return _makeJsonable_fromBytes(o)
+
+            if o.__class__.__name__.startswith("numpy"):
+                _showHint("numpy")
+
+                import numpy as np
+
+                return np.array_str(o)
+            if hasattr(o, "asDict"):
+                _showHint("asDict()")
+                return o.asDict()
+
+            if hasattr(o, "items"):  # < Must have type + common first
+                _showHint("_items")
+                _items = o.items()
+                obj_out: dict[str, Any] = {}
+                for _name, _value in _items:
+                    obj_out[_name] = Utils.makeJsonable(
+                        _value, currentDepth + 1, hint + _name + "."
+                    )
+                return obj_out
+
+            if hasattr(o, "__slots__"):
+                _showHint("slots")
+                outResult = {}
+                for field_name in o.__slots__:
+                    value = getattr(o, field_name, None)
+                    outResult[f"{field_name}"] = f"{value}"
+                    if str(field_name) == "__doc__":
+                        _doc = str(value).strip()
+                        if _doc != "None" and _doc != "":
+                            return f"<doc:{_doc.split()[0]}>"
+                return outResult
+            if hasattr(o, "__dict__"):
+                result = _makeJsonable_fromOther(o.__dict__, str(type(o)))
+                _showHint(f" {type(o)}[__dict__] = {result}")
+                return result
+
+            _showHint("⚠️  Other")
+
+            return str(o)
+        except Exception as e:
+            _showHint("⚠️  Unable to convert {e}")
+            return f"⚠️  Unable to convert {hint}[{type(o)}]: {e}"
 
     @staticmethod
     def rangeAsText(
@@ -547,6 +620,112 @@ class Utils:
     def getIdSuffix(id):
         return "" if (id is None) or (id == "") else (str(id) + "/")
 
+    @staticmethod
+    def typeOfAsStr(obj) -> str:
+        return Utils.typeAsStr(type(obj), withBrackets=True)
+
+    @staticmethod
+    def typeAsStr(dataType, withBrackets: bool = False) -> str:
+        txt = str(dataType).removeprefix("<class '").removesuffix("'>")
+        if withBrackets:
+            return "«" + txt + "»"
+        else:
+            return txt
+
+
+def _makeJsonable_fromType(o: type) -> str:
+    try:
+        # if o.__class__.__name__ != "mappingproxy":
+        #    return o.__class__.__name__
+        if hasattr(o, "__dict__"):
+            _items = o.__dict__.items()
+        elif hasattr(o, "items"):
+            _items = o.items()
+        else:
+            _items = inspect.getmembers(o)
+
+        outResult = {}
+        for k, v in _items:
+            outResult[f"{k}"] = f"{v}"
+            returnThis: str | None = None
+            removeSurroundings: None | Tuple[str, str] = None
+            if str(k) == "__weakref__":
+                removeSurroundings = ("<attribute '__weakref__' of '", "' objects>")
+                returnThis = str(k)
+            elif str(k) == "__str__":
+                removeSurroundings = ("<slot wrapper '__str__' of '", "' objects>")
+                returnThis = str(k)
+            elif str(k) == "__doc__":
+                _topLine = str(v).strip().splitlines()[0]
+                if "->" in _topLine:
+                    returnThis = _topLine.split("->")[-1]
+
+            if returnThis is not None:
+                returnThis = returnThis.strip()
+                if removeSurroundings is not None:
+                    _prefix = removeSurroundings[0]
+                    _suffix = removeSurroundings[1]
+                    if returnThis.startswith(_prefix) and returnThis.endswith(_suffix):
+                        returnThis = returnThis[len(_prefix) : -len(_suffix)].strip()
+                return f"«{returnThis}»"
+        return f"⚠️  Unknown TypeConversion: {str(o)}"
+    except Exception as e:
+        return f"⚠️  Invalid TypeConversion: {e}"
+
+
+def _makeJsonable_fromBytes(o: bytes) -> dict[str, Any] | str:
+
+    # UTF-8 is the most common encoding for byte data, so we will try to decode it as UTF-8 first. If that fails, we will fall back to a hex representation.
+    _len = len(o)
+    if _len == 0:
+        return ""
+    extra = ""
+    try:
+        earlyPart = o[:100]
+        if not (0 in earlyPart) and not (
+            0xFF in earlyPart
+        ):  # Just a check to avoid trying to decode obviously non-text data - this is not perfect but should avoid annoyances when trapping raised exceptions
+            return {"utf-8": o.decode("utf-8")}
+    except UnicodeDecodeError:
+        pass
+    except Exception as e:
+        extra = f" (decoding error: {e})"
+    TRUNCATION_LIMIT = None
+
+    obj: dict[str, Any] = {"kind": "bytes", "len": _len}
+    if TRUNCATION_LIMIT is None:
+        obj["hex"] = o.hex()
+    elif _len <= TRUNCATION_LIMIT * 2:
+        obj["hex"] = o.hex()
+    else:
+        obj["truncated"] = TRUNCATION_LIMIT
+        obj["hex"] = o[:TRUNCATION_LIMIT].hex() + "…" + o[-TRUNCATION_LIMIT:].hex()
+
+    if extra != "":
+        obj["_note"] = extra
+    return obj
+
+
+def _makeJsonable_fromOther(src: Any, kind: str):
+    result: dict[str, Any] = {}
+    try:
+        for key in ["__name__", "__package__", "__file__"]:
+            value = src.get(key)
+            if value is not None:
+                valueText = str(value)
+                if valueText:
+                    result[key.removeprefix("__").removesuffix("__")] = valueText
+        if not result:
+            result["_keys"] = list(src.keys())
+    except Exception as ee:
+        result["error"] = f"⚠️  [Other]: {ee}"
+
+    fullResult: dict[str, Any] = {
+        "type": kind.removeprefix("<class '").removesuffix("'>")
+    }
+    fullResult.update(result)
+    return fullResult
+
 
 class PrettyText:
     @staticmethod
@@ -650,10 +829,20 @@ class PrettyText:
     @staticmethod
     def withSubstitutions(
         src: str,
-        substitutions: dict[str, Any],
+        substitutions_: dict[str, Any],
         prefix: str = "{",
         suffix: str = "}",  # < These defaults make it compatible with python's 'parse' function
     ) -> str:
+        substitutions = deepcopy(substitutions_)
+        warning_format = substitutions.pop(
+            "[warning_format]", "PrettyText.withSubstitutions({keyNote}): {msg}"
+        )
+
+        def giveWarning(key: str, msg: str):
+            appLog.print_warning(
+                warning_format.format(keyNote=prefix + key + suffix, key=key, msg=msg)
+            )
+
         """Replaces all occurrences of prefix+key{:xxx}+suffix in src with the corresponding value from substitutions"""
         if prefix == "":
             raise ValueError("Prefix cannot be empty")
@@ -666,24 +855,25 @@ class PrettyText:
             _n = txt.find(suffix)
             substText: str | None = None
             if _n < 0:
-                appLog.print_warning(
-                    f"PrettyText.withSubstitutions({prefix}…{suffix}): Found prefix '{prefix}' without matching suffix '{suffix}'"
+                giveWarning(
+                    "…Missing:",
+                    f"Found prefix '{prefix}' without matching suffix '{suffix}'",
                 )
             else:
-                keyAndFormatting = txt[0:_n].split(":", 1)
+                keySource = txt[0:_n]
+                keyAndFormatting = keySource.split(":", 1)
                 key = keyAndFormatting[0]
 
                 if not (key in substitutions):
-                    appLog.print_warning(
-                        f"PrettyText.withSubstitutions({prefix}{':'.join(keyAndFormatting)}{suffix}): No substitution '{key}' found in: {substitutions}"
-                    )
+                    giveWarning(keySource, f"{key} not in {substitutions}")
                 elif len(keyAndFormatting) > 1:
                     formatSpec = keyAndFormatting[1]
                     try:
                         substText = format(substitutions[key], formatSpec)
                     except Exception as e:
-                        appLog.print_warning(
-                            f"PrettyText.withSubstitutions({prefix}{':'.join(keyAndFormatting)}{suffix}): Error formatting value '{substitutions[key]}' with format spec '{formatSpec}': {e}"
+                        giveWarning(
+                            keySource,
+                            f"Error formatting value '{substitutions[key]}' with format spec '{formatSpec}': {e}",
                         )
                 else:
                     substText = str(substitutions[key])
@@ -753,16 +943,40 @@ class PrettyText:
             return text
 
     @staticmethod
+    def containsAnsiCode(text: str) -> bool:
+        ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+        return bool(ansi_escape.search(text))
+
+    @staticmethod
+    def textWrap(txt: str, maxWidth: int | None = None) -> list[str]:
+
+        return PrettyText.textWrapWithPrefixes(txt, maxWidth, prefixes=False)
+
+    class SlashTextWrapper(textwrap.TextWrapper):
+        """Custom wrapper that treats slashes as breaking boundaries."""
+
+        # Overriding the default word-splitting regex to include slashes
+        wordsep_re = re.compile(
+            r"(\s+|"  # Whitespace
+            r"(?<=[\w\!\"\'\&\.\,\?])-{2,}(?=\w)|"  # Em-dash
+            # r"(?<=\w)-(?=\w)|"  # Hyphenated words
+            #        r'(?<=[/])|(?=[/]))'                       # Break right before or after a slash
+            r"(?<=[/]))"  # Break immediately after a slash
+        )
+
+    @staticmethod
     def textWrapWithPrefixes(
-        txt: str, maxWidth: int | None = None, prefixes: list[str] | None = None
+        txt: str, maxWidth: int | None = None, prefixes: list[str] | bool | None = True
     ) -> list[str]:
+
         if maxWidth is None or PrettyText.uniLen_approx(txt) <= maxWidth:
             return [txt]
-
         prefixToAppend = ""
         otherPrefixes = ""
+        if prefixes == True and ("=" in txt):
+            prefixes = [txt.split("=")[0] + "="]
 
-        if prefixes is not None:
+        if isinstance(prefixes, list):
             for prefix in prefixes:
                 if txt.startswith(prefix):
                     txt = txt[len(prefix) :]
@@ -775,7 +989,7 @@ class PrettyText:
         if maxWidth is None or maxWidth <= 0:
             return [prefixToAppend.rstrip()] if prefixToAppend else [""]
 
-        parts = textwrap.wrap(txt, width=maxWidth)
+        parts = PrettyText.SlashTextWrapper(width=maxWidth).wrap(txt)
         if not parts:
             return [prefixToAppend.rstrip()] if prefixToAppend else [""]
 
@@ -785,68 +999,6 @@ class PrettyText:
             lines.append(otherPrefixes + part.strip())
 
         return lines
-
-    # cols = ["ID", "Name", "Keys"]
-    @staticmethod
-    def tableAsLines(
-        rows: list[list[str]],
-        dividers: str | None = "|",
-        colTitles: list[str] | None = None,
-        colVisWidths: list[int] | None = None,
-    ) -> list[str]:
-        lines: list[str] = []
-        visWidths: list[int] = (
-            deepcopy(colVisWidths) if colVisWidths is not None else []
-        )
-
-        def row_review(row: list[str] | None):
-            if row:
-                for i, col in enumerate(row):
-                    wid = PrettyText.uniLen_approx(col)
-                    if len(visWidths) <= i:
-                        visWidths.append(wid)
-                    elif visWidths[i] is None or (wid > visWidths[i]):
-                        visWidths[i] = wid
-
-        def row_asText(row: list[str] | None) -> str:
-            txtOut = ""
-            if row:
-                for i, col in enumerate(row):
-                    if i >= len(visWidths):
-                        break
-                    if visWidths[i] > 0:
-                        if dividers is not None and (txtOut != ""):
-                            txtOut += dividers
-                        visLen = PrettyText.uniLen_approx(col)
-                        txtOut += f"{col}{' '*(visWidths[i]-visLen)}"
-            return txtOut
-
-        for row in rows:
-            row_review(row)
-
-        if colTitles:
-            for i, title in enumerate(colTitles or []):
-                if i < len(visWidths):
-                    if visWidths[i] > 0:
-                        visWidths[i] = max(
-                            visWidths[i], PrettyText.uniLen_approx(title)
-                        )
-            lines.append(row_asText(colTitles))
-
-        for row in rows:
-            lines.append(row_asText(row))
-
-        return lines
-
-    @staticmethod
-    def tableDump(
-        rows: list[list[str]],
-        dividers: str | None = "|",
-        colTitles: list[str] | None = None,
-        colVisWidths: list[int] | None = None,
-    ):
-        for line in PrettyText.tableAsLines(rows, dividers, colTitles, colVisWidths):
-            print(line)
 
     @staticmethod
     def bulletPoints(msgs: list[str] | str, prefix: str = " • ") -> str:
@@ -866,6 +1018,20 @@ class PrettyText:
 
 
 class DictUtils:
+    @staticmethod
+    def appendStr(
+        obj: dict[str, Any], key: str, newValue: str | None, separator: str = ","
+    ):
+
+        if newValue is None:
+            return
+
+        if not isinstance(obj.get(key, None), str):
+            obj[key] = ""
+        if newValue != "":
+            obj[key] += separator
+        obj[key] += str(newValue)
+
     @staticmethod
     def getWithDefaultValuesRemoved(
         dictIn: dict, defaultValues: dict[str, Any], recurseDicts: bool = False
@@ -945,7 +1111,7 @@ class DictUtils:
 
     @staticmethod
     def get(
-        obj_in: dict[str, Any] | list[Any] | None,
+        obj_in: dict[str, Any] | list[Any] | Any | None,
         keys: str | list[str],
         defaultIfNotFound: Any = None,
         getDeepestFound: bool = False,
@@ -1036,7 +1202,7 @@ class DictUtils:
 
     @staticmethod
     def getInt(
-        obj_in: dict[str, Any] | list[Any] | None,
+        obj_in: Any | None,
         keys: str | list[str],
         defaultIfNotFound: int,
     ) -> int:
@@ -1054,9 +1220,7 @@ class DictUtils:
         return defaultIfNotFound
 
     @staticmethod
-    def getBool(
-        obj: dict[str, Any] | None, key: str | list[str], defaultValue: bool
-    ) -> bool:
+    def getBool(obj: Any | None, key: str | list[str], defaultValue: bool) -> bool:
         result = DictUtils.get(obj, key)
         return (
             defaultValue
@@ -1065,12 +1229,12 @@ class DictUtils:
         )
 
     @staticmethod
-    def getBoolOrFalse(obj: dict[str, Any] | None, key: str | list[str]) -> bool:
+    def getBoolOrFalse(obj: Any | None, key: str | list[str]) -> bool:
         return DictUtils.getBool(obj, key, False)
 
     @staticmethod
     def getIntOrNone(
-        obj: dict[str, Any] | None,
+        obj: Any | None,
         key: str | list[str],
         defaultValue: int | None = None,
     ) -> int | None:
@@ -1091,7 +1255,7 @@ class DictUtils:
             return defaultValue
 
     @staticmethod
-    def getStr(obj: dict[str, Any], key: str | list[str], defaultValue: str) -> str:
+    def getStr(obj: Any | None, key: str | list[str], defaultValue: str) -> str:
         value = DictUtils.get(obj, key)
         if value is None:
             return defaultValue
@@ -1099,7 +1263,7 @@ class DictUtils:
             return str(value)
 
     @staticmethod
-    def getStrOrNone(obj: dict[str, Any] | None, key: str | list[str]) -> str | None:
+    def getStrOrNone(obj: Any | None, key: str | list[str]) -> str | None:
         value = DictUtils.get(obj, key, None)
         if value is None:
             return None
@@ -1108,7 +1272,7 @@ class DictUtils:
 
     @staticmethod
     def getDict(
-        obj_in: dict[str, Any] | None,
+        obj_in: Any | None,
         keys: str | list[str],
         defaultIfNotFound: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -1204,14 +1368,10 @@ class DictUtils:
                                 array.array,
                                 np.ndarray,
                             ]:
-                                # |x| print(f"ℹ️ DictUtils.doCleanup[{key}] = Type {type(value)}: a   ")
                                 if len(value) > 0:
-                                    # |x| print(f"ℹ️ DictUtils.doCleanup[{key}] = Type {type(value)}: ab    {type(value[0])}")
-
                                     if isinstance(value[0], int) or isinstance(
                                         value[0], np.integer
-                                    ):  # |x| or isinstance(value[0],np.uint8):
-                                        # |x| print(f"ℹ️ DictUtils.doCleanup[{key}] = Type {type(value)}: abc   ")
+                                    ):
                                         valueAsText = (
                                             bytes(value)
                                             .decode("utf-8", errors="replace")
@@ -1223,11 +1383,7 @@ class DictUtils:
                             )
                             valueAsText = None
 
-                        # |x| print(f"ℹ️ DictUtils.doCleanup[{key}] = Type {type(value)}: {value} = {valueAsText}")
-
-                        # |Logging| print("!!! DictUtils.doCleanup(" + key + "): " + str(value))
                         if key.startswith("diag_json_") and (valueAsText is not None):
-                            # |Logging| print("!! Interpreting diag_json: " + key + " = " + value)
                             if (valueAsText != "") and (valueAsText != "null"):
                                 contents["diag_" + key.removeprefix("diag_json_")] = (
                                     Utils.json_loads(valueAsText)
@@ -1251,127 +1407,8 @@ class DictUtils:
                         sys.stderr.write(f"⚠️ DictUtils.doCleanup({key}): {e}\n")
             except Exception as e:
                 sys.stderr.write(f"⚠️ DictUtils.doCleanup({contents}): {e}\n")
-        # |x| print(f"ℹ️ DictUtils.doCleanup[{__file__}] -> {contents}")
 
         return contents
-
-
-class EscapeMgr:
-    @staticmethod
-    def fromEscapedText(value: str) -> str:
-        valueOut: str = str(value)
-        try:
-            valueOut = json.loads(f'"{value}"')
-        except Exception as e:
-            appLog.print_warning(
-                f"Error interpreting {json.dumps(str(value))} as escaped text: {e}"
-            )
-        appLog.print_tediousDetail(
-            f"Interpreting value as escaped text: '{value}' -> json {json.dumps(valueOut)}"
-        )
-        return valueOut
-
-    @staticmethod
-    def unEscape(value: Any | None, defaultIfNone: Any | None = None) -> Any | None:
-
-        if value is None:
-            return defaultIfNone
-        elif isinstance(value, str):
-            return EscapeMgr.fromEscapedText(value)
-        else:
-            return str(value)
-
-    @staticmethod
-    def asEscapedText(value: Any) -> str:
-        return json.dumps(value, ensure_ascii=False).removeprefix('"').removesuffix('"')
-
-    @staticmethod
-    def escapeIfNeeded(value: Any) -> str:
-        x = json.dumps(value, ensure_ascii=False)
-        if x.startswith('"') and x.endswith('"') and ((" " in x) or ("\\" in x)):
-            return x
-        else:
-            return x.removeprefix('"').removesuffix('"')
-
-    @staticmethod
-    def asOptionallyEscapedText(value: Any, applyEscaping: bool = True) -> Any:
-        if applyEscaping and isinstance(value, str):
-            return EscapeMgr.asEscapedText(str(value))
-        else:
-            return value
-
-    @staticmethod
-    def asBashParam(
-        value: Any, name_optional: str = "", withEscaping: bool = True
-    ) -> str:
-        if value is None:
-            return ""
-        valueTxt = str(value)
-        if withEscaping:
-            valueTxt = EscapeMgr.asEscapedText(valueTxt)
-        if name_optional == "":
-            resultTxt = ""
-        else:
-            resultTxt = f"--{name_optional}="
-
-        bashIssues = EscapeMgr.reviewForBashParams(valueTxt)
-        if not bashIssues:
-            resultTxt += valueTxt
-        elif bashIssues == {"empty"} or not "singleQuotes" in bashIssues:
-            resultTxt += f"'{valueTxt}'"
-        elif not (bashIssues & {"backticks", "dollarSigns", "doubleQuotes"}):
-            resultTxt += f'"{valueTxt}"'
-        else:
-            resultTxt += "'" + valueTxt.replace("'", "'\\''") + "'"
-
-        appLog.print_tediousDetail(f"asBashParam({json.dumps(value)} -> {resultTxt})")
-        return resultTxt
-
-    @staticmethod
-    def reviewForBashParams(value: str) -> set[str]:
-        result = set[str]()
-
-        if value == "":
-            result.add("empty")
-        if "'" in value:
-            result.add("singleQuotes")
-        if '"' in value:
-            result.add("doubleQuotes")
-        if " " in value:
-            result.add("spaces")
-        if "`" in value:
-            result.add("backticks")
-        if "$" in value:
-            result.add("dollarSigns")
-        if "|" in value:
-            result.add("pipes")
-        if "<" in value:
-            result.add("lessThan")
-        if ">" in value:
-            result.add("greaterThan")
-        if "&" in value:
-            result.add("ampersands")
-        if "(" in value:
-            result.add("openParens")
-        if ")" in value:
-            result.add("closeParens")
-        if "{" in value:
-            result.add("openBraces")
-        if "}" in value:
-            result.add("closeBraces")
-        if "[" in value:
-            result.add("openBrackets")
-        if "]" in value:
-            result.add("closeBrackets")
-        if "\\" in value:
-            result.add("backslashes")
-        if (value < " ") or (value > "~"):
-            result.add("requiresEscaping")
-
-        appLog.print_tediousDetail(
-            f"Reviewing value for bash parameters: json:{json.dumps(value)} -> {result}"
-        )
-        return result
 
 
 def strToInt(value: str, defaultValue: int, context: str | None = None) -> int:

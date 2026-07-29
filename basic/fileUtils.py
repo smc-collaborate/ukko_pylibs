@@ -2,6 +2,7 @@ import base64
 import hashlib
 import json
 import os
+from pathlib import Path
 import shutil
 import sys
 import tempfile
@@ -15,7 +16,7 @@ shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
-from ukko_pylibs.basic.simpleUtils import PrettyText, Utils
+from ukko_pylibs.basic.simpleUtils import PrettyText, Utils, get_cwdOnStartup
 from ukko_pylibs.basic.logger import appLog
 from ukko_pylibs.basic.class_HandledException import HandledException
 
@@ -24,7 +25,8 @@ from ukko_pylibs.basic.class_HandledException import HandledException
 #
 
 
-FileUtils = sys.modules[__name__]
+def filenameIsStdIO(filename: str) -> bool:
+    return filename in ["-", "@stdin", "@stdout", "/dev/stdin", "/dev/stdout", "@-", ""]
 
 
 def raiseHandledException(errmsg: str) -> NoReturn:
@@ -32,17 +34,20 @@ def raiseHandledException(errmsg: str) -> NoReturn:
 
 
 def loadJsonWithExtras(
-    string_or_path: str, inputKind: str = "JSON", exceptionOnError: bool = True
+    string_or_path: str,
+    inputKind: str = "JSON",
+    exceptionOnError: bool = True,
+    assumeDict: bool = False,
 ) -> tuple[str | None, dict[str, Any]]:
     jParams_ = string_or_path
-    if jParams_ == "-":
+    if filenameIsStdIO(jParams_):
         jParams_ = "@/dev/stdin"
     jParams_filePath = (
         jParams_[1:]
         if (jParams_.startswith("@") and not jParams_.startswith("@/dev/"))
         else None
     )
-    inputJson = loadJson(jParams_)
+    inputJson = loadJson(jParams_, assumeDict=assumeDict)
     if inputJson is None:
         inputJson = {}
     return (jParams_filePath, inputJson)
@@ -83,11 +88,11 @@ def loadJsonDictFromFile(
     exceptionOnError: bool = True,
     giveWarningOnFileMissing: bool = True,
 ) -> dict[str, Any]:
-    fname_friendly = Utils.pathDisplay(inputJsonFile)
+    fname_friendly = Utils.pathAsDisplay(inputJsonFile)
     errmsg = "Unknown Error"
     showWarning = True
 
-    from ukko_pylibs.app.appSupport import (
+    from ukko_pylibs.appAssist.appSupport import (
         exitOnException,
     )  # < Not permitted to be imported at module-level
 
@@ -98,14 +103,14 @@ def loadJsonDictFromFile(
             # Avoid throwing exception on missing file if we're not giving a warning about it.
             # This eases our debugging process when we halt on raised exceptions
             showWarning = False
-            errmsg = f"The {inputKind} '{fname_friendly}' was not found."
+            errmsg = f"The {inputKind} '{fname_friendly}' wasn't found."
         else:
             with open(inputJsonFile, "r") as file:
                 return json.load(file)
     except FileNotFoundError:
         if not giveWarningOnFileMissing:
             showWarning = False
-        errmsg = f"The {inputKind} '{fname_friendly}' was not found."
+        errmsg = f"The {inputKind.removesuffix('file').strip()} file '{os.path.abspath(inputJsonFile)}' wasn't found."
     except json.JSONDecodeError:
 
         errmsg = f"The {inputKind} '{fname_friendly}' doesn't contain valid JSON"
@@ -125,6 +130,23 @@ def loadJsonDictFromFile(
         return {"error": errmsg}
 
 
+def fileExceptionToString(fname: str, e: Exception, what: str = "file") -> str:
+    msg = f"Unable to load {what} from file '{Utils.pathAsDisplay(fname)}'\n"
+    if not (isinstance(e, HandledException)):
+        msg += f"A [{type(e).__name__}] exception occurred: "
+
+    msg += str(e)
+
+    fullPath = os.path.abspath(fname)
+    if fullPath != Utils.pathAsDisplay(fname):
+        msg += f"\nFull path  : {fullPath}"
+        msg += f"\nCurrent dir: {os.getcwd()}"
+        if get_cwdOnStartup() != os.getcwd():
+            msg += f"\nOnStartup  : {get_cwdOnStartup()}"
+
+    return msg
+
+
 def loadJson(
     inputJson: str,
     inputKind: str = "JSON",
@@ -135,25 +157,45 @@ def loadJson(
     errmsg = "Unknown Error"
     if (inputJson == None) or (inputJson == "") or (inputJson == "null"):
         return None
-    inputJsonFile = "??"
+    # inputJsonFile = "??"
 
     try:
-        if (inputJson == "-") or (inputJson == "@-") or (inputJson == "@"):
+        if filenameIsStdIO(inputJson):
             inputJson = "@/dev/stdin"
         loadedJson: dict[str, Any] = {}
-        if inputJson.startswith("@"):
-            if assumeDict:
-                return loadJsonDictFromFile(inputJson[1:], inputKind, exceptionOnError)
-            else:
-                return loadJsonFromFile(inputJson[1:], inputKind, exceptionOnError)
+        fname = None
+        for prefix in ["@", "file:"]:
+            if inputJson.startswith(prefix):
+                fname = inputJson.removeprefix("file:")
+                break
+        if fname is not None:
+            try:
+                if assumeDict:
+                    return loadJsonDictFromFile(fname, inputKind, exceptionOnError)
+                else:
+                    return loadJsonFromFile(fname, inputKind, exceptionOnError)
+            except Exception as e:
+                errmsg = fileExceptionToString(fname, e, inputKind)
+
+                if exceptionOnError:
+                    raiseHandledException(errmsg)
+                else:
+                    return {"error": errmsg}
         else:
             sourceDescription = f"'{inputJson}'"
             loadedJson = json.loads(inputJson)
         return loadedJson
+    except HandledException as e:
+        if exceptionOnError:
+            raise
+        else:
+            errmsg = f"Unable to load {inputKind} from '{Utils.pathAsDisplay(inputJson)}': A [{type(e).__name__}] exception occurred: {e}"
     except json.JSONDecodeError:
-        errmsg = f"Unable to load {inputKind}: {sourceDescription} wasn't valid JSON"
+        errmsg = (
+            f"Unable to interpret {inputKind}: {sourceDescription} wasn't valid JSON"
+        )
     except Exception as e:
-        errmsg = f"Unable to load {inputKind} from '{Utils.pathDisplay(inputJson)}': A [{type(e).__name__}] exception occurred: {e}"
+        errmsg = fileExceptionToString(inputJson, e, inputKind)
 
     if exceptionOnError:
         raiseHandledException(errmsg)
@@ -168,15 +210,10 @@ def loadJson_dict_withSourceDescription_orException(
     sourceDescription = defaultDescription
     if (inputJson == None) or (inputJson == "") or (inputJson == "null"):
         pass
-    elif (
-        (inputJson == "-")
-        or (inputJson == "@-")
-        or (inputJson == "@")
-        or (inputJson == "@/dev/stdin")
-    ):
+    elif filenameIsStdIO(inputJson):
         pass
     elif inputJson.startswith("@"):
-        sourceDescription = f"{Utils.pathDisplay(inputJson[1:])}"
+        sourceDescription = f"{Utils.pathAsDisplay(inputJson[1:])}"
 
     return (result, sourceDescription)
 
@@ -199,32 +236,57 @@ def loadBytesFromFile_orHandledException(
     inputBinaryFile: str, what: str = "binary data"
 ) -> bytes:
     try:
-        if inputBinaryFile == "-":
+        if filenameIsStdIO(inputBinaryFile):
             inputBinaryFile = "/dev/stdin"
         if inputBinaryFile == "/dev/stdin":
             appLog.print_info(f"Note: Reading {what} from standard input")
         with open(inputBinaryFile, "rb") as file:
             file_bytes = file.read()
         return file_bytes
+
     except Exception as e:
-        raiseHandledException(
-            f"Unable to load {what} from file '{Utils.pathDisplay(inputBinaryFile)}': A [{type(e).__name__}] exception occurred: {e}"
-        )
+        raiseHandledException(fileExceptionToString(inputBinaryFile, e, what))
+
+
+def loadTextFromFile_orHandledException(
+    inputTextFile: str, what: str = "text data"
+) -> str:
+    try:
+        if filenameIsStdIO(inputTextFile):
+            inputTextFile = "/dev/stdin"
+        if inputTextFile == "/dev/stdin":
+            appLog.print_info(f"Note: Reading {what} from standard input")
+        with open(inputTextFile, "rt") as file:
+            return file.read()
+
+    except Exception as e:
+        raiseHandledException(fileExceptionToString(inputTextFile, e, what))
 
 
 def exportToFile_orHandledException(
-    outputFilename: str, fileContents, format: str = "data", isText: bool = False
+    outputFilename: str,
+    fileContents_: Any | None,
+    format: str = "data",
+    isText_: bool | None = None,
 ) -> Tuple[str, int]:
+
+    if isinstance(fileContents_, dict):
+        fileContentsOut = Utils.asJsonStr(fileContents_, indent=2, sortKeys=True) + "\n"
+    else:
+        fileContentsOut = fileContents_
+
+    isText = (type(fileContentsOut) is str) if (isText_ is None) else isText_
+
     try:
-        if (outputFilename == "-") or (outputFilename == "/dev/stdin"):
+        if filenameIsStdIO(outputFilename):
             outputFilename = "/dev/stdout"
         appLog.print_verbose(
-            f"Exporting {format:<4} to {outputFilename} ({'None' if (fileContents is None) else PrettyText.pluralize(len(fileContents), 'byte')})"
+            f"Exporting {format:<4} to {outputFilename} ({'None' if (fileContentsOut is None) else PrettyText.pluralize(len(fileContentsOut), 'byte')})"
         )
 
         if outputFilename == "/dev/null":
             return outputFilename, 0
-        if fileContents is None:
+        if fileContentsOut is None:
             if not outputFilename.startswith("/dev/"):
                 appLog.print_verbose(
                     f"Exporting {format:<4} -- erasing output file '{outputFilename}'"
@@ -262,8 +324,11 @@ def exportToFile_orHandledException(
                         )
                     errMsg += "\n • You can also set the environment variable `STDOUT_IS_TTY=0` to disable this check."
                     raise HandledException(errMsg)
-        with open(outputFilename, "wb") as file:
-            file_bytes = file.write(fileContents)
+
+        if not outputFilename.startswith("/dev/"):
+            Path(outputFilename).parent.mkdir(parents=True, exist_ok=True)
+        with open(outputFilename, "wt" if isText else "wb") as file:
+            file_bytes = file.write(fileContentsOut)
             return outputFilename, file_bytes
     except HandledException:
         raise
@@ -314,7 +379,6 @@ def doExportBitstream(
     if format != "unknown" and format != "bitstream":
         result["format"] = format
 
-    # |Logging| appLog.print_verbose(f"!!!!!! doExportBitstream: exportOption:{exportOption} format:{format} ext:{ext}")
     if exportOption != "overview":
         result["md5"] = hashlib.md5(bitstream).hexdigest()
         out_filename = None

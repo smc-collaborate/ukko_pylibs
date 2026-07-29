@@ -35,9 +35,6 @@ T_LinkedDataType = TypeVar("T_LinkedDataType", bound=ITransferableData)
 class LinkToDevice(Generic[T_LinkedDataType]):
     """Class to handle the link to the device."""
 
-    # |x| def stream_dataKind(self) -> str:
-    # |x|     return "" if self.link_rawFormat is None else self.link_rawFormat.KIND
-
     def __init__(
         self,
         link_type: str,  # < "tcp" or "serial"
@@ -195,14 +192,9 @@ class LinkToDevice(Generic[T_LinkedDataType]):
         self._tcp_client_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 5)
         self._tcp_client_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 100)
 
-        # |x| self.tcp_server_address: Tuple[str, int] = (
-        # |x|     "localhost",
-        # |x|     self.DEFAULT_PORT_NUMBER,
-        # |x| )
-
         if not (":" in self.link_via):
 
-            import ukko_pylibs.app.appSupport as app  # <--- Import here to avoid circular import issues
+            import ukko_pylibs.appAssist.appSupport as app  # <--- Import here to avoid circular import issues
 
             DEFAULT_PORT_NUMBER = app.getValue("DEFAULT_PORT", 12302)
             appLog.print_verbose(
@@ -390,80 +382,6 @@ class LinkToDevice(Generic[T_LinkedDataType]):
             response = {}
 
         return response
-
-
-# |x|def doReviewReply(
-# |x|    reply: ITransferableData, cmdIfKnown: str | None = None
-# |x|) -> ITransferableData:
-# |x|    fatalError = reply.getInvalidReason()
-# |x|
-# |x|    if fatalError:
-# |x|        appLog.print_error(fatalError)
-# |x|        return {}
-# |x|
-# |x|    #|x| reply_dict = reply.getJsonWithExtras()
-# |x|    #|x| appLog.print_verbose(f"Reply JSON: {reply_dict}")
-# |x|    cmdReplyToReview = str(reply.getAnnotation("chosenCmd", cmdIfKnown))
-# |x|
-# |x|    schemaProcessing.Schema(f"{cmdReplyToReview}","reply").doValidate(reply)
-# |x|
-# |x|    return reply
-# |x|
-# |x|    ####################################################################
-# |x|    #
-# |x|    _entry_id = reply_dict.get("entry_id", None)
-# |x|    if (_entry_id is None) and ("response" in reply_dict):
-# |x|        _entry_id = reply_dict["response"].get("entry_id", None)
-# |x|    prefix_txt = "" if _entry_id is None else str("_id-" + _entry_id)
-# |x|    #
-# |x|    ####################################################################
-# |x|
-# |x|    warn_msg = schema.doValidate(reply)
-# |x|    if warn_msg is not None:
-# |x|        pass  # Already noted
-# |x|    elif cmdIfKnown is None:
-# |x|        appLog.print_warning(f" - Unable to validate Json response cmd")
-# |x|    elif reply.getAnnotation("chosenCmd") == cmdIfKnown:
-# |x|        appLog.print_verbose(
-# |x|            f"✓ Validated reply command entry against schema {schema.name}"
-# |x|        )
-# |x|    else:
-# |x|        appLog.print_warning(
-# |x|            f"✗ Validated Json response command entry: Fail - command ({reply.getAnnotation('chosenCmd')}' doesn't matches expected '{cmdIfKnown}')"
-# |x|        )
-# |x|        appLog.print_verbose(
-# |x|            f"Validated JSON against schema: {Utils.asJsonStr(schema.asStrDict(), indent=2)}"
-# |x|        )
-# |x|
-# |x|    binaryData = reply.bitstream_data
-# |x|    if binaryData is not None:
-# |x|        # Save the binary data to a file
-# |x|        if len(binaryData) < 50:
-# |x|            appLog.print_verbose(
-# |x|                f"Reply Binary: {binaryData.hex()} ({PrettyText.pluralize(len(binaryData), 'byte')})"
-# |x|            )
-# |x|        else:
-# |x|            appLog.print_verbose(
-# |x|                f"Reply Binary: {binaryData[:50].hex()} … ({PrettyText.pluralize(len(binaryData), 'byte')} total)"
-# |x|            )
-# |x|
-# |x|        md5_hash = hashlib.md5(binaryData).hexdigest()
-# |x|        fname_out = f"/tmp/smc{prefix_txt}_md5-{md5_hash}_len-{len(binaryData)}.bin"
-# |x|        fileUtils.exportToFile_orHandledException(fname_out, binaryData, "bin")
-# |x|        reply_dict["binaryExport"] = {
-# |x|            "filename": fname_out,
-# |x|            "numBytes": len(binaryData),
-# |x|            "md5": hashlib.md5(binaryData).hexdigest(),
-# |x|        }
-# |x|
-# |x|        if isinstance(reply_dict.get("response", None), dict):
-# |x|            reply_dict["response"]["__binaryExport"] = reply_dict["binaryExport"]
-# |x|        appLog.print_verbose(
-# |x|            f"Reply Binary data saved: {Utils.asJsonStr(reply_dict['binaryExport'])}"
-# |x|        )
-# |x|
-# |x|    appLog.print_verbose(f"Reply : {Utils.asJsonStr(reply_dict,indent=2)}\n")
-# |x|    return reply_dict
 
 
 def actionId_generator(actionId: str = "_auto_") -> str:

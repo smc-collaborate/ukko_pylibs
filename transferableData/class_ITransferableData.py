@@ -183,7 +183,7 @@ class ITransferableData:
         extras: dict[str, Any] | None = None,
     ) -> "ITransferableData":
         json_dict = {} if extras is None else dict(extras)
-        from ukko_pylibs.app.appSupport import (
+        from ukko_pylibs.appAssist.appSupport import (
             getValue as app_getValue,
         )  # < Not permitted at module Level
 

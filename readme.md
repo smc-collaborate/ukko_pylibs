@@ -1,8 +1,10 @@
-# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.1.3-wip`]
+# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.1.3-wip`] #
+
 ## Importing ##
 
 To avoid multiple copies of python modules existing in your project always import them from `ukko_pylibs`.<br>
 Using another prefix (such as `from libs.ukko_pylibs.app as app` will import as a new module).
+
 ```python
 #####################################################################
 #
@@ -17,11 +19,19 @@ from ukko_pylibs import app,Utils,appLog
 #####################################################################
 ```
 
-
 ## Development Notes ##
 
 Care has been taken to support Python versions from **3.10.12** to **3.14**<br>
 This means that it can run with **Ubuntu 22.04**, **Ubuntu 24.04** & **Ubuntu 26.04** (Four years of LTS)
+
+Issues:
+`ukkoTestCommand verify --stdout='Hello World\n' -- echo 'Hello Worldx'` -> --stdout='Hello World\\n' when giving a suggestion ...
+
+## Hidden Options ##
+
+| Option                                               | Example Use                                                         |
+|------------------------------------------------------|---------------------------------------------------------------------|
+| `--debug-info=[none/app-info/app-as-run/config-info/all]` | `annotatedData --debug-info=app-as-run \| jq '.appAsRun.appValues'` |
 
 ## Style ##
 
@@ -60,28 +70,55 @@ To avoid circular imports:
 
 
 The exceptions are app Templates which are full apps:
+
 * **schemaHandling/`appTemplate_schemas.py`**
 
-```
-├── app
+```text
+.
+├── appAssist
+│   ├── appChoices.py
+│   ├── appHelp.py
 │   ├── appSupport.py
 │   ├── class_Configuration.py
 │   └── class_ParamSpec.py
+├── appTemplates
+│   ├── jsonLineStreaming.py
+│   └── ukko_pylibs -> ..
 ├── basic
 │   ├── class_DataContents.py
 │   ├── class_HandledException.py
+│   ├── class_JsonData.py
+│   ├── class_SimpleLogger.py
+│   ├── escapeFormatting.py
 │   ├── fileUtils.py
 │   ├── logger.py
+│   ├── prettyTable.py
 │   ├── simpleUtils.py
+│   ├── sparseLists.py
+│   ├── styling.py
+│   ├── sysInfo.py
 │   └── valueHandling.py
 ├── _external
 │   └── parseProtoBuf.py
 ├── imageProcessing
 │   ├── class_PixelFormatData.py
+│   ├── __init__.py
 │   └── rawimgProcess.py
+├── __init__.py
+├── _lib_testing
+│   ├── __pycache__
+│   │   └── test-PrettyTables.cpython-312.pyc
+│   ├── samples
+│   │   ├── render-barred.json
+│   │   ├── table-small.json
+│   │   └── table-wide.json
+│   ├── test-PrettyTables.py
+│   ├── test-run.sh
+│   └── ukko_pylibs -> ..
 ├── markdown
 │   └── class_MarkdownTable.py
 ├── network
+│   ├── appAccess.py
 │   ├── basicTcpServer.py
 │   ├── class_CmdServers.py
 │   ├── class_DataLink_.py
@@ -89,6 +126,7 @@ The exceptions are app Templates which are full apps:
 │   ├── class_IPhyConnection.py
 │   ├── class_PhyConnection_Serial.py
 │   ├── class_PhyConnection_Tcp.py
+│   ├── __init__.py
 │   └── shared_link_code.py
 ├── readme.md
 ├── schemaHandling
@@ -97,7 +135,9 @@ The exceptions are app Templates which are full apps:
 │   └── schemaProcessing.py
 └── transferableData
     ├── class_ITransferableData.py
-    └── customising.py
+    ├── customising.py
+    └── __init__.py
+
 ```
 
 ## Full Regression Testing ##

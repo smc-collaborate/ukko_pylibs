@@ -39,7 +39,7 @@ def schema_getDir(kind: str = "commands") -> str:
     """
     global g_app_schemasDir
     if g_app_schemasDir == "":
-        import ukko_pylibs.app.appSupport as app  # < Import here to avoid circular import issues
+        import ukko_pylibs.appAssist.appSupport as app  # < Import here to avoid circular import issues
 
         _dir = str(Path(app.getDir("schemas")).resolve(strict=False))
         _dir2 = _dir.removesuffix("/") + "/dataDefinitions"
@@ -87,7 +87,6 @@ def schema_cleanElement(
     """
     Clean up the schema by removing unnecessary fields and ensuring it is well-formed.
     """
-    # |Logging| appLog.print_verbose(f"Schema cleanElement: {Utils.asJsonStr(schemaElement)}")
     if schemaElementIn is None or (not isinstance(schemaElementIn, dict)):
         return schemaElementIn
     schemaElement = schemaElementIn.copy()
@@ -400,7 +399,6 @@ class Schema:
         #
         # ######################################################################
 
-        # |Logging|
         appLog.print_verbose(
             f"Schema({self.name}): Loading schema from {self.jsonSchemaFilename}"
         )
@@ -432,7 +430,7 @@ class Schema:
                     appLog.print_warning(f"Schema({self.name}): {self.errMsg}")
 
         except Exception as e:
-            self.errMsg = f"Failed to load schema from {Utils.pathDisplay(self.jsonSchemaFilename)}: {str(e)}"
+            self.errMsg = f"Failed to load schema from {Utils.pathAsDisplay(self.jsonSchemaFilename)}: {str(e)}"
             appLog.print_warning(
                 f"Schema({self.name}): Error loading schema: {self.errMsg}"
             )
@@ -935,8 +933,8 @@ class SchemaDocMarkdown:
 
         srcObj = deepcopy(srcObj_)
         out_name = name_in
-        out_type = srcObj.pop("type", None)
-        out_description = srcObj.pop("description", "")
+        out_type: str = srcObj.pop("type", None)
+        out_description: str = srcObj.pop("description", "")
         out_notes = ""
         out_required = "🔒" if required else " "
 

@@ -4,9 +4,9 @@ import inspect
 import json
 import sys
 import traceback
+from types import NoneType
 from typing import Any, Callable, TextIO, Tuple
 import os
-
 
 ################################################################################
 #
@@ -30,12 +30,14 @@ class MsgKind:
         name: str,
         icon: str,
         thresholdName: str,
+        topLineStyle: str = "",
         isDefaultLevel: bool = False,
     ):
         self.value = value
         self.name = name
         self.icon = icon
         self.thresholdName = thresholdName
+        self.topLineStyle = topLineStyle
         self.isDefaultLevel = isDefaultLevel
         msgKinds[value] = self
 
@@ -45,11 +47,12 @@ class MsgKind:
         name: str,
         icon: str,
         thresholdName: str,
+        topLineStyle: str = "",
         isDefaultLevel: bool = False,
     ) -> "MsgKind":
         if value in msgKinds:
             raise ValueError(f"MsgKind with value {value} already exists")
-        return MsgKind(value, name, icon, thresholdName, isDefaultLevel)
+        return MsgKind(value, name, icon, thresholdName, topLineStyle, isDefaultLevel)
 
     def asDict(self) -> dict[str, Any]:
         return {
@@ -62,12 +65,12 @@ class MsgKind:
 
 
 class SimpleLogger:
-
-    MsgKind_ERROR = 0
-    MsgKind_WARNING = 1
-    MsgKind_INFO = 2
-    MsgKind_DETAIL = 3
-    MsgKind_TEDIOUS = 4
+    MsgKind_ALWAYS = 0
+    MsgKind_ERROR = 1
+    MsgKind_WARNING = 2
+    MsgKind_INFO = 3
+    MsgKind_DETAIL = 4
+    MsgKind_TEDIOUS = 5
 
     @staticmethod
     def get_thresholds() -> Tuple[list[str], str]:
@@ -81,15 +84,11 @@ class SimpleLogger:
 
         return thresholdList, defaultThreshold
 
-    def _getLevelIconAndPrefix(self, value: int) -> Tuple[str, str, str]:
+    def _getMessageKind(self, value: int) -> MsgKind:
         if value in msgKinds:
-            return (
-                msgKinds[value].icon,
-                msgKinds[value].name,
-                msgKinds[value].thresholdName,
-            )
+            return msgKinds[value]
         else:
-            return "❓", f"[Level {value}]", ""
+            return MsgKind(value, f"[Level {value}]", "❓", "")
 
     ###############################
     # Thresholds and Verbosity Levels
@@ -144,12 +143,12 @@ class SimpleLogger:
         if message is None or not self.amPrinting(level):
             return None
 
-        iconPrefix, txtPrefix, _ = self._getLevelIconAndPrefix(level)
+        msgKind = self._getMessageKind(level)
 
-        self.kindCounts[txtPrefix] = self.kindCounts.get(txtPrefix, 0) + 1
+        self.kindCounts[msgKind.name] = self.kindCounts.get(msgKind.name, 0) + 1
 
         if noPrefix:
-            txtPrefix = ""
+            msgKind.name = ""
 
         msg_text = self.asPrintable(message)
         if msg_text == "":
@@ -161,12 +160,12 @@ class SimpleLogger:
             textOut = dest
 
         lines = msg_text.split("\n")
-        topLine = lines.pop(0).strip().removeprefix(iconPrefix).strip()
+        topLine = lines.pop(0).strip().removeprefix(msgKind.icon).strip()
 
-        prefix = iconPrefix
-        if iconPrefix != "" and txtPrefix != "":
+        prefix = msgKind.icon
+        if msgKind.icon != "" and msgKind.name != "":
             prefix += "  "
-        prefix += txtPrefix
+        prefix += msgKind.name
         bar = " "
         if not noPrefix and self.name != "":
             if prefix != "":
@@ -174,8 +173,13 @@ class SimpleLogger:
             prefix += f"{self.name}"
             bar = " | "
 
-        textOut.write(f"{prefix}{bar}{topLine}\n")
         from ukko_pylibs.basic.simpleUtils import PrettyText
+        import ukko_pylibs.basic.styling as styling
+
+        if not styling.isStyled(topLine) and msgKind.topLineStyle is not None:
+            topLine = styling.apply(topLine, msgKind.topLineStyle)
+
+        textOut.write(f"{prefix}{bar}{topLine}\n")
 
         padding = PrettyText.asSpaces(prefix)
         for line in lines:
@@ -192,17 +196,17 @@ class SimpleLogger:
         self.kindCounts = {}
         self.printThreshold = self.MsgKind_WARNING
 
-        # |x|sys.stderr.write(f"⚠️  self.printThreshold ={self.printThreshold}\n")
-
     def setName(self, name: str):
         self.name = name
 
     def setVerbosity(
-        self, setValue: None | bool | int | str, silentOnFailure: bool = False
+        self,
+        setValue: None | NoneType | bool | int | str,
+        silentOnFailure: bool = False,
     ) -> int:
-        if setValue is not None:
+        if setValue is not None and setValue is not NoneType:
             oldThreshold = self.printThreshold
-            # |x| sys.stderr.write(f"⚠️  setVerbosity({json.dumps(setValue)}): From {oldThreshold}\n")
+
             if isinstance(setValue, bool):
                 self.printThreshold = (
                     self.MsgKind_DETAIL if setValue else self.MsgKind_INFO
@@ -250,12 +254,16 @@ class SimpleLogger:
     def print_tediousDetail(self, message: Any | None) -> None | str:
         return self.doPrintEntry(self.MsgKind_TEDIOUS, message)
 
+    def print_always(self, message: Any | None) -> None | str:
+        return self.doPrintEntry(self.MsgKind_ALWAYS, message, noPrefix=True)
+
     def print_userError(
         self,
         message: str,
         isFatal: bool = False,
         dest: TextIO | None = None,
     ) -> None | str:
+
         return self.print_error(
             message or "<unknown error>", isFatal=isFatal, noPrefix=True, dest=dest
         )
@@ -370,6 +378,18 @@ class SimpleLogger:
     def had_error(self) -> bool:
         return self.lastErrorMsg is not None
 
+    def deprecationWarningWithAlternative(
+        self, oldName: str, newName: str, reason: str = ""
+    ):
+        self.deprecationWarning(
+            f"{oldName} is deprecated.  Use {newName} instead.  {reason}".strip()
+        )
+
+    def deprecationWarningRename(self, oldName: str, newName: str):
+        self.deprecationWarning(
+            f"{oldName} has been renamed {newName}.  Please update your code"
+        )
+
     def deprecationWarning(self, message: str):
         try:
             msg = f"Deprecation Warning: {message}"
@@ -396,8 +416,10 @@ class SimpleLogger:
             )
 
 
-MsgKind.add(SimpleLogger.MsgKind_ERROR, "Error", "❌", "quiet", isDefaultLevel=True)
+MsgKind.add(SimpleLogger.MsgKind_ALWAYS, "Output", "  ", "")
+
+MsgKind.add(SimpleLogger.MsgKind_ERROR, "Error", "❌", "quiet", "red+bold")
 MsgKind.add(SimpleLogger.MsgKind_WARNING, "Warning", "⚠️", "")
-MsgKind.add(SimpleLogger.MsgKind_INFO, "Info", "ℹ️", "info")
+MsgKind.add(SimpleLogger.MsgKind_INFO, "Info", "ℹ️", "info", isDefaultLevel=True)
 MsgKind.add(SimpleLogger.MsgKind_DETAIL, "Detail", "Ⓜ️", "details")
-MsgKind.add(SimpleLogger.MsgKind_TEDIOUS, "Tedious", "🔍", "all")
+MsgKind.add(SimpleLogger.MsgKind_TEDIOUS, "Tedious", "🔍", "all", "cyan")
