@@ -104,7 +104,7 @@ def getAppHelp_asLines(
     )
     if not shorterVersion:
         for x in appChoices.appValue("versions_extra") or []:
-            titleAndUsageTable.appendRowList(["", "", "| " + styling.asBold(x)])
+            titleAndUsageTable.appendRowList(["", "", "  " + styling.asBold(x)])
     titleAndUsageTable.appendRowBlank()
 
     _examplesOut = deepcopy(appChoices.appValue("examples") or [])
