@@ -73,11 +73,11 @@ class SimpleLogger:
     MsgKind_TEDIOUS = 5
 
     @staticmethod
-    def get_thresholds() -> Tuple[list[str], str]:
-        defaultThreshold = ""
+    def get_thresholds(preferredDefault: str | None) -> Tuple[list[str], str]:
+        defaultThreshold: str = preferredDefault or ""
         thresholdList = list[str]()
         for _k, v in msgKinds.items():
-            if v.isDefaultLevel:
+            if v.isDefaultLevel and (preferredDefault is None):
                 defaultThreshold = v.thresholdName
             if v.thresholdName:
                 thresholdList.append(v.thresholdName)

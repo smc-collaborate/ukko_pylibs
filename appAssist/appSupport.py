@@ -161,8 +161,6 @@ appConfig = Configuration(
 )  # < @todo: Move this to inside app -> Global = More issues
 
 
-entries, default = appLog.get_thresholds()
-
 APP_OPTION_DEFAULTS = {
     "settings": None,
     "show-config": False,
@@ -194,8 +192,9 @@ class IArgLoader_Template:
     Optionally implement 'doExtraArgReview' & 'event_applyingValue()'
     """
 
-    def __init__(self, app_definition):
+    def __init__(self, app_definition: dict[str, Any]):
         self.buildingParamsFromAppDef = ParamSpecList()
+        self.defaultVerbosity: str | None = app_definition.get("verbosity-default")
 
         self.errors: list[str] = []
         self.nextCustomisationAvail_: dict[str, Any] | None = None
@@ -265,6 +264,8 @@ class IArgLoader_Template:
         #
         # Default options that might be available based on the current configuration
         #
+
+        entries, default = appLog.get_thresholds(self.defaultVerbosity)
         _all.append(
             ParamSpec(
                 {
@@ -669,7 +670,7 @@ class IArgLoader_Template:
 
 
 class ArgLoader_withApplyConfig(IArgLoader_Template):
-    def __init__(self, app_definition):
+    def __init__(self, app_definition: dict[str, Any]):
         super().__init__(app_definition)
 
     def doExtraArgReview(self, arg: str) -> bool:
