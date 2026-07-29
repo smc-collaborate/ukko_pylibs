@@ -34,12 +34,13 @@ from datetime import datetime
 
 
 from typing import Any, Callable, Tuple
+from pathlib import Path
 
 ################################################################################
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
+shared_dir = os.path.abspath(f"{Path(__file__).parent}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
@@ -84,7 +85,7 @@ class IJsonLineStreamerSpec:
 # Add 'common' path
 #
 #
-common_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
+common_dir = os.path.abspath(f"{Path(__file__).parent}/../../")
 if common_dir not in sys.path:
     sys.path.append(common_dir)
 

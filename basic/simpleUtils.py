@@ -16,6 +16,7 @@ from typing import Any, Callable, Tuple
 from datetime import datetime as dt_datetime
 from datetime import timezone as dt_timezone
 import numpy as np
+from pathlib import Path
 
 
 NameValuePair = Tuple[str, Any | None]
@@ -27,7 +28,7 @@ NameValuePairList = list[NameValuePair]
 # Add project root directory to system path
 
 
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
+shared_dir = os.path.abspath(f"{Path(__file__).parent}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 

@@ -10,7 +10,7 @@ from copy import deepcopy
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
+shared_dir = os.path.abspath(f"{Path(__file__).parent}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
@@ -407,10 +407,9 @@ class Schema:
             jSchemaFile_exists = os.path.exists(self.jsonSchemaFilename)
 
             if WARN_ON_MISSING_SCHEMAS:
-                _dir = os.path.dirname(self.jsonSchemaFilename)
-                if not os.path.exists(_dir):
+                if not Path(self.jsonSchemaFilename).parent.exists():
                     appLog.print_warning(
-                        f"Schema directory {_dir} not found"
+                        f"Schema directory {Path(self.jsonSchemaFilename).parent} not found"
                     )  # < Do this even if we auto-create the 'request' or 'reply' schema, since it indicates a chance to define the schema properly
 
             if jSchemaFile_exists:

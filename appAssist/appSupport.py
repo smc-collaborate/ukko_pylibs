@@ -10,12 +10,13 @@ import os
 import sys
 from typing import Any, Callable, NoReturn, Tuple
 from types import NoneType
+from pathlib import Path
 
 ################################################################################
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
+shared_dir = os.path.abspath(f"{Path(__file__).parent}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
@@ -79,7 +80,7 @@ def appInfo_get(
             fullname = sys.argv[0]
             # sys.stderr.write(f"ℹ️ℹ️  {fullname}\n")
 
-            if (":" + os.path.dirname(fullname) + ":") in (
+            if (":" + str(Path(fullname).parent) + ":") in (
                 ":" + os.environ["PATH"] + ":"
             ):
                 _value = os.path.basename(fullname)
@@ -145,7 +146,7 @@ def getMainDir() -> str:
     try:
         import __main__
 
-        return os.path.dirname(os.path.abspath(__main__.__file__))
+        return str(os.path.abspath(Path(__main__.__file__).parent))
     except Exception as e:
         appLog.print_error_withException(e, f"getMainDir() ->defaulting to ~")
         return os.path.expanduser("~")
@@ -1083,7 +1084,7 @@ def appDir(defaultDir: str = ".") -> str:
 
     reason = ""
     if _filename:
-        appDir = os.path.dirname(_filename)
+        appDir = str(Path(_filename).parent)
         reason = "mainModuleFile.dir"
     else:
         appDir = defaultDir
@@ -1529,7 +1530,7 @@ def loadBinaryFile_orHandledException(
 
     appLog.print_verbose(f"Using inputBinaryFile: {inputBinaryFilename}")
     if jParams_filePath is not None:
-        inputBinaryRefDir = os.path.dirname(jParams_filePath)
+        inputBinaryRefDir = str(Path(jParams_filePath).parent)
 
     if not os.path.isabs(inputBinaryFilename):
         if inputBinaryRefDir is not None:

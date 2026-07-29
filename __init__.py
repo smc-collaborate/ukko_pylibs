@@ -2,9 +2,10 @@
 #
 # Shared Libraries
 #
-import os, sys
+import sys
+from pathlib import Path
 
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../")
+shared_dir = str(Path(__file__).parent.parent.absolute)
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 

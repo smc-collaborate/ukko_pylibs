@@ -2,6 +2,7 @@ from copy import deepcopy
 import json
 from typing import Any, Tuple
 import sys
+from pathlib import Path
 
 ################################################################################
 #
@@ -9,7 +10,7 @@ import sys
 
 import os
 
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
+shared_dir = os.path.abspath(f"{Path(__file__).parent}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 

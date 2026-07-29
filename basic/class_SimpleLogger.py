@@ -7,12 +7,13 @@ import traceback
 from types import NoneType
 from typing import Any, Callable, TextIO, Tuple
 import os
+from pathlib import Path
 
 ################################################################################
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
+shared_dir = os.path.abspath(f"{Path(__file__).parent}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 

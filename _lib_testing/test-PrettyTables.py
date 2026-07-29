@@ -9,8 +9,9 @@ VERSION = "0.0.1-wip"  # < Warning: When updating version, ensure you update the
 import os
 import sys
 from typing import Any
+from pathlib import Path
 
-libs_dir = os.path.abspath(f"{os.path.dirname(__file__)}")
+libs_dir = os.path.abspath(f"{Path(__file__).parent}")
 if libs_dir not in sys.path:
     sys.path.append(libs_dir)
 

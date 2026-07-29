@@ -5,13 +5,13 @@ import os, sys
 
 import traceback
 from typing import Any, Tuple
-
+from pathlib import Path
 
 ################################################################################
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
+shared_dir = os.path.abspath(f"{Path(__file__).parent}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
@@ -916,7 +916,7 @@ def getCustomFormat_fromFile(fname: str) -> CustomContentsFormatDefinition | Non
         fname, "annotatedData Custom Format Definition", exceptionOnError=False
     )
 
-    dirname = os.path.dirname(fname)
+    dirname = str(Path(fname).parent)
     errorMsg = jsonData.get("error", None)
     if errorMsg is not None:
         appLog.print_error(f"Error loading custom format from {fname}: {errorMsg}")

@@ -12,7 +12,7 @@ from typing import Any, NoReturn, Tuple
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
+shared_dir = os.path.abspath(f"{Path(__file__).parent}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
@@ -327,7 +327,9 @@ def exportToFile_orHandledException(
 
         if not outputFilename.startswith("/dev/"):
             Path(outputFilename).parent.mkdir(parents=True, exist_ok=True)
-        with open(outputFilename, "wt" if isText else "wb") as file:
+        with open(
+            outputFilename, "wt" if isinstance(fileContentsOut, str) else "wb"
+        ) as file:
             file_bytes = file.write(fileContentsOut)
             return outputFilename, file_bytes
     except HandledException:

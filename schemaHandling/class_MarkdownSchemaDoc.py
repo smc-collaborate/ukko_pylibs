@@ -4,12 +4,13 @@ from enum import auto as EnumAuto
 import os
 import sys
 from typing import Any, Tuple, Union
+from pathlib import Path
 
 ################################################################################
 #
 # Shared Libraries
 #
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../../")
+shared_dir = os.path.abspath(f"{Path(__file__).parent}/../../")
 if shared_dir not in sys.path:
     sys.path.append(shared_dir)
 
