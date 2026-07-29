@@ -11,7 +11,7 @@ Using another prefix (such as `from libs.ukko_pylibs.app as app` will import as 
 # Shared Libraries
 #
 
-shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../libs/")
+shared_dir = os.path.abspath(f"{Path(__file__).parent}/../libs/")
 if shared_dir not in sys.path: sys.path.append(shared_dir)
 
 from ukko_pylibs import app,Utils,appLog
@@ -27,10 +27,35 @@ This means that it can run with **Ubuntu 22.04**, **Ubuntu 24.04** & **Ubuntu 26
 Issues:
 `ukkoTestCommand verify --stdout='Hello World\n' -- echo 'Hello Worldx'` -> --stdout='Hello World\\n' when giving a suggestion ...
 
+### Dependencies Required ###
+
+This is largely handled by by the ukko installer for the project, but a shorthand guide is:
+
+```bash
+
+python3 -m venv .venv
+source .venv/bin/activate # to enter the virtual environment - may be at other locations
+
+python3_subver="$(python3 --version | sed 's|^Python 3\.||g' | sed 's|\..*$||g')"
+
+requirements_fname="requirements/requirements-python3.${python3_subver}.txt"
+pip install -r "${requirements_fname}"
+echo "Installed from: ${requirements_fname}"
+
+font_target=".venv/lib/python3.${python3_subver}/site-packages/cv2/qt/fonts"
+if [[ ! -d "/usr/share/fonts/truetype/dejavu" ]] && [[ -d "$font_target" ]] ; then
+    #
+    # Install fonts for QT apps - otherwise it complains about not finding them
+    #
+    ln -s "$font_target" "/usr/share/fonts/truetype/dejavu"
+fi
+
+```
+
 ## Hidden Options ##
 
-| Option                                               | Example Use                                                         |
-|------------------------------------------------------|---------------------------------------------------------------------|
+| Option                                                    | Example Use                                                         |
+|-----------------------------------------------------------|---------------------------------------------------------------------|
 | `--debug-info=[none/app-info/app-as-run/config-info/all]` | `annotatedData --debug-info=app-as-run \| jq '.appAsRun.appValues'` |
 
 ## Style ##
@@ -67,7 +92,6 @@ To avoid circular imports:
 | `network`            | (self) + Basic Modules + Mid Level Modules     |
 | `schemaHandling`     | (self) + Basic Modules + Mid Level Modules     |
 | `app`                | (self) + Basic Modules + Mid Level Modules     |
-
 
 The exceptions are app Templates which are full apps:
 
