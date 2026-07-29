@@ -259,7 +259,7 @@ class DataSourceWithInfo:
 
         if n > rangeToReview:
             appLog.print_warning(
-                f"Provided text `{styling.asError(PrettyText.asClipped(src,min(50,n+2)))}` has colon at location {n}.\nEven though we are only reviewing the first {rangeToReview} characters, you should consider prefixing with `{styling.asSuggestion('text:')}` to avoid any accidental format interpretation in the future"
+                f"Provided text `{styling.asError(PrettyText.asClipped(src,min(50,n+2)))}` has colon at location {n}.\nEven though we are only reviewing the first {rangeToReview} characters, you should consider prefixing with `{styling.asSuggestion('[text]:')}` to avoid any accidental format interpretation in the future"
             )
             return
 
