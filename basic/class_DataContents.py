@@ -561,7 +561,7 @@ class DataContents(DataSourceWithInfo):
 
     def asContentsSummary(self, valueIfEmpty="«Empty»") -> str:
         if self.isEmpty():
-            return " " + valueIfEmpty
+            return valueIfEmpty
 
         if isinstance(self.asData, bytes):
             summaryTxt = PrettyText.asClipped(

@@ -248,7 +248,6 @@ def examplesTableAndRenderOptions_create(
             # pipeOut.append(pipe_suffix)
         elif isinstance(s, dict):
             tableStyling = s.get("colWidths")
-
         else:
             line_out = [
                 appDoco_replaceTemplateMarkers(appChoices, x).strip() for x in s
