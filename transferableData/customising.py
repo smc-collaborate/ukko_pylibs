@@ -975,8 +975,7 @@ def _customFormatList_load() -> Tuple[
     pathMain = os.path.abspath(appMainDir + "/dataFormats/")
 
     paths: list[str] = [pathMain]
-
-    for f in os.scandir(appMainParentDir + "/../"):
+    for f in os.scandir(appMainParentDir):
         if f.path.split("/")[-1].startswith("annotatedData_ext-"):
             tryThis = os.path.abspath(f.path + "/dataFormats")
             if f.is_dir() and os.path.isdir(tryThis) and not (tryThis in paths):
