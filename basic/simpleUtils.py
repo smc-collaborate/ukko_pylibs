@@ -276,17 +276,11 @@ class Utils:
     def asJsonStr(obj, indent: int | str | None = None, sortKeys: bool = False) -> str:
         """Safer version of json.dumps that can handle some extra types like bytes and avoids odd crashes"""
 
-        def _makeSafe(obj, _note: str = "") -> str:
-            _result = '"_created_":' + Utils.asJsonStr(Utils.makeJsonable(obj), indent)
-            if _note:
-                _result += '"note":' + json.dumps(_note, ensure_ascii=False)
-            return "{" + _result + "}"
-
         try:
 
             class JsonEncoderExtended(json.JSONEncoder):
                 def default(self, o):
-                    return _makeSafe(o)
+                    return Utils.makeJsonable(o)
 
             return json.dumps(
                 obj,
@@ -298,7 +292,12 @@ class Utils:
                 cls=JsonEncoderExtended,
             )
         except Exception as e:
-            return _makeSafe(obj)
+            appLog.print_warning(f"Exception: {e}")
+            return Utils.asJsonStr(
+                {"error": "Unable to parse as JSON", "exception": {e}},
+                indent=indent,
+                sortKeys=sortKeys,
+            )
 
     @staticmethod
     def asJsonRStr(obj, indent: int | str | None = None, sortKeys: bool = False) -> str:
@@ -306,17 +305,9 @@ class Utils:
         try:
             import json5
 
-            def _makeSafe(obj, _note: str = "") -> str:
-                _result = '"_created_":' + Utils.asJsonStr(
-                    Utils.makeJsonable(obj), indent
-                )
-                if _note:
-                    _result += '"note":' + json.dumps(_note, ensure_ascii=False)
-                return "{" + _result + "}"
-
             class Json5EncoderExtended(json5.JSON5Encoder):
                 def default(self, obj):
-                    return _makeSafe(obj)
+                    return Utils.makeJsonable(obj)
 
             return json5.dumps(
                 obj,
