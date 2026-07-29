@@ -279,22 +279,26 @@ class Utils:
         try:
 
             class JsonEncoderExtended(json.JSONEncoder):
+                def __init__(self, *args, **kwargs):
+                    super().__init__(*args, **kwargs)
+                    self.skipkeys = True
+                    self.separators = None if self.indent else ("," ":")
+                    self.ensure_ascii = False
+                    self.quote_keys = False
+
                 def default(self, o):
                     return Utils.makeJsonable(o)
 
             return json.dumps(
                 obj,
                 indent=indent,
-                skipkeys=True,
                 sort_keys=sortKeys,
-                separators=None if indent else (",", ":"),
-                ensure_ascii=False,
                 cls=JsonEncoderExtended,
             )
         except Exception as e:
-            appLog.print_warning(f"Exception: {e}")
+            appLog.print_warning_withException(e, "Utils.asJsonStr")
             return Utils.asJsonStr(
-                {"error": "Unable to parse as JSON", "exception": {e}},
+                {"error": "Unable to create JSON Text", "exception": {e}},
                 indent=indent,
                 sortKeys=sortKeys,
             )
@@ -306,20 +310,42 @@ class Utils:
             import json5
 
             class Json5EncoderExtended(json5.JSON5Encoder):
+                def __init__(self, *args, **kwargs):
+                    super().__init__(*args, **kwargs)
+                    self.skipkeys = (True,)
+                    self.separators = None if self.indent else ("," ":")
+                    self.ensure_ascii = False
+                    self.quote_keys = False
+
                 def default(self, obj):
                     return Utils.makeJsonable(obj)
 
             return json5.dumps(
                 obj,
                 indent=indent,
-                skipkeys=True,
                 sort_keys=sortKeys,
-                separators=None if indent else (",", ":"),
-                ensure_ascii=False,
                 cls=Json5EncoderExtended,
             )
-        except Exception:
+        except Exception as e:
+            appLog.print_warning_withException(e, "Utils.asJsonRStr")
             return Utils.asJsonStr(obj, indent)
+
+    @staticmethod
+    def asStr(obj) -> str:
+        try:
+            if obj is None:
+                return ""
+
+            if isinstance(obj, str):
+                return obj
+
+            if isinstance(obj, list):
+                return "[" + ",".join([Utils.asStr(x) for x in obj]) + "]"
+            else:
+                return Utils.asJsonRStr(obj).removeprefix("{").removesuffix("}")
+        except Exception as e:
+            appLog.print_error_withException(e, "Utils.asStr()")
+            return Utils.asJsonStr(obj)
 
     @staticmethod
     def makeJsonable(

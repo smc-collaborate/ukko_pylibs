@@ -20,4 +20,4 @@ pyserial==3.5
 types-pyserial==3.5
 termcolor
 deepdiff
-json5
+json5==0.15.0
