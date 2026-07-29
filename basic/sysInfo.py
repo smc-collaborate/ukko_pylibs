@@ -393,20 +393,21 @@ def sysModules_review(
 
 def pyInfo_asDict():
 
-    packages: dict[str, Any] | str = {}
+    packages: dict[str, Any] | str
 
-    packages, mainDir = sysModules_review(doFilter=True, useRealPaths=True)
+    packages, mainDir = sysModules_review(
+        doFilter=not appLog.isVerbose(), useRealPaths=True
+    )
 
     results: dict[str, Any] = {
-        "python": sys.version,
+        "version": sys.version,
         "platform": sys.platform,
         "executable": sys.executable,
+        "packages": packages,
     }
 
     if mainDir:
         results["mainDir"] = mainDir
-
-    results["packages"] = packages
 
     return results
 

@@ -1202,26 +1202,28 @@ def doRun(mainFunc_or_appDefinition: dict | Callable[[], None]):
 def printVerbose_sysInfo():
     # @todo: Use sysInfo.pyInfo_asDict()
     if appLog.isVerbose():
-        lines: list[str] = []
-        for key, value in sys.modules.items():
-            txt = str(value)
-            if ".venv" in txt:
-                continue
-            if txt.endswith("built-in)>"):
-                continue
-            if txt.endswith("(frozen)>"):
-                continue
-            if "from '/usr" in txt:
-                continue
-            if "<class 'typing." in txt:
-                continue
-            lines.append(f" * [{key:<30}]={txt}")
 
         appLog.print_verbose(f"Python version: {sys.version}")
         appLog.print_verbose(f"Platform: {sys.platform}")
         appLog.print_verbose(f"Executable: {sys.executable}")
         appLog.print_verbose(f"Current working directory: {os.getcwd()}")
-        appLog.print_tediousDetail(f"Modules:\n" + "\n".join(lines))
+
+        if appLog.amPrintingTediousDetail():
+            lines: list[str] = []
+            for key, value in sys.modules.items():
+                txt = str(value)
+                if ".venv" in txt:
+                    continue
+                if txt.endswith("built-in)>"):
+                    continue
+                if txt.endswith("(frozen)>"):
+                    continue
+                if "from '/usr" in txt:
+                    continue
+                if "<class 'typing." in txt:
+                    continue
+                lines.append(f" * [{key:<30}]={txt}")
+            appLog.print_tediousDetail(f"Modules:\n" + "\n".join(lines))
 
 
 #############################################################################################################################################
