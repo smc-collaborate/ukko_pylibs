@@ -6,17 +6,20 @@ To avoid multiple copies of python modules existing in your project always impor
 Using another prefix (such as `from libs.ukko_pylibs.app as app` will import as a new module).
 
 ```python
-#####################################################################
+################################################################################
 #
-# Shared Libraries
+# Ensure shared Packages are available
 #
 
-shared_dir = os.path.abspath(f"{Path(__file__).parent}/../libs/")
-if shared_dir not in sys.path: sys.path.append(shared_dir)
+packages_dir = str((Path(__file__).parent.parent/'pkgs').absolute())
+if not packages_dir.endswith('/pkgs') or not os.path.exists(packages_dir):
+    exit(f"❌  {__file__}\n    Misconfigured: [/path/to]/pkgs is not {packages_dir}")
 
-from ukko_pylibs import app,Utils,appLog
+if packages_dir not in sys.path:
+    sys.path.append(packages_dir)
 #
-#####################################################################
+################################################################################
+
 ```
 
 ## Development Notes ##
@@ -29,28 +32,12 @@ Issues:
 
 ### Dependencies Required ###
 
-This is largely handled by by the ukko installer for the project, but a shorthand guide is:
+This is largely handled by by the ukko installer for the project.
 
-```bash
+Points to note:
 
-python3 -m venv .venv
-source .venv/bin/activate # to enter the virtual environment - may be at other locations
-
-python3_subver="$(python3 --version | sed 's|^Python 3\.||g' | sed 's|\..*$||g')"
-
-requirements_fname="requirements/requirements-python3.${python3_subver}.txt"
-pip install -r "${requirements_fname}" | grep -v "^Requirement already satisfied:"
-echo "Installed from: ${requirements_fname}"
-
-font_target=".venv/lib/python3.${python3_subver}/site-packages/cv2/qt/fonts"
-if [[ ! -d "/usr/share/fonts/truetype/dejavu" ]] && [[ -d "$font_target" ]] ; then
-    #
-    # Install fonts for QT apps - otherwise it complains about not finding them
-    #
-    ln -s "$font_target" "/usr/share/fonts/truetype/dejavu"
-fi
-
-```
+* The full list of dependancies is in **`requirements/requirements-python3.##.txt`**
+* An example installer is in [**tools/do-create-sample-venv.sh ⧉**](tools/do-create-sample-venv.sh)
 
 ## Hidden Options ##
 
@@ -65,6 +52,45 @@ Style can be enforced with **`pre-commit install`**<br>
 Check with: **`pre-commit run -a`**
 
 ## Organisation ##
+
+```text
+│
+├── readme.md
+│
+├── pkgs
+│   ├── ukkoCommonCollection     -- ⭐ Usually your app can just include this - it hass all the common ones in
+│   │
+│   ├── appAssist
+│   ├── appLogging
+│   ├── dictionaryWalker
+│   ├── dictUtils
+│   ├── escapeFormatting
+│   ├── fileUtils
+│   ├── imageProcessing
+│   ├── markdown
+│   ├── network
+│   ├── prettyData
+│   ├── prettyText
+│   ├── schemaHandling
+│   ├── sysInfo
+│   ├── transferableData
+│   ├── ukkoAppTemplates
+│   ├── ukkoDataFormats
+│   ├── ukkoStyling
+│   ├── ukkoUtils
+│   └── ukkoValueHandling
+│
+├── requirements
+│   ├── requirements-python3.10.txt
+│   ├── requirements-python3.12.txt
+│   └── requirements-python3.14.txt
+│
+├── testing
+│   └── test-run.sh
+│
+└── tools
+
+```
 
 There is a heirachy:
 
@@ -96,73 +122,6 @@ To avoid circular imports:
 The exceptions are app Templates which are full apps:
 
 * **schemaHandling/`appTemplate_schemas.py`**
-
-```text
-.
-├── appAssist
-│   ├── appChoices.py
-│   ├── appHelp.py
-│   ├── appSupport.py
-│   ├── class_Configuration.py
-│   └── class_ParamSpec.py
-├── appTemplates
-│   ├── jsonLineStreaming.py
-│   └── ukko_pylibs -> ..
-├── basic
-│   ├── class_DataContents.py
-│   ├── class_HandledException.py
-│   ├── class_JsonData.py
-│   ├── class_SimpleLogger.py
-│   ├── escapeFormatting.py
-│   ├── fileUtils.py
-│   ├── logger.py
-│   ├── prettyTable.py
-│   ├── simpleUtils.py
-│   ├── sparseLists.py
-│   ├── styling.py
-│   ├── sysInfo.py
-│   └── valueHandling.py
-├── _external
-│   └── parseProtoBuf.py
-├── imageProcessing
-│   ├── class_PixelFormatData.py
-│   ├── __init__.py
-│   └── rawimgProcess.py
-├── __init__.py
-├── _lib_testing
-│   ├── __pycache__
-│   │   └── test-PrettyTables.cpython-312.pyc
-│   ├── samples
-│   │   ├── render-barred.json
-│   │   ├── table-small.json
-│   │   └── table-wide.json
-│   ├── test-PrettyTables.py
-│   ├── test-run.sh
-│   └── ukko_pylibs -> ..
-├── markdown
-│   └── class_MarkdownTable.py
-├── network
-│   ├── appAccess.py
-│   ├── basicTcpServer.py
-│   ├── class_CmdServers.py
-│   ├── class_DataLink_.py
-│   ├── class_DataStreamer.py
-│   ├── class_IPhyConnection.py
-│   ├── class_PhyConnection_Serial.py
-│   ├── class_PhyConnection_Tcp.py
-│   ├── __init__.py
-│   └── shared_link_code.py
-├── readme.md
-├── schemaHandling
-│   ├── appTemplate_schemas.py
-│   ├── class_MarkdownSchemaDoc.py
-│   └── schemaProcessing.py
-└── transferableData
-    ├── class_ITransferableData.py
-    ├── customising.py
-    └── __init__.py
-
-```
 
 ## Full Regression Testing ##
 
