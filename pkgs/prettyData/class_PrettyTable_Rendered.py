@@ -72,13 +72,15 @@ class PrettyTable_Rendered(IPrettyData_Render_Interface):
     def __init__(
         self,
         tableSrc: PrettyTable_Contents,
-        renderOptionsIn: renderOptions.Table | str | list[int | None] | None = None,
+        renderOptionsIn: (
+            renderOptions.Table | str | dict | list[int | None] | None
+        ) = None,
     ):
         self.in_table = tableSrc
 
-        if isinstance(renderOptionsIn, str):
+        if isinstance(renderOptionsIn, str | dict | None):
             #####
-            self.renderOptions = renderOptions.Table()
+            self.renderOptions = renderOptions.Table(renderOptionsIn)
         elif isinstance(renderOptionsIn, renderOptions.Table):
             self.renderOptions = renderOptionsIn
         elif isinstance(renderOptionsIn, list):

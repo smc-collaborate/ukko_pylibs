@@ -86,21 +86,20 @@ def main():
 
     contents = PrettyData.Contents.create_fromJsonDict(table_spec)
 
-    renderOptions = PrettyData.TableRenderOptions.createOrNone_fromJsonDictOrNone(
-        render_spec
-    )
+    renderingList = [
+        render_spec,
+        '{"borders":"outer+vert","rowStyling":{"title":"+bold"}}',
+    ]
 
-    if renderOptions:
-        app.print_cyan(
-            [
-                "renderOptions:rowStyling",
-                ukkoUtils.asJsonStr(renderOptions.get("rowStyling"), indent=2),
-            ]
+    for renderStyle in renderingList:
+        print("")
+        print(
+            f"Rendering Style[{type(renderStyle)}]: {ukkoUtils.asJsonStr(renderStyle)}"
         )
-    lines_out = PrettyData.Rendered(contents, renderOptions).asTextLines()
+        lines_out = PrettyData.Rendered(contents, renderStyle).asTextLines()
 
-    for line in lines_out:
-        print(line)
+        for line in lines_out:
+            print(line)
 
 
 if __name__ == "__main__":
