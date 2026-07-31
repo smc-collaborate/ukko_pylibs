@@ -52,9 +52,11 @@ def appendStr(
 
 @staticmethod
 def getWithDefaultValuesRemoved(
-    dictIn: dict, defaultValues: dict[str, Any], recurseDicts: bool = False
+    dictIn: dict, defaultValues: dict[str, Any] | None, recurseDicts: bool = False
 ) -> dict[str, Any]:
     """Removes keys from dictIn that have the same value as in defaultValues"""
+    if defaultValues is None:
+        return dictIn
     result = {}
     # | ExtraLogging print_verbose("------------------------------")
     # | ExtraLogging print_verbose(f"getWithDefaultValuesRemoved({ukkoUtils.asJsonStr(dictIn)},defaultValues: {ukkoUtils.asJsonStr(defaultValues)}):")
