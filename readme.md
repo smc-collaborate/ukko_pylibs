@@ -1,26 +1,48 @@
-# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.1.3-wip`] #
+# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.2.0-wip` ] #
 
 ## Importing ##
 
-To avoid multiple copies of python modules existing in your project always import them from `ukko_pylibs`.<br>
-Using another prefix (such as `from libs.ukko_pylibs.app as app` will import as a new module).
+The simplest way to import the most commonly used entries is to:
 
 ```python
-################################################################################
-#
-# Ensure shared Packages are available
-#
-
-packages_dir = str((Path(__file__).parent.parent/'pkgs').absolute())
-if not packages_dir.endswith('/pkgs') or not os.path.exists(packages_dir):
-    exit(f"❌  {__file__}\n    Misconfigured: [/path/to]/pkgs is not {packages_dir}")
-
-if packages_dir not in sys.path:
-    sys.path.append(packages_dir)
-#
-################################################################################
-
+from ukkoCommonCollection import (
+    styling,
+    ns_asText,
+    asJsonStr,
+    appLog,
+    app,
+    appConfig,
+    PrettyData,
+    dictUtils,
+    ukkoUtils,
+    prettyText,
+)
 ```
+
+You can ensure that the packages are available for import via several different ways:
+
+1. Use **`do-build-and-install.sh`** installer:
+
+    ```bash
+    function apps_doInstallOrClean()
+    {
+        installEditablePythonPkgs "git@github.com:smc-collaborate/ukko_pylibs"  --ref='ver:v0.2.0'
+
+        do_pyInstall_orClean "my-app.py"
+    }
+    ```
+
+2. Use **pip install**:
+
+   ```bash
+   pip install -e "${CHECKOUT_DIR}/pkgs/"
+   ```
+
+3. Add the entry to the **`requirements.txt`** file:
+
+    ```requirements.txt
+    -e git+ssh://git@github.com/smc-collaborate/ukko_pylibs@HASH#egg=ukko_fullCollection&subdirectory=pkgs
+    ```
 
 ## Development Notes ##
 
@@ -54,11 +76,11 @@ Check with: **`pre-commit run -a`**
 ## Organisation ##
 
 ```text
-│
-├── readme.md
-│
+├── requirements.txt
 ├── pkgs
-│   ├── ukkoCommonCollection     -- ⭐ Usually your app can just include this - it hass all the common ones in
+│   ├── pyproject.toml
+│   │
+│   ├── ukkoCommonCollection     -- ⭐ Usually your app can just include this - it collects all the common functionality
 │   │
 │   ├── appAssist
 │   ├── appLogging
@@ -80,48 +102,20 @@ Check with: **`pre-commit run -a`**
 │   ├── ukkoUtils
 │   └── ukkoValueHandling
 │
-├── requirements
-│   ├── requirements-python3.10.txt
-│   ├── requirements-python3.12.txt
-│   └── requirements-python3.14.txt
+├── readme.md
 │
 ├── testing
 │   └── test-run.sh
-│
 └── tools
 
 ```
 
-There is a heirachy:
+The unusual entries are:
 
-To avoid circular imports:
-
-### Basic Modules ##
-
-| Module               | Permitted ukko Module level dependencies       |
-|----------------------|------------------------------------------------|
-| `external`           | None                                           |
-| `basic`              | `basic` + `_external`                          |
-
-### Mid Level Modules ##
-
-| Module               | Permitted ukko Module level dependencies       |
-|----------------------|------------------------------------------------|
-| `imageProcessing`    | (self) + Basic Modules                         |
-| `markdown`           | (self) + Basic Modules                         |
-| `transferableData`   | (self) + Basic Modules                         |
-
-### High Level Modules ###
-
-| Module               | Permitted ukko Module level dependencies       |
-|----------------------|------------------------------------------------|
-| `network`            | (self) + Basic Modules + Mid Level Modules     |
-| `schemaHandling`     | (self) + Basic Modules + Mid Level Modules     |
-| `app`                | (self) + Basic Modules + Mid Level Modules     |
-
-The exceptions are app Templates which are full apps:
-
-* **schemaHandling/`appTemplate_schemas.py`**
+| Package                    | Functionality                                                    |
+|----------------------------|------------------------------------------------------------------|
+| **`ukkoCommonCollection`** | A collection of the common functionality for ease of integration |
+| **`ukkoAppTemplates`**     | A collection of app templates                                    |
 
 ## Full Regression Testing ##
 

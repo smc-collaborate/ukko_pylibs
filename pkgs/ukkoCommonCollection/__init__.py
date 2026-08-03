@@ -37,6 +37,7 @@ import prettyText
 from ukkoStyling import styling
 import dictUtils
 import escapeFormatting
+from prettyText import pluralize
 
 __all__ = [
     "JsonDict",
@@ -52,4 +53,5 @@ __all__ = [
     "appConfig",
     "dictUtils",
     "escapeFormatting",
+    "pluralize",
 ]
