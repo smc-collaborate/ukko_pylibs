@@ -1,4 +1,3 @@
-from enum import Enum
 import errno
 import inspect
 import json
@@ -323,6 +322,11 @@ class SimpleLogger:
             return "\n".join([SimpleLogger.asPrintable(m) for m in message])
         return str(message)
 
+    def _tryVerboseForMoreInfoSuffix(self):
+        from appAssist.appSupport import appInfo_cmdWithVariant_styled
+
+        return f"Try {appInfo_cmdWithVariant_styled({'verbosity':'details'})} for more information"
+
     def _print_exception_(
         self,
         isError: bool,
@@ -353,7 +357,7 @@ class SimpleLogger:
         if alwaysTraceback or self.isVerbose():
             txt += "\nTraceback:\n" + traceback.format_exc()
         else:
-            txt += "\n -- Use '--verbosity=details' for more information"
+            txt += "\n -- " + self._tryVerboseForMoreInfoSuffix()
 
         if isError:
             self.print_error(txt, isFatal=False)
@@ -398,7 +402,7 @@ class SimpleLogger:
             msg = f"Deprecation Warning: {message}"
             stack_lines = []
             if not self.isVerbose():
-                msg += " (Use --verbosity=details for more information)"
+                msg += " (" + self._tryVerboseForMoreInfoSuffix() + ")"
             else:
                 import prettyText
 

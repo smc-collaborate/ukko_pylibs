@@ -22,7 +22,7 @@ if packages_dir not in sys.path:
 #
 ################################################################################
 import prettyText
-from appLogging import appLog
+
 from ukkoUtils import (
     pathAsDisplay,
     asJsonStr,
@@ -30,6 +30,12 @@ from ukkoUtils import (
     HandledException,
     getStartupPath,
 )
+
+
+def _appLog() -> Any:
+    from appLogging import appLog
+
+    return appLog
 
 
 def filenameIsStdIO(filename: str) -> bool:
@@ -82,7 +88,7 @@ def loadJsonFromFile(
     note_deprecation: bool = True,
 ) -> Any:
     if note_deprecation:
-        appLog.deprecationWarning(
+        _appLog().deprecationWarning(
             "The function 'loadJsonFromFile' is deprecated. Please use 'loadJsonDictFromFile' if appropriate"
         )
 
@@ -103,7 +109,7 @@ def loadJsonDictFromFile(
 
     try:
         if inputJsonFile == "/dev/stdin":
-            appLog.print_verbose(f"Note: Reading {inputKind} from standard input")
+            _appLog().print_verbose(f"Note: Reading {inputKind} from standard input")
         if not os.path.exists(inputJsonFile) and not giveWarningOnFileMissing:
             # Avoid throwing exception on missing file if we're not giving a warning about it.
             # This eases our debugging process when we halt on raised exceptions
@@ -128,7 +134,7 @@ def loadJsonDictFromFile(
         app.exitOnException(e)
 
     if showWarning:
-        appLog.print_warning(errmsg)
+        _appLog().print_warning(errmsg)
     if exceptionOnError:
         raiseHandledException(errmsg)
     else:
@@ -247,7 +253,7 @@ def loadBytesFromFile_orHandledException(
         if filenameIsStdIO(inputBinaryFile):
             inputBinaryFile = "/dev/stdin"
         if inputBinaryFile == "/dev/stdin":
-            appLog.print_info(f"Note: Reading {what} from standard input")
+            _appLog().print_info(f"Note: Reading {what} from standard input")
         with open(inputBinaryFile, "rb") as file:
             file_bytes = file.read()
         return file_bytes
@@ -263,7 +269,7 @@ def loadTextFromFile_orHandledException(
         if filenameIsStdIO(inputTextFile):
             inputTextFile = "/dev/stdin"
         if inputTextFile == "/dev/stdin":
-            appLog.print_info(f"Note: Reading {what} from standard input")
+            _appLog().print_info(f"Note: Reading {what} from standard input")
         with open(inputTextFile, "rt") as file:
             return file.read()
 
@@ -288,7 +294,7 @@ def exportToFile_orHandledException(
     try:
         if filenameIsStdIO(outputFilename):
             outputFilename = "/dev/stdout"
-        appLog.print_verbose(
+        _appLog().print_verbose(
             f"Exporting {format:<4} to {outputFilename} ({'None' if (fileContentsOut is None) else prettyText.pluralize(len(fileContentsOut), 'byte')})"
         )
 
@@ -296,7 +302,7 @@ def exportToFile_orHandledException(
             return outputFilename, 0
         if fileContentsOut is None:
             if not outputFilename.startswith("/dev/"):
-                appLog.print_verbose(
+                _appLog().print_verbose(
                     f"Exporting {format:<4} -- erasing output file '{outputFilename}'"
                 )
                 if os.path.exists(outputFilename):
@@ -415,7 +421,7 @@ def doExportBitstream(
 
         if out_filename is not None:
             with open(out_filename, "wb") as fileout:
-                appLog.print_verbose(f"Exporting to {fileout.name}")
+                _appLog().print_verbose(f"Exporting to {fileout.name}")
                 fileout.write(bitstream)
                 result["file"] = fileout.name
     return result

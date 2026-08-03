@@ -37,8 +37,6 @@ if packages_dir not in sys.path:
 #
 ################################################################################
 
-from appLogging import appLog
-
 
 def asClipped(
     text: Any,
@@ -150,6 +148,9 @@ def withSubstitutions(
     )
 
     def giveWarning(key: str, msg: str):
+
+        from appLogging import appLog
+
         appLog.print_warning(
             warning_format.format(keyNote=prefix + key + suffix, key=key, msg=msg)
         )
