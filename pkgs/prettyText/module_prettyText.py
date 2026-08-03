@@ -280,7 +280,10 @@ class SlashTextWrapper(textwrap.TextWrapper):
 def textWrapWithPrefixes(
     _txt: str, maxWidth: int | None = None, prefixes: list[str] | bool | None = True
 ) -> list[str]:
-    # |x|print(f"!!textWrapWithPrefixes({ukkoUtils.asJsonStr(_txt)},maxWidth={maxWidth},prefixes={ukkoUtils.asJsonStr(prefixes)})")
+    """prefixes=True:  Use the first part of the line up to the first '=' or ':' as a prefix for wrapping
+    prefixes=False: Don't use any prefix for wrapping
+    prefixes=[list of strings]: Use the first matching prefix from the list for wrapping
+    """
     if _txt == "":
         return [""]
     linesIn = _txt.splitlines()
@@ -295,8 +298,12 @@ def textWrapWithPrefixes(
     for txt in linesIn:
         prefixToAppend = ""
         otherPrefixes = ""
-        if prefixes == True and ("=" in txt):
-            prefixes = [txt.split("=")[0] + "="]
+        if prefixes == True and (uniLen_approx(txt) > maxWid_):
+            n = min([x for x in [txt.find("="), txt.find(":")] if x >= 0], default=-1)
+            if n >= 0:
+                while n + 1 < len(txt) and txt[n + 1] in [" "]:
+                    n += 1
+                prefixes = [txt[: n + 1]]
 
         if isinstance(prefixes, list):
             for prefix in prefixes:
