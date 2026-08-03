@@ -245,7 +245,22 @@ class SparseList[ContentKind](dict[int, ContentKind]):
     def _jsonImportContent(self, valueIn) -> ContentKind:
         # print(f"Calling self._defaultContent({ContentKind})")
         theType = self._getContentType()
+
+        if hasattr(theType, "create_fromJsonDictOrNone") and callable(
+            getattr(theType, "create_fromJsonDictOrNone")
+        ):
+            return theType.create_fromJsonDictOrNone(valueIn)  # type: ignore[call-arg]
+        if hasattr(theType, "create_fromJsonDict") and callable(
+            getattr(theType, "create_fromJsonDict")
+        ):
+            return theType.create_fromJsonDict(valueIn)  # type: ignore[call-arg]
+        if hasattr(theType, "create_fromJsonDict_andBlank") and callable(
+            getattr(theType, "create_fromJsonDict_andBlank")
+        ):
+            return theType.create_fromJsonDict_andBlank(valueIn, self._blankValue)  # type: ignore[call-arg]
         if callable(theType):
+            return theType(valueIn)  # type: ignore[call-arg]
+        if theType in [str, int, float, bool]:
             return theType(valueIn)  # type: ignore[call-arg]
 
         try:
