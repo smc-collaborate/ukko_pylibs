@@ -223,11 +223,7 @@ class SparseList[ContentKind](dict[int, ContentKind]):
         return self._setEntry(entry, position)[0]
 
     def _getContentType(self) -> Any | None:
-        orig_class = getattr(self, "__orig_class__", None)
-        if orig_class is not None:
-            content_type = getattr(orig_class, "__args__", [None])[0]
-            return content_type
-        return None
+        return type(self._blankValue)
 
     def _asCaption(self) -> str:
         return f"SparseList[{typeAsText(self._getContentType)}]"
