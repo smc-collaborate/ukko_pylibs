@@ -1,4 +1,4 @@
-from class_MarkdownTable import (
+from .class_MarkdownTable import (
     MarkdownTable,
     IMarkdownElement,
     objToMarkdownText,
