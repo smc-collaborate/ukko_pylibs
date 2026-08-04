@@ -343,7 +343,7 @@ class Schema:
     @staticmethod
     def fromCmdAndPart(
         cmd: str, piece: str, schema_description: str = "schema", isStrict: bool = True
-    ):
+    ) -> "Schema":
         def defaultsOrNone(
             usageInstructions: SchemaUsageInstructions,
         ) -> tuple[dict[str, Any] | None, str, str | None] | None:

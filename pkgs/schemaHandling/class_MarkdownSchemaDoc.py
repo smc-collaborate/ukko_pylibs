@@ -688,7 +688,7 @@ class MarkdownSchemaDoc:
         returnValue: IMarkdownElement | None = None
         if isinstance(partSchema, dict):
             returnValue = self.fullSchemaToTable(partSchema, owner=parent)
-            if prettifyCaption:
+            if prettifyCaption and (returnValue is not None):
                 returnValue.spec.simpleFullCaption = (
                     returnValue.spec.simpleFullCaption.split(":")[-1].strip().title()
                 )

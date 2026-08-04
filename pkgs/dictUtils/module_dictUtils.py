@@ -350,7 +350,7 @@ def dict_diff(contents_old, contents_new):
 
 
 @staticmethod
-def doCleanup(contents):
+def doCleanup(contents: Any) -> Any:
     # This can be removed for a release version - it is to make our lives easier for diagnostics
     if (contents is not None) and (
         (type(contents) is dict) or (type(contents) is OrderedDict)
