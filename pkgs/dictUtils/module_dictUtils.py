@@ -421,7 +421,7 @@ def msg_to_dict(
     # |Quick| if isinstance(msg, AnnotatedData):
     # |Quick|     return msg.toFullJson(is_full)
     try:
-        result = makeJsonable(
+        result = asJsonable(
             msg, is_full
         )  # msgconverter.convert_ros_message_to_dictionary(msg,True)
         try:

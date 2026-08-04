@@ -183,7 +183,7 @@ class SchemaUsageInstructions:
             and (len(self.usageRulesList) == 0)
         )
 
-    def asDict(self) -> dict[str, Any]:
+    def asJsonable(self) -> dict[str, Any]:
         result: dict[str, Any] = {}
 
         if self.isDefault():
@@ -316,7 +316,7 @@ class Schema:
     A class to represent a schema.
     """
 
-    def asDict(self) -> dict[str, Any]:
+    def asJsonable(self) -> dict[str, Any]:
         """
         Convert the schema to a dict[str,…] representation.
         """
@@ -324,7 +324,7 @@ class Schema:
         if self.jsonSchema is not None:
             result["jsonSchema"] = self.jsonSchema
         if not self.usageInstructions.isDefault():
-            result["usageInstructions"] = self.usageInstructions.asDict()
+            result["usageInstructions"] = self.usageInstructions.asJsonable()
         if self.errMsg is not None:
             result["errMsg"] = self.errMsg
         return result

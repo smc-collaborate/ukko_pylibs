@@ -77,7 +77,7 @@ class IOneOf_Interface[Kind]:
     def isEmpty(self) -> bool:
         return self.thisValue == ""
 
-    def asDict(self, isVerbose: bool = True) -> dict[str, Any] | Kind:
+    def asJsonable(self, isVerbose: bool = True) -> dict[str, Any] | Kind:
         if not isVerbose:
             return self.thisValue
         else:
@@ -300,14 +300,14 @@ class DataSourceWithInfo:
 
             self.contentType.thisValue = formatIn
 
-    def asDict(self) -> dict[str, Any] | str:
+    def asJsonable(self) -> dict[str, Any] | str:
         result: dict[str, Any] = {}
 
         if type(self.asProvidedOrig) is str and self.prefix:
             result["prefix"] = self.prefix
             result["asProvidedAfterPrefix"] = self.asProvidedAfterPrefix
-            result["self.sourceType"] = self.sourceType.asDict()
-            result["self.contentType"] = self.contentType.asDict()
+            result["self.sourceType"] = self.sourceType.asJsonable()
+            result["self.contentType"] = self.contentType.asJsonable()
         else:
             result["contents"] = ukkoUtils.typeOfAsStr(self.asProvidedOrig)
 
@@ -453,7 +453,7 @@ class DataContents(DataSourceWithInfo):
 
         return resultTxt
 
-    def asDict(self, isFull: bool = True) -> dict[str, Any] | str:
+    def asJsonable(self, isFull: bool = True) -> dict[str, Any] | str:
         out: dict[str, Any] = {
             "warnings": self.getWarnings(),
             "asData": self.asData,
@@ -464,7 +464,7 @@ class DataContents(DataSourceWithInfo):
         if isFull:
             out.update(
                 {
-                    "dataSource": super().asDict(),
+                    "dataSource": super().asJsonable(),
                     "asFormatted": self.asFormatted,
                     "asObj": self.asObj,
                 }

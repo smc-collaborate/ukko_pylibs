@@ -20,7 +20,7 @@ class ValueLimitations:
         self.maxValue: float | None = maxValue
         self._errors = []
         if not self._recalc():
-            self._appendError(f"Unable to create {self.asDict()}")
+            self._appendError(f"Unable to create {self.asJsonable()}")
 
     def _asText(self) -> str:
 
@@ -38,7 +38,7 @@ class ValueLimitations:
         else:
             return "Any"
 
-    def asDict(self) -> dict[str, Any] | str:
+    def asJsonable(self) -> dict[str, Any] | str:
         obj: dict[str, Any] = {}
 
         if not self._errors:
@@ -191,10 +191,10 @@ class ValueInfo:
         self.limitations: ValueLimitations | None = limitations
         self.defaultValue: Any | None = defaultValue
 
-    def asDict(self):
+    def asJsonable(self):
         obj: dict[str, Any] = {}
         if self.limitations is not None:
-            obj["limitations"] = self.limitations.asDict()
+            obj["limitations"] = self.limitations.asJsonable()
         if self.defaultValue is not None:
             obj["defaultValue"] = self.defaultValue
         return obj

@@ -250,5 +250,5 @@ def pyInfo_asDict():
 
 if __name__ == "__main__":
 
-    obj = ukkoUtils.makeJsonable(pyInfo_asDict())
+    obj = ukkoUtils.asJsonable(pyInfo_asDict())
     print(ukkoUtils.asJsonStr(obj, indent=2))

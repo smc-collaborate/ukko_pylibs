@@ -17,9 +17,9 @@ from .module_utils import pathAsDisplay
 #
 # DataToText
 #
-from .module_utils import asJsonStr, asJsonRStr, asStr
+from .module_utils import asJsonStr, asJsonRStr, asStr, makeJsonable as asJsonable
 
-from .module_utils import json_loads, makeJsonable, dictFromJsonLikeStr
+from .module_utils import json_loads, dictFromJsonLikeStr
 from .module_utils import toBool, toHex, rangeAsText
 from .module_utils import DeviceStateEnum
 from .module_utils import getStartupPath
@@ -52,7 +52,7 @@ __all__ = [
     "asJsonStr",
     "asJsonRStr",
     "asStr",
-    "makeJsonable",
+    "asJsonable",
     "json_loads",
     "dictFromJsonLikeStr",
     "toBool",

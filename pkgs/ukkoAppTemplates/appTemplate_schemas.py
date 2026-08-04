@@ -120,7 +120,7 @@ def runApp(appDescription: str, args: list[str]):
             params.asStr("name").removeprefix("$"), isStrict=isStrict
         )
         fileKind = "Interface Specification"
-        schemasShow[params.asStr("name")] = schema.asDict()
+        schemasShow[params.asStr("name")] = schema.asJsonable()
     elif params["kind"] == "json":
         fname = params.asStr("json")
         if (fname == "-") or (fname == ""):
@@ -128,14 +128,14 @@ def runApp(appDescription: str, args: list[str]):
         name = ukkoUtils.pathAsDisplay(fname)
         fileKind = "Specification"
         schema = Schema(name, fname, isStrict=isStrict)
-        schemasShow[name] = schema.asDict()
+        schemasShow[name] = schema.asJsonable()
     elif params["kind"] == "all":
         fileKind = "Command Specification"
 
         for name in schema_list():
             schemasShow[name] = [
-                Schema.fromCmdAndPart(name, "request", isStrict=isStrict).asDict(),
-                Schema.fromCmdAndPart(name, "reply", isStrict=isStrict).asDict(),
+                Schema.fromCmdAndPart(name, "request", isStrict=isStrict).asJsonable(),
+                Schema.fromCmdAndPart(name, "reply", isStrict=isStrict).asJsonable(),
             ]
     elif (params.asStr("piece") == "request+reply") and (
         params["action"] != "validate"
@@ -143,15 +143,15 @@ def runApp(appDescription: str, args: list[str]):
         fileKind = f"Command Specification[{params['name']}]"
         name = params.asStr("name")
         schemasShow[name] = [
-            Schema.fromCmdAndPart(name, "request", isStrict=isStrict).asDict(),
-            Schema.fromCmdAndPart(name, "reply", isStrict=isStrict).asDict(),
+            Schema.fromCmdAndPart(name, "request", isStrict=isStrict).asJsonable(),
+            Schema.fromCmdAndPart(name, "reply", isStrict=isStrict).asJsonable(),
         ]
     else:
         fileKind = f"Interface Specification: {params['name']}[{params['piece']}]"
         schemasShow[params.asStr("name") + "." + params.asStr("piece")] = (
             Schema.fromCmdAndPart(
                 params.asStr("name"), params.asStr("piece"), isStrict=isStrict
-            ).asDict()
+            ).asJsonable()
         )
 
     appLog.print_verbose(f"Loaded schemas: {ukkoUtils.asJsonStr(schemasShow,indent=2)}")
