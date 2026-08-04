@@ -1,38 +1,13 @@
 from copy import deepcopy
-import os
-import sys
+from typing import Any, Union
 
-from typing import Any, Callable, Self, Tuple, Union
 
-import numpy as np
-from pathlib import Path
-
-################################################################################
-#
-# Ensure shared Packages are available
-#
-
-packages_dir = str((Path(__file__).parent.parent.parent.parent / "pkgs").absolute())
-if not packages_dir.endswith("/pkgs") or not os.path.exists(packages_dir):
-    exit(f"❌  {__file__}\n    Misconfigured: [/path/to]/pkgs is not {packages_dir}")
-
-if packages_dir not in sys.path:
-    sys.path.append(packages_dir)
-#
-################################################################################
 import ukkoUtils
 
-################################################################################
-#
-# Add our module parent directory to system path
-module_parent_dir = str(Path(__file__).parent.parent.absolute())
-if module_parent_dir not in sys.path:
-    sys.path.append(module_parent_dir)
 
-
-from prettyData.renderOptions.renderOptions_gridPart import RenderOptions_GridPart
-from prettyData.renderOptions.renderOptions_columns import RenderOptions_Columns
-from prettyData.renderOptions.borders import Borders
+from .renderOptions_gridPart import RenderOptions_GridPart
+from .renderOptions_columns import RenderOptions_Columns
+from .borders import Borders
 
 ################################################################################
 

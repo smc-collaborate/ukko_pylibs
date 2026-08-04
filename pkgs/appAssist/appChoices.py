@@ -3,32 +3,11 @@
 # app.define- a helper class for command line applications
 #             It basically is the 'app.definition'
 #
-from copy import deepcopy
-import errno
-import json
+
 import math
 import os
-import sys
-from typing import Any, Callable, NoReturn, Tuple
-from types import NoneType
-from pathlib import Path
 
-################################################################################
-#
-# Ensure shared Packages are available
-#
-
-packages_dir = str((Path(__file__).absolute().parent.parent.parent / "pkgs").absolute())
-if not packages_dir.endswith("/pkgs") or not os.path.exists(packages_dir):
-    exit(f"❌  {__file__}\n    Misconfigured: [/path/to]/pkgs is not {packages_dir}")
-
-if packages_dir not in sys.path:
-    sys.path.append(packages_dir)
-#
-################################################################################
-
-import prettyText
-from appLogging import appLog
+from typing import Any
 from .class_ParamSpec import (
     ParamSpecAndValue,
     ParamSpecList,

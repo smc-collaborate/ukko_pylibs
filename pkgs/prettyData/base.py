@@ -1,36 +1,5 @@
-import os
-import sys
-
-from typing import Any, Callable, Self, Tuple, Union
-
-import numpy as np
-from pathlib import Path
-
-################################################################################
-#
-# Ensure shared Packages are available
-#
-
-packages_dir = str((Path(__file__).parent.parent.parent / "pkgs").absolute())
-if not packages_dir.endswith("/pkgs") or not os.path.exists(packages_dir):
-    exit(f"❌  {__file__}\n    Misconfigured: [/path/to]/pkgs is not {packages_dir}")
-
-if packages_dir not in sys.path:
-    sys.path.append(packages_dir)
-#
-################################################################################
-
-from appLogging import appLog
-import prettyText, ukkoUtils
-
-from ukkoDataFormats import (
-    JsonDict,
-    SparseList,
-    Sparse2D,
-    NameValuePairList,
-    NameValuePair,
-)
-
+from ukkoDataFormats import SparseList
+import prettyText
 
 ################################################################################
 

@@ -1,24 +1,11 @@
 import os
 import socket
-import sys
+
 import serial
-from pathlib import Path
+
 
 from typing import Any, NoReturn
 
-################################################################################
-#
-# Ensure shared Packages are available
-#
-
-packages_dir = str((Path(__file__).parent.parent / "pkgs").absolute())
-if not packages_dir.endswith("/pkgs") or not os.path.exists(packages_dir):
-    exit(f"❌  {__file__}\n    Misconfigured: [/path/to]/pkgs is not {packages_dir}")
-
-if packages_dir not in sys.path:
-    sys.path.append(packages_dir)
-#
-################################################################################
 
 import ukkoUtils
 from ukkoUtils import HandledException
@@ -203,7 +190,7 @@ class LinkToDevice(Generic[T_LinkedDataType]):
                 app,
             )  # <--- Import here to avoid circular import issues
 
-            DEFAULT_PORT_NUMBER = app.getValue("DEFAULT_PORT", 12302)
+            DEFAULT_PORT_NUMBER = app.appGetValue("DEFAULT_PORT", 12302)
             appLog.print_verbose(
                 f"No port specified in link_via '{self.link_via}', using default port {DEFAULT_PORT_NUMBER}"
             )

@@ -1,24 +1,11 @@
 from enum import Enum
 from pathlib import Path
-import os, sys
+import os
 
 import jsonschema
 from typing import Any
 from copy import deepcopy
 
-################################################################################
-#
-# Ensure shared Packages are available
-#
-
-packages_dir = str((Path(__file__).parent.parent / "pkgs").absolute())
-if not packages_dir.endswith("/pkgs") or not os.path.exists(packages_dir):
-    exit(f"❌  {__file__}\n    Misconfigured: [/path/to]/pkgs is not {packages_dir}")
-
-if packages_dir not in sys.path:
-    sys.path.append(packages_dir)
-#
-################################################################################
 
 from ukkoUtils import asJsonStr, pathAsDisplay
 

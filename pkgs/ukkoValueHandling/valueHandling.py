@@ -1,23 +1,8 @@
 from copy import deepcopy
 from typing import Any, Tuple
-import sys, os
-from pathlib import Path
 
-################################################################################
-#
-# Ensure shared Packages are available
-#
 
-packages_dir = str((Path(__file__).parent.parent.parent / "pkgs").absolute())
-if not packages_dir.endswith("/pkgs") or not os.path.exists(packages_dir):
-    exit(f"❌  {__file__}\n    Misconfigured: [/path/to]/pkgs is not {packages_dir}")
-
-if packages_dir not in sys.path:
-    sys.path.append(packages_dir)
-#
-################################################################################
-
-from ukkoUtils import asJsonStr
+from ukkoUtils import asJsonStr, asJsonable
 from appLogging import appLog
 
 ################################################################################
