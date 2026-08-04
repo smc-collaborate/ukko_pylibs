@@ -708,13 +708,13 @@ class Define:
 
         self.parseResults: AppParamParseResults | None = None
 
-    def asDict(self) -> dict[str, Any]:
+    def asJsonable(self) -> dict[str, Any]:
         obj: dict[str, Any] = {
             "app_definition": self.app_definition,
         }
 
         if self.parseResults is not None:
-            obj["parseResults"] = (self.parseResults.asDict(),)
+            obj["parseResults"] = (self.parseResults.asJsonable(),)
 
         return obj
 
@@ -897,7 +897,7 @@ class Define:
             if debug_info in ["all", "app-info"]:
                 obj["appInfo"] = self.app_definition
             if debug_info in ["all", "app-as-run"]:
-                asRun = deepcopy(_parseResults.appChoices.asDict())
+                asRun = deepcopy(_parseResults.appChoices.asJsonable())
                 for x in [
                     "options",
                     "examples",
@@ -912,7 +912,7 @@ class Define:
                 obj["appAsRun"] = asRun
 
             if debug_info in ["all", "config-info"]:
-                obj["configInfo"] = appConfig.asDict()
+                obj["configInfo"] = appConfig.asJsonable()
 
             print(ukkoUtils.asJsonStr(obj, indent=2))
             exitReason = ""
@@ -1195,7 +1195,7 @@ def doRun(mainFunc_or_appDefinition: dict | Callable[[], None]):
 
 
 def printVerbose_sysInfo():
-    # @todo: Use sysInfo.pyInfo_asDict()
+    # @todo: Use sysInfo.pyInfo_asJsonable()
     if appLog.isVerbose():
 
         appLog.print_verbose(f"Python version: {sys.version}")

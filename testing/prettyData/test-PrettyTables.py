@@ -65,8 +65,8 @@ def main():
     print("Normalised    : " + app.appInfo_normalisedCommand_styled())
     # app.print_cyan(params)
 
-    table_spec = params.param_asDict("contents")
-    render_spec = params.param_asDictOrNone("render")
+    table_spec = params.param_asJsonable("contents")
+    render_spec = params.param_asJsonableOrNone("render")
 
     contents = PrettyData.Contents.create_fromJsonDict(table_spec)
 

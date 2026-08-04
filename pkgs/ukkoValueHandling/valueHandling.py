@@ -215,11 +215,11 @@ class ValueInfo:
 
 class ValueGroup(dict[str, ValueInfo]):
 
-    def asDict(self):
+    def asJsonable(self):
         outObj = {}
         for name, value in self.items():
             if isinstance(value, ValueInfo):
-                outObj[name] = value.asDict()
+                outObj[name] = value.asJsonable()
             else:
                 outObj[name] = "???"
 

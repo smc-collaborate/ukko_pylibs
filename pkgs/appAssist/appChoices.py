@@ -49,7 +49,7 @@ class AppChoices:
     def paramChoice(self, name: str, default: Any | None = None) -> Any | None:
         return self.params.get(name, default)
 
-    def asDict(self) -> dict[str, Any]:
+    def asJsonable(self) -> dict[str, Any]:
 
         obj: dict[str, Any] = {
             "params": self.params,
@@ -68,14 +68,14 @@ class AppChoices:
     def __getitem__(self, key):
         return self.paramChoice(key)
 
-    def param_asDict(self, name) -> dict:
+    def param_asJsonable(self, name) -> dict:
         _value = self.paramChoice(name)
         if _value is None:
             return {}
         else:
             return _value.contents if isinstance(_value, JsonDict) else _value
 
-    def param_asDictOrNone(self, name) -> dict | None:
+    def param_asJsonableOrNone(self, name) -> dict | None:
         _value = self.paramChoice(name)
         if _value is None:
             return None
@@ -142,7 +142,7 @@ class AppParamParseResults:
         self.appChoices = appChoices
         self.runEnvironment = {
             "runningDir": os.getcwd(),
-            "python": sysInfo.pyInfo_asDict(),
+            "python": sysInfo.pyInfo_asJsonable(),
         }
 
     def asBashParams(self) -> dict[str, str]:
@@ -158,13 +158,13 @@ class AppParamParseResults:
 
         return results
 
-    def asDict(self) -> dict[str, Any]:
+    def asJsonable(self) -> dict[str, Any]:
         obj = {
             "paramSpec_chosen": {
-                k: v.asDict() for k, v in self.paramSpec_chosen.items()
+                k: v.asJsonable() for k, v in self.paramSpec_chosen.items()
             },
-            "paramSpec_avail": [x.asDict() for x in self.paramSpec_avail],
-            "appChoices": self.appChoices.asDict(),
+            "paramSpec_avail": [x.asJsonable() for x in self.paramSpec_avail],
+            "appChoices": self.appChoices.asJsonable(),
         }
 
         if self.errors:

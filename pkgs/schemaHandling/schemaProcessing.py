@@ -760,7 +760,7 @@ class SchemaDocMarkdown:
             if isinstance(partSchema, dict):
                 fullSchemaDict = partSchema
             elif isinstance(partSchema, Schema):
-                fullSchemaDict = partSchema.asDict()
+                fullSchemaDict = partSchema.asJsonable()
             else:
                 self.lines += f"Unknown schema type for part {part}: {type(partSchema).__name__}\n\n"
                 continue

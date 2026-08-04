@@ -152,7 +152,7 @@ class SparseList[ContentKind](dict[int, ContentKind]):
             else SparseList[ContentKind].create_fromList_andBlank(src, blankValue)
         )
 
-    def asDict(self) -> dict[str, Any]:
+    def asJsonable(self) -> dict[str, Any]:
         result: dict[str, Any] = {}
 
         if self.hasData():
@@ -325,11 +325,11 @@ class Sparse2D[CellContentKind]:
     def hasData(self) -> bool:
         return self.rows.hasData()
 
-    def asDict(self):
+    def asJsonable(self):
         return {
             "_kind": f"Sparse2D[{typeAsText(self._getContentType())}]",
             "numCols": self._numCols,
-            "rows": self.rows.asDict(),
+            "rows": self.rows.asJsonable(),
         }
 
     def numRows(self) -> int:

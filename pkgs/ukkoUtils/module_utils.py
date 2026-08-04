@@ -403,10 +403,10 @@ def makeJsonable(
                     makeJsonable(x, base64_encoding, recursionDepth=recursionDepth + 1)
                 )
             return d
-        if hasattr(contents, "asDict"):
-            return contents.asDict()
         if hasattr(contents, "asJsonable"):
             return contents.asJsonable()
+        if hasattr(contents, "asDict"):
+            return contents.asDict()
         try:
             import numpy as np
 

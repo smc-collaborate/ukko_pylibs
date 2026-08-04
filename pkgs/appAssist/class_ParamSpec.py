@@ -60,7 +60,7 @@ class ValueHelpSummary:
             list(self.summaryAdd_directPrefixes),
         )
 
-    def asDict(self) -> dict[str, Any]:
+    def asJsonable(self) -> dict[str, Any]:
         result: dict[str, Any] = {
             "namePlus": self.decoratedNamePlusExtras,
             "group": self.group,
@@ -163,8 +163,8 @@ class ParamSpec:
     def get(self, key, default=None):
         return self.spec.get(key, default)
 
-    def asDict(self):
-        # print("self.asDict():" + ukkoUtils.asJsonStr(self.spec, indent=2))
+    def asJsonable(self):
+        # print("self.asJsonable():" + ukkoUtils.asJsonStr(self.spec, indent=2))
         return self.spec
 
     def name(self) -> str:
@@ -768,8 +768,8 @@ class ParamSpecAndValue:
         result = self.spec.defaultValue_orNone()
         return False if (result is None) else (result == self.value)
 
-    def asDict(self) -> dict[str, Any]:
-        result: dict[str, Any] = {"name": self.name(), "spec": self.spec.asDict()}
+    def asJsonable(self) -> dict[str, Any]:
+        result: dict[str, Any] = {"name": self.name(), "spec": self.spec.asJsonable()}
         if self.value is not None:
             result["value"] = self.value
         if self.errorNotes:

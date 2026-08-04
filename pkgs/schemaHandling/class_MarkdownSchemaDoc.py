@@ -22,7 +22,7 @@ INCLUDE_ADDITIONAL_SCHEMA_DETAILS = False
 
 class SchemaTableAndPosition:
 
-    def asDict(self):
+    def asJsonable(self):
         return {
             "destTable": self.destTable.spec.asShortMarker(),
             "parentNames": self.parentNames,
@@ -494,7 +494,7 @@ def jsonSchemaAddEntry(
             print(f"description: {out_description}")
         if destOrCreateWithOwnerOrNone is not None:
             print(
-                f"destination: {json.dumps(destOrCreateWithOwnerOrNone.asDict(), indent=2)}"
+                f"destination: {json.dumps(destOrCreateWithOwnerOrNone.asJsonable(), indent=2)}"
             )
         print(f"name_to_use: {name_to_use}")
 

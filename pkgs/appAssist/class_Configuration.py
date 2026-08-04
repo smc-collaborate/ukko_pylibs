@@ -268,7 +268,7 @@ class Configuration:
         else:
             return defaultOnUtterFailure
 
-    def asDict(self) -> dict[str, Any]:
+    def asJsonable(self) -> dict[str, Any]:
         return {
             "used": self.CONFIG_USED,
             "notes": self.notes,

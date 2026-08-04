@@ -42,7 +42,7 @@ class MsgKind:
             raise ValueError(f"MsgKind with value {value} already exists")
         return MsgKind(value, name, icon, thresholdName, topLineStyle, isDefaultLevel)
 
-    def asDict(self) -> dict[str, Any]:
+    def asJsonable(self) -> dict[str, Any]:
         return {
             "value": self.value,
             "name": self.name,

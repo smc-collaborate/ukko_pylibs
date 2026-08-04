@@ -63,7 +63,7 @@ class JsonDict:
     def asParamTxt(self) -> str:
         return self.asProvided
 
-    def asDict(self) -> dict[str, Any]:
+    def asJsonable(self) -> dict[str, Any]:
         out = {
             "asProvided": self.asProvided,
             "contents": self.contents,

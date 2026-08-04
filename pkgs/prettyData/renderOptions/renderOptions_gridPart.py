@@ -45,7 +45,7 @@ class RenderOptions_GridPart:
 
         return obj
 
-    def asDict(self) -> dict[str, Any]:
+    def asJsonable(self) -> dict[str, Any]:
         result = self.export_toJsonDict()
         if self._calcWidth:
             result["_calcWidth"] = self._calcWidth
@@ -83,7 +83,7 @@ class RenderDecisions_GridPart:
         self.customisableOptions = customisableOptions
         self.currentWidth = currentWidth
 
-    def asDict(self) -> dict[str, Any]:
+    def asJsonable(self) -> dict[str, Any]:
         return {
             "options": (
                 None

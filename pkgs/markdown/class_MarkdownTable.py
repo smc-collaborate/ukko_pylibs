@@ -198,7 +198,7 @@ class IMarkdownElement:
             else:
                 return self.owner.spec
 
-        def asDict(self) -> dict[str, Any]:
+        def asJsonable(self) -> dict[str, Any]:
             result = {}
             includeRedundant = False
 
@@ -267,8 +267,8 @@ class IMarkdownElement:
             f"[uid:{self.spec.uid:<100}]: Creating {self.spec.getSaveLocationAndDepth(includeRootPath=False)[0]}"
         )
 
-    def asDict(self) -> dict[str, Any]:
-        result = self.spec.asDict()
+    def asJsonable(self) -> dict[str, Any]:
+        result = self.spec.asJsonable()
         result["type"] = self.__class__.__name__
         _isExported = self.getIsExported()
         if _isExported:
@@ -287,8 +287,8 @@ class IMarkdownElement:
             for x in self.owned:
                 if isinstance(x, str):
                     theList.append(x)
-                elif hasattr(x, "asDict"):
-                    theList.append(x.asDict())
+                elif hasattr(x, "asJsonable"):
+                    theList.append(x.asJsonable())
                 else:
                     theList.append(f"type:{type(x)}")
             result["owned"] = theList

@@ -16,7 +16,7 @@ class PrettyTable_Contents:
         self.contentsGrid = Sparse2D[PrettyCellContents](PrettyCellContents())
         self.src = None
 
-    def asDict(self) -> dict[str, Any]:
+    def asJsonable(self) -> dict[str, Any]:
         result = {"colTitle": self.colTitles, "contentsGrid": self.contentsGrid}
 
         if self.src is not None:

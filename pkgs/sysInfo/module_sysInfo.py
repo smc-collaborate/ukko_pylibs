@@ -227,7 +227,7 @@ def sysModules_review(
     return packages, mainDirWithTrailingSlash
 
 
-def pyInfo_asDict():
+def pyInfo_asJsonable():
 
     packages: dict[str, Any] | str
 
@@ -250,5 +250,5 @@ def pyInfo_asDict():
 
 if __name__ == "__main__":
 
-    obj = ukkoUtils.asJsonable(pyInfo_asDict())
+    obj = ukkoUtils.asJsonable(pyInfo_asJsonable())
     print(ukkoUtils.asJsonStr(obj, indent=2))
