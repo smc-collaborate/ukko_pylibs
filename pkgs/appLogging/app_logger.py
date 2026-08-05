@@ -1,6 +1,5 @@
-import os, sys
-from pathlib import Path
 import time
+from typing import Tuple
 
 
 from appLogging.class_SimpleLogger import SimpleLogger
@@ -28,16 +27,23 @@ appLog = SimpleLogger(
 )
 
 
-first_ns: int | None = None
+first_ns: int | None = time.monotonic_ns()
 
 
-def timeFromStart_text(time_in_ns: int | None = None) -> str:
+def timeFromStart_ms(time_in_ns: int | None = None) -> Tuple[float, str]:
     global first_ns
 
     time_ns = time_in_ns if time_in_ns is not None else time.monotonic_ns()
     if first_ns is None:
         first_ns = time_ns
-        return "0 ms [Start]"
+        return 0, "0 ms [Start]"
     else:
         diff_ms = (time_ns - first_ns) / 1_000_000  # Convert to milliseconds
-        return f"{diff_ms:.1f} msᵀ"  # ᵀ marker indicates a warning - assuming time is synced perfectly between the spacecraft and this system
+        return (
+            diff_ms,
+            f"{diff_ms:.1f} msᵀ",
+        )  # ᵀ marker indicates a warning - assuming time is synced perfectly between the spacecraft and this system
+
+
+def timeFromStart_text(time_in_ns: int | None = None) -> str:
+    return timeFromStart_ms(time_in_ns)[1]
