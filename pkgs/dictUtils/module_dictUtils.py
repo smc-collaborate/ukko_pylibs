@@ -77,8 +77,13 @@ def extendWithoutOverwrite(
 
 
 @staticmethod
-def getFlattened(obj_in: dict[str, Any], sep: str = ".") -> dict[str, Any]:
+def asFlattened(
+    obj_in: dict[str, Any], sep: str = ".", prefixIn: str = ""
+) -> dict[str, Any]:
     """Flattens a nested dictionary into a single level dictionary with keys joined by sep"""
+    if not isinstance(obj_in, dict):
+        return obj_in
+
     obj_out: dict[str, Any] = {}
 
     def _recurse(o: dict[str, Any], prefix: str = ""):
@@ -106,7 +111,7 @@ def getFlattened(obj_in: dict[str, Any], sep: str = ".") -> dict[str, Any]:
             else:
                 obj_out[f"{prefix}{k}"] = v
 
-    _recurse(obj_in)
+    _recurse(obj_in, prefixIn)
     return obj_out
 
 

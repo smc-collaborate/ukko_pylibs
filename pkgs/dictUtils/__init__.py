@@ -13,7 +13,7 @@ from .module_dictUtils import (
     getInt,
     msg_to_dict,
 )
-from .module_dictUtils import getFlattened, extendWithoutOverwrite
+from .module_dictUtils import asFlattened, extendWithoutOverwrite
 
 __all__ = [
     "getBoolOrFalse",
@@ -27,6 +27,6 @@ __all__ = [
     "getBool",
     "getInt",
     "msg_to_dict",
-    "getFlattened",
+    "asFlattened",
     "extendWithoutOverwrite",
 ]

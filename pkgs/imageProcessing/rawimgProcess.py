@@ -228,7 +228,7 @@ class RawImg:
     def conversionEntry_asTextSuffix(_conversion: dict[str, Any] | None) -> str:
         if _conversion is None:
             return ""
-        conversion_txt = f"{dictUtils.getFlattened(_conversion)}"
+        conversion_txt = f"{dictUtils.asFlattened(_conversion)}"
         conversion_txt = (
             conversion_txt.replace(" ", "")
             .replace("'", "")
