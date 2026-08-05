@@ -902,12 +902,13 @@ class ValueHelpSummaries:
             return
 
         if not isinstance(item, ParamSpec):
-            appLog.print_error(
-                f"Internal issue: ValueHelpSummaries.appendItem({groupCaption},item:{type(item)})"
-            )
 
             if isinstance(item, dict):
                 item = ParamSpec(item)
+            else:
+                appLog.print_error(
+                    f"Internal issue: ValueHelpSummaries.appendItem({groupCaption},item:{type(item)})"
+                )
 
         if isinstance(item, ParamSpec):
             position = item.spec.get("position", 0)
