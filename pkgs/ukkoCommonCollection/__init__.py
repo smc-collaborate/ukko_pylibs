@@ -15,7 +15,7 @@ from ukkoDataFormats import JsonDict
 
 from appLogging import appLog
 from appLogging import timeFromStart_text as ns_asText
-from ukkoUtils import asJsonStr
+from ukkoUtils import asJsonStr, asStr
 import prettyText
 from ukkoStyling import styling
 import dictUtils
@@ -30,6 +30,7 @@ __all__ = [
     "ukkoUtils",
     "appLog",
     "asJsonStr",
+    "asStr",
     "prettyText",
     "ns_asText",
     "styling",
