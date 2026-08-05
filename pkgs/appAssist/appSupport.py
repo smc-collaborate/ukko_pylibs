@@ -297,17 +297,19 @@ class IArgLoader_Template:
                     }
                 )
             )
-        if self.getAppValue("show-config"):
-            _all.append(
-                ParamSpec(
-                    {
-                        "name": "config-view",
-                        "source": "~appAuto",
-                        "shortName": "C",
-                        "description": "Gives the current configuration",
-                    }
-                )
+
+        _all.append(
+            ParamSpec(
+                {
+                    "name": "config-view",
+                    "source": "~appAuto",
+                    "group": "Settings Options",
+                    "shortName": "C",
+                    "description": "Gives details of the current settings & configuration",
+                    "hidden": not self.getAppValue("show-config"),
+                }
             )
+        )
 
         _all.append(
             ParamSpec(
@@ -548,7 +550,10 @@ class IArgLoader_Template:
                         self.paramsChosen.createNew_SpecAndValue(
                             spec, False, "usedDefault"
                         )
-                    elif not "help" in self.paramsChosen:
+                    elif (
+                        not "help" in self.paramsChosen
+                        and not "config-view" in self.paramsChosen
+                    ):
                         # @todo: Consider adding this anyway with a source as 'omitted - give error' or similar
                         _errmsg = f"Missing required parameter: {styling.asError(spec.getValueHelp(ParamSpec.InfoStyle.PARAM_FORMAT_OR_EXAMPLE))}"
 
@@ -566,6 +571,7 @@ class IArgLoader_Template:
         if (
             self.nextCustomisationAvail_ is not None
             and not self.paramsChosen["help"].value
+            and not self.paramsChosen["config-view"].value
         ):
             self.appendError(
                 f"Expected one of {styling.asSuggestionList(self.nextCustomisationAvail_.keys())}"
@@ -916,6 +922,10 @@ class Define:
 
             print(ukkoUtils.asJsonStr(obj, indent=2))
             exitReason = ""
+
+        if _parseResults.appChoices.params.get("config-view"):
+            print(appConfig.asText())
+            exitReason = "config-view"
 
         if _parseResults.errors:
             error_exit_withSuggestion(_parseResults.errors[0], "<auto>")

@@ -136,7 +136,7 @@ def getAppHelp_asLines(
     optionSummaries = ValueHelpSummaries()
 
     #
-    # Step 1: ['settings']: 'Setting Options'
+    # Step 1: ['settings']: 'Settings Options'
     #
     shouldShowConfig = appChoices.appValue("show-config")
     if shouldShowConfig:
@@ -155,7 +155,7 @@ def getAppHelp_asLines(
                 _spec["default"] = appConfig.setting_getPreUser(
                     entry_name
                 )  # < After update to overwrite it
-                optionSummaries.appendItem("Setting Options", _spec)
+                optionSummaries.appendItem("Settings Options", _spec)
 
     #
     # Step 2 - Visible Parameters

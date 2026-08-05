@@ -88,7 +88,15 @@ class Configuration:
 
         result = dictUtils.get(self.CONFIG_USED, key, None)
         if result is None:
-            self.log_error(f"Config key '{key}' not found - nor found in defaults")
+            keyAsList = ["config", "defaults"]
+            if isinstance(key, str):
+                keyAsList.extend(key.split("/"))
+            else:
+                keyAsList.extend(key)
+
+            self.log_warning(
+                f"Config key '{key}' not found - nor found in defaults.  Consider adding to app definition as {styling.asSuggestionList(keyAsList,separator='/')}"
+            )
         return result
 
     def setting_get_default(self, key: str) -> Any:
@@ -97,7 +105,7 @@ class Configuration:
 
         if result == "!!NOT_FOUND!!":
             if not key.startswith("!"):
-                self.log_error(f"Default setting for key '{key}' not found")
+                self.log_warning(f"Default setting for key '{key}' not found")
             result = None
 
         return result
