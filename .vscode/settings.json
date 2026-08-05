@@ -1,3 +1,12 @@
 {
-    "python.analysis.extraPaths": ["${workspaceFolder}/appTemplates"]
+    "python.analysis.extraPaths": [
+      "${workspaceFolder}/appTemplates",
+      "${workspaceFolder}/pkgs"
+    ],
+  "workbench.colorCustomizations": {
+    "titleBar.activeBackground": "#4b2575",
+    "titleBar.activeForeground": "#ffffff",
+    "editor.background": "#E0E0B0",
+    "toolBar.background": "#E0E0B0"
+  }
 }

@@ -1,0 +1,9 @@
+{
+    "borders":"outer+all",
+    "rowStyling":{"title":"+bold"},
+    "colOptions":
+        [null,
+        {"lockedMaxWidth":30,"isWrap":true,"prefixesToWrapWith":true},
+        {"lockedMaxWidth":30,"isWrap":true}]
+
+}

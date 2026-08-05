@@ -1,25 +1,73 @@
-# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.1.2`]
+# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.2.0` ] #
+
+## Importing ##
+
+The simplest way to import the most commonly used entries is to:
+
+```python
+from ukkoCommonCollection import (
+    styling,
+    ns_asText,
+    asJsonStr,
+    appLog,
+    app,
+    appConfig,
+    PrettyData,
+    dictUtils,
+    ukkoUtils,
+    prettyText,
+)
+```
+
+You can ensure that the packages are available for import via several different ways:
+
+1. Use **`do-build-and-install.sh`** installer:
+
+    ```bash
+    function apps_doInstallOrClean()
+    {
+        installEditablePythonPkgs "git@github.com:smc-collaborate/ukko_pylibs"  --ref='ver:v0.2.0'
+
+        do_pyInstall_orClean "my-app.py"
+    }
+    ```
+
+2. Use **pip install**:
+
+   ```bash
+   pip install -e "${CHECKOUT_DIR}/pkgs/"
+   ```
+
+3. Add the entry to the **`requirements.txt`** file:
+
+    ```requirements.txt
+    -e git+ssh://git@github.com/smc-collaborate/ukko_pylibs@HASH#egg=ukko_fullCollection&subdirectory=pkgs
+    ```
+
+If you are adding to the `.vscode/settings.json`: **"${env:HOME}/gits-shared/github.com/smc-collaborate/ukko_pylibs/branch_v0.2.0-wip/pkgs"** or similar
 
 ## Development Notes ##
 
-1. **How to import**<br>
-  To avoid multiple copies of python modules existing in your project always import them from `ukko_pylibs`.<br>
-   Using another prefix (such as `import app.appSupport as app` will import as a new module).
-   ```python
-   ################################################################################
-   #
-   # Shared Libraries
-   #
-   shared_dir = os.path.abspath(f"{os.path.dirname(__file__)}/../common/")
-   if shared_dir not in sys.path: sys.path.append(shared_dir)
+Care has been taken to support Python versions from **3.10.12** to **3.14**<br>
+This means that it can run with **Ubuntu 22.04**, **Ubuntu 24.04** & **Ubuntu 26.04** (Four years of LTS)
 
-   import ukko_pylibs.app.appSupport as app
-   #
-   #################################################################################
-   ```
+Issues:
+`ukkoTestCommand verify --stdout='Hello World\n' -- echo 'Hello Worldx'` -> --stdout='Hello World\\n' when giving a suggestion ...
 
-2. Care has been taken to support Python versions from **3.10.12** to **3.14**<br>
-   This means that it can run with **Ubuntu 22.04**, **Ubuntu 24.04** & **Ubuntu 26.04** (Four years of LTS)
+### Dependencies Required ###
+
+This is largely handled by by the ukko installer for the project.
+
+Points to note:
+
+* The full list of dependancies is in **`requirements/requirements-python3.##.txt`**
+* An example installer is in [**tools/do-create-sample-venv.sh ⧉**](tools/do-create-sample-venv.sh)
+
+## Hidden Options ##
+
+| Option                                                    | Example Use                                                         |
+|-----------------------------------------------------------|---------------------------------------------------------------------|
+| `--debug-info=[none/app-info/app-as-run/config-info/all]` | `annotatedData --debug-info=app-as-run \| jq '.appAsRun.appValues'` |
 
 ## Style ##
 
@@ -27,6 +75,49 @@ Style can be enforced with **`pre-commit install`**<br>
 
 Check with: **`pre-commit run -a`**
 
+## Organisation ##
+
+```text
+├── requirements.txt
+├── pkgs
+│   ├── pyproject.toml
+│   │
+│   ├── ukkoCommonCollection     -- ⭐ Usually your app can just include this - it collects all the common functionality
+│   │
+│   ├── appAssist
+│   ├── appLogging
+│   ├── dictionaryWalker
+│   ├── dictUtils
+│   ├── escapeFormatting
+│   ├── fileUtils
+│   ├── imageProcessing
+│   ├── markdown
+│   ├── network
+│   ├── prettyData
+│   ├── prettyText
+│   ├── schemaHandling
+│   ├── sysInfo
+│   ├── transferableData
+│   ├── ukkoAppTemplates
+│   ├── ukkoDataFormats
+│   ├── ukkoStyling
+│   ├── ukkoUtils
+│   └── ukkoValueHandling
+│
+├── readme.md
+│
+├── testing
+│   └── test-run.sh
+└── tools
+
+```
+
+The unusual entries are:
+
+| Package                    | Functionality                                                    |
+|----------------------------|------------------------------------------------------------------|
+| **`ukkoCommonCollection`** | A collection of the common functionality for ease of integration |
+| **`ukkoAppTemplates`**     | A collection of app templates                                    |
 
 ## Full Regression Testing ##
 
