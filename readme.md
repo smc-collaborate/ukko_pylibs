@@ -1,4 +1,4 @@
-# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.2.1-wip` ] #
+# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.2.1` ] #
 
 ## Importing ##
 
@@ -44,7 +44,7 @@ You can ensure that the packages are available for import via several different 
     -e git+ssh://git@github.com/smc-collaborate/ukko_pylibs@HASH#egg=ukko_fullCollection&subdirectory=pkgs
     ```
 
-If you are adding to the `.vscode/settings.json`: **"${env:HOME}/gits-shared/github.com/smc-collaborate/ukko_pylibs/branch_v0.2.0-wip/pkgs"** or similar
+If you are adding to the `.vscode/settings.json`: **"${env:HOME}/gits-shared/github.com/smc-collaborate/ukko_pylibs/branch_v0.2.1/pkgs"** or similar
 
 ## Development Notes ##
 
