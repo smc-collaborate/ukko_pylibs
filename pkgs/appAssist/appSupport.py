@@ -570,8 +570,8 @@ class IArgLoader_Template:
 
         if (
             self.nextCustomisationAvail_ is not None
-            and not self.paramsChosen["help"].value
-            and not self.paramsChosen["config-view"].value
+            and not self.paramsChosen.getValue("help")
+            and not self.paramsChosen.getValue("config-view")
         ):
             self.appendError(
                 f"Expected one of {styling.asSuggestionList(self.nextCustomisationAvail_.keys())}"

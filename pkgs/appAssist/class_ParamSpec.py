@@ -831,6 +831,11 @@ class ParamSpecAndValue_collection(dict[str, ParamSpecAndValue]):
 
         return result
 
+    def getValue(self, name: str, defaultIfNotPresent: Any | None = None) -> Any | None:
+        if name not in self:
+            return defaultIfNotPresent
+        return self[name].value
+
 
 class ParamSpecList(list[ParamSpec]):
     def __init__(
