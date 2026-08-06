@@ -1411,8 +1411,11 @@ def error_exit_withSuggestion(
     prefixOrNone = appLog.print_error(msg, noPrefix=True)
     if prefixOrNone is not None:
         if suggestionText != "":
+            if not styling.isStyled(suggestionText):
+                suggestionText = styling.asSuggestion(suggestionText)
+
             print(
-                f"{prefixOrNone}Suggestion: {styling.asSuggestion(suggestionText)}{extraNote}",
+                f"{prefixOrNone}Suggestion: {suggestionText}{extraNote}",
                 file=sys.stderr,
             )
 
