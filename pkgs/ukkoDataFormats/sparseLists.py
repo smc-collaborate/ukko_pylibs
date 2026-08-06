@@ -5,6 +5,8 @@ from typing import Any, Tuple, Union
 
 from appLogging import appLog
 
+from typing import Generic, TypeVar  # < Needed for compliance with Python 3.10
+
 
 def visLength(text: str) -> int:
     import prettyText
@@ -57,7 +59,13 @@ class RangesInt(list[RangeInt]):
         return [entry.asText() for entry in self]
 
 
-class SparseList[ContentKind](dict[int, ContentKind]):
+# Below is equivalent to:
+# class SparseList[ContentKind](dict[int, ContentKind]):  .. for Python 3.10
+
+ContentKind = TypeVar("ContentKind")
+
+
+class SparseList(dict[int, ContentKind], Generic[ContentKind]):
     @staticmethod
     def create_fromJsonDict_andBlank(
         spec: dict | list, blankValue: ContentKind
@@ -303,7 +311,12 @@ class MaxWidths(SparseList[int]):
                 self.includeVal(colNum, visLength(colText))
 
 
-class Sparse2D[CellContentKind]:
+# Below is equivalent to:
+# class Sparse2D[CellContentKind]:  .. for Python 3.10
+CellContentKind = TypeVar("CellContentKind")
+
+
+class Sparse2D(Generic[CellContentKind]):
 
     def _getContentType(self) -> Any | None:
         orig_class = getattr(self, "__orig_class__", None)

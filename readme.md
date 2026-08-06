@@ -122,3 +122,25 @@ The unusual entries are:
 ## Full Regression Testing ##
 
 This is done with `ukko_full` - which has test scripts and includes `ukko_bashlibs`
+
+## Dev notes ##
+
+Note: For ubuntu:22.04 (Python 3.10) compliance, we need to change styling from PEOP695's type parameter syntax:
+
+eg:
+
+```python
+class SparseList[ContentKind]:
+```
+
+to:
+
+```python
+from typing import Generic, TypeVar
+
+ContentKind = TypeVar("ContentKind")
+
+class SparseList(Generic[ContentKind]):
+```
+
+We can do that if needed.
