@@ -13,11 +13,8 @@ from ukkoUtils import HandledException
 import dictUtils, ukkoUtils
 from appLogging import appLog
 
-from imageProcessing import (
-    PIXEL_FORMATS,
-    PixelFormatData,
-)
-
+from .class_PixelFormatData import PIXEL_FORMATS
+from .class_PixelFormatData import PixelFormatData
 
 ################################################################################
 #
