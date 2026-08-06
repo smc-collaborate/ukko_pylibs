@@ -1,11 +1,11 @@
 ################################################################################
 #
 
-from class_ITransferableData import ITransferableData
-import customising as customising
+from .class_ITransferableData import ITransferableData
+from . import customising
 
-from customising import CustomContentsFormatDefinition
-from customising import CustomisedContents
+from .customising import CustomContentsFormatDefinition
+from .customising import CustomisedContents
 
 
 __all__ = [

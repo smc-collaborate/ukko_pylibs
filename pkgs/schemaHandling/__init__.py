@@ -1,5 +1,10 @@
-from schemaProcessing import Schema, SchemaUsageInstructions, schema_getDir, schema_list
-from class_MarkdownSchemaDoc import (
+from .schemaProcessing import (
+    Schema,
+    SchemaUsageInstructions,
+    schema_getDir,
+    schema_list,
+)
+from .class_MarkdownSchemaDoc import (
     SchemaTableAndPosition,
     SchemaEntry,
     NewTableLocation,
