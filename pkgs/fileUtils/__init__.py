@@ -5,6 +5,12 @@ from .module_fileUtils import (
     loadJson_dict,
     loadJsonDictFromFile,
     jsonObjFromFileWithExtras,
+    filenameIsStdIO,
+    doExportBitstream,
+    exportToFile_orHandledException,
+    loadBytesFromFile_orHandledException,
+    loadJsonWithExtras,
+    create_cleanOutputDir,
 )
 from .module_fileUtils import filenameSanitise
 
@@ -14,4 +20,10 @@ __all__ = [
     "loadJsonDictFromFile",
     "jsonObjFromFileWithExtras",
     "filenameSanitise",
+    "filenameIsStdIO",
+    "doExportBitstream",
+    "exportToFile_orHandledException",
+    "loadBytesFromFile_orHandledException",
+    "loadJsonWithExtras",
+    "create_cleanOutputDir",
 ]
