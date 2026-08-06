@@ -1,7 +1,3 @@
-import sys
-from pathlib import Path
-
-
 from .data.class_PrettyTable_Contents import PrettyTable_Contents
 from .data.prettyTable_Rows import PrettyTable_Row
 from .base import PrettyTable_RowList, IPrettyData_Render_Interface
