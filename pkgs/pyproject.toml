@@ -34,19 +34,40 @@ dependencies = [
 ]
 [tool.setuptools]
 packages = [
-    "appAssist",
-    "dictUtils",
-    "imageProcessing","prettyData","transferableData","ukkoDataFormats","ukkoValueHandling",
-    "appLogging",
-    "escapeFormatting","markdown",
-    "schemaHandling","ukkoAppTemplates","ukkoStyling",
-    "dictionaryWalker",
-    "fileUtils",
-    "network",
-    "prettyText",
-    "sysInfo",
     "ukkoCommonCollection",
-    "ukkoUtils"
+
+    #########################
+    # App Functionality
+    #
+    "appAssist","appLogging",
+    "ukkoAppTemplates",
+
+    ###############
+    # Utils
+    #
+    "dictUtils","listUtils","ukkoUtils","fileUtils",
+    "dictionaryWalker",
+
+    ###############
+    # Formatting
+    #
+    "prettyText",
+    "escapeFormatting","markdown",
+    "ukkoStyling",
+    "prettyData",
+
+    #####################
+    # Data Handling
+    #
+    "transferableData","ukkoDataFormats","ukkoValueHandling",
+
+    ###############
+    # Specific Functionality
+    #
+    "imageProcessing",
+    "schemaHandling",
+    "network",
+    "sysInfo",
 ]
 
 [project.optional-dependencies]
