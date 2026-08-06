@@ -42,6 +42,7 @@ from .module_utils import __line__
 # Format data in common ways
 #
 from .module_utils import timestampObj_from_ns
+from .module_utils import asUtf8orBytesOrNone
 
 ###################
 #
@@ -74,4 +75,5 @@ __all__ = [
     #
     ,
     "timestampObj_from_ns",
+    "asUtf8orBytesOrNone",
 ]
