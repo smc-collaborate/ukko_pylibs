@@ -262,19 +262,12 @@ def dictFromJsonLikeStr(
         return defaultValue
 
 
-def asJsonStr(obj, indent: int | str | None = None, sortKeys: bool = False) -> str:
+def asJsonStr(obj, indent: int | None = None, sortKeys: bool = False) -> str:
     """Safer version of json.dumps that can handle some extra types like bytes and avoids odd crashes"""
 
     try:
 
         class JsonEncoderExtended(json.JSONEncoder):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.skipkeys = True
-                self.separators = None if self.indent else ("," ":")
-                self.ensure_ascii = False
-                self.quote_keys = False
-
             def default(self, o):
                 return makeJsonable(o)
 
@@ -283,6 +276,9 @@ def asJsonStr(obj, indent: int | str | None = None, sortKeys: bool = False) -> s
             indent=indent,
             sort_keys=sortKeys,
             cls=JsonEncoderExtended,
+            separators=None if indent else (",", ":"),
+            ensure_ascii=False,
+            skipkeys=True,
         )
     except Exception as e:
         appLog.print_warning_withException(e, "Utils.asJsonStr")
@@ -293,19 +289,12 @@ def asJsonStr(obj, indent: int | str | None = None, sortKeys: bool = False) -> s
         )
 
 
-def asJsonRStr(obj, indent: int | str | None = None, sortKeys: bool = False) -> str:
+def asJsonRStr(obj, indent: int | None = None, sortKeys: bool = False) -> str:
     """Safer version of json.dumps that can handle some extra types like bytes and avoids odd crashes"""
     try:
         import json5
 
         class Json5EncoderExtended(json5.JSON5Encoder):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.skipkeys = (True,)
-                self.separators = None if self.indent else ("," ":")
-                self.ensure_ascii = False
-                self.quote_keys = False
-
             def default(self, obj):
                 return makeJsonable(obj)
 
@@ -314,6 +303,10 @@ def asJsonRStr(obj, indent: int | str | None = None, sortKeys: bool = False) -> 
             indent=indent,
             sort_keys=sortKeys,
             cls=Json5EncoderExtended,
+            separators=None if indent else (",", ":"),
+            ensure_ascii=False,
+            quote_keys=False,
+            skipkeys=True,
         )
     except Exception as e:
         appLog.print_warning_withException(e, "Utils.asJsonRStr")
