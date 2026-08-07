@@ -1,4 +1,4 @@
-# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.2.2-wip` ] #
+# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.2.2` ] #
 
 ## Importing ##
 
