@@ -4,7 +4,7 @@ from typing import Any
 
 import ukkoUtils
 from transferableData import ITransferableData
-from network import IPhyConnection
+from .class_IPhyConnection import IPhyConnection
 
 #
 ################################################################################
