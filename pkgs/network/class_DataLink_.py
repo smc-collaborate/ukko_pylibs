@@ -8,9 +8,12 @@ from .class_IPhyConnection import IPhyConnection
 
 #
 ################################################################################
+from typing import Generic, TypeVar
+
+dataType = TypeVar("dataType")
 
 
-class DataLink[dataType]:
+class DataLink(Generic[dataType]):
     """The Phylayer can't be extracted totally because how it is used really depends on what type of data it is.
     Some datatypes support streaming, others are just a fixed header+payload."""
 
