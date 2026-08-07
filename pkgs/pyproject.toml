@@ -1,6 +1,6 @@
 [project]
 name = "ukko-fullCollection"
-version = "0.2.2"
+version = "0.2.3"
 
 dependencies = [
     "types-PyYAML>=6.0",
