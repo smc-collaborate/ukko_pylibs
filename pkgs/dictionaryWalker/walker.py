@@ -118,7 +118,7 @@ class IWalkTreeAction_Interface:
         # < Returns: (Bool)=No child iteration
         # < The walkingOptions options will be passed to children & later siblings only
         # < Use 'skip'=True to skip the children/later siblings
-        appLog.print_verbose(
+        appLog.print_tediousDetail(
             "WalkTree. Reviewing: "
             + walkedEntry.asText()
             + f"  Walking Options:{walkingOptions}   BaseOptions:{self.baseOptions}"
@@ -127,7 +127,7 @@ class IWalkTreeAction_Interface:
     def onEntryIterationCompleted(
         self, walkedEntry: WalkedEntry, walkingOptions: dict[str, Any]
     ):
-        appLog.print_verbose(
+        appLog.print_tediousDetail(
             "WalkTree. Completed: "
             + walkedEntry.asText()
             + f"  Walking Options:{walkingOptions}   BaseOptions:{self.baseOptions}"

@@ -65,7 +65,7 @@ class AppChoices:
             obj["customisingChoices_next"] = self.customisingChoices_next
         return obj
 
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> Any:
         return self.paramChoice(key)
 
     def param_asJsonable(self, name) -> dict:

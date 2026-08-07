@@ -1,4 +1,4 @@
-# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.2.1` ] #
+# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.2.2` ] #
 
 ## Importing ##
 
@@ -24,11 +24,26 @@ You can ensure that the packages are available for import via several different 
 1. Use **`do-build-and-install.sh`** installer:
 
     ```bash
+    #!/bin/bash -eu
+
     function apps_doInstallOrClean()
     {
-        installEditablePythonPkgs "git@github.com:smc-collaborate/ukko_pylibs"  --ref='ver:v0.2.1'
+        installEditablePythonPkgs "git@github.com:smc-collaborate/ukko_pylibs"  --ref='ver:v0.2.2'
+        do_pyInstall_orClean "hello.py"
+    }
 
-        do_pyInstall_orClean "my-app.py"
+    # shellcheck source=/dev/null
+    source "$(dirname "$(realpath -m "${BASH_SOURCE[0]}")")/libs/_loader-shim.inc.bash"
+    ```
+
+    If using this installer then debugging is a breeze, as it auto-suggests adding **`_links/ukko_pylibs/pkgs`** to `.vscode/settings.json`:
+
+    ```json
+    {
+        "python.analysis.extraPaths":[
+            "${workspaceFolder}/libs",
+            "${workspaceFolder}/_links/ukko_pylibs/pkgs"
+        ]
     }
     ```
 
@@ -44,7 +59,16 @@ You can ensure that the packages are available for import via several different 
     -e git+ssh://git@github.com/smc-collaborate/ukko_pylibs@HASH#egg=ukko_fullCollection&subdirectory=pkgs
     ```
 
-If you are adding to the `.vscode/settings.json`: **"${env:HOME}/gits-shared/github.com/smc-collaborate/ukko_pylibs/branch_v0.2.1/pkgs"** or similar
+In the latter two import methods, for debugging you may want to add `"${CHECKOUT_DIR}/pkgs"` to `.vscode/settings.json`:
+
+```json
+{
+    "python.analysis.extraPaths":[
+        "${workspaceFolder}/libs",
+        "${env:HOME}/gits-shared/github.com/smc-collaborate/ukko_pylibs/branch_v0.2.2/pkgs"
+    ]
+}
+```
 
 ## Development Notes ##
 
@@ -122,3 +146,23 @@ The unusual entries are:
 ## Full Regression Testing ##
 
 This is done with `ukko_full` - which has test scripts and includes `ukko_bashlibs`
+
+## Dev notes ##
+
+Note: For ubuntu:22.04 (Python 3.10) compliance, we need to change styling from PEP695's type parameter syntax:
+
+eg:
+
+```python
+class SparseList[ContentKind]:
+```
+
+to the older
+
+```python
+from typing import Generic, TypeVar
+
+ContentKind = TypeVar("ContentKind")
+
+class SparseList(Generic[ContentKind]):
+```

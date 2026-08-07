@@ -24,9 +24,14 @@ from appLogging import appLog
 #
 ################################################################################
 
+# Below is equivalent to:
+# class IOneOf_Interface[Kind]:  .. for Python 3.10
+from typing import TypeVar, Generic
 
-class IOneOf_Interface[Kind]:
+Kind = TypeVar("Kind")
 
+
+class IOneOf_Interface(Generic[Kind]):
     def __init__(
         self,
         validValues_defaultFirst: list[Kind],

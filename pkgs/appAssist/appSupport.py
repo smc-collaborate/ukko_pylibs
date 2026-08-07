@@ -570,8 +570,8 @@ class IArgLoader_Template:
 
         if (
             self.nextCustomisationAvail_ is not None
-            and not self.paramsChosen["help"].value
-            and not self.paramsChosen["config-view"].value
+            and not self.paramsChosen.getValue("help")
+            and not self.paramsChosen.getValue("config-view")
         ):
             self.appendError(
                 f"Expected one of {styling.asSuggestionList(self.nextCustomisationAvail_.keys())}"
@@ -1411,8 +1411,11 @@ def error_exit_withSuggestion(
     prefixOrNone = appLog.print_error(msg, noPrefix=True)
     if prefixOrNone is not None:
         if suggestionText != "":
+            if not styling.isStyled(suggestionText):
+                suggestionText = styling.asSuggestion(suggestionText)
+
             print(
-                f"{prefixOrNone}Suggestion: {styling.asSuggestion(suggestionText)}{extraNote}",
+                f"{prefixOrNone}Suggestion: {suggestionText}{extraNote}",
                 file=sys.stderr,
             )
 
