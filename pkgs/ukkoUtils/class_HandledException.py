@@ -2,7 +2,7 @@ import sys
 
 
 import traceback
-from typing import Tuple
+from typing import Any, Tuple
 
 
 class HandledException(Exception):
@@ -31,13 +31,10 @@ class HandledException(Exception):
         super().__init__(msgText)
 
 
-def getPrettyExceptionInfo(
-    e: BaseException, caption: str = "Unexpected Error "
-) -> Tuple[str, list[str]]:
-    """summaryText,TraceLines"""
+def _getExceptionParts(e: BaseException) -> Tuple[str, list[str], list[str]]:
+    """kind,srcEntries,TraceLines"""
 
     from ukkoStyling import styling
-    import prettyText
 
     traceLines = (
         "\n".join(traceback.format_exception(type(e), e, e.__traceback__))
@@ -53,28 +50,53 @@ def getPrettyExceptionInfo(
         elif line:
             summary.append(_line)
 
-    sourceLeft = []
+    sourceEntries = []
     if len(summary) >= 3:
         kind = summary[-1]
         _untrimmed = summary[1].rstrip()
 
         source = _untrimmed.lstrip()
         prefixToStrip = _untrimmed[: (len(_untrimmed) - len(source))]
+        sourceEntries = [source]
         for x in summary[2:-1]:
-            sourceLeft.append(x.removeprefix(prefixToStrip))
+            sourceEntries.append(x.removeprefix(prefixToStrip))
         traceLines.insert(0, styling.asBold(summary[0].strip()))
         traceLines.insert(1, "")
     else:
         kind = str(e)
-        source = ""
 
+    return kind, sourceEntries, traceLines[:-3]
+
+
+def getPrettyExceptionInfo(
+    e: BaseException, caption: str = "Unexpected Error "
+) -> Tuple[str, list[str]]:
+    """summaryText,TraceLines"""
+
+    from ukkoStyling import styling
+    import prettyText
+
+    kind, sourceEntries, traceLines = _getExceptionParts(e)
     msg = f"{caption}`{styling.asError(kind)}`"
-    if source:
+
+    if sourceEntries:
         msg += " from `"
         prefix = prettyText.asSpaces(msg)
-        msg += styling.asError(source) + "`"
+        msg += styling.asError(sourceEntries.pop(0)) + "`"
 
-        for x in sourceLeft:
+        for x in sourceEntries:
             msg += "\n" + prefix + styling.asError(x)
 
     return msg, traceLines[:-3]
+
+
+def getExceptionAsDict(
+    e: BaseException, includeTraceLines: bool = False
+) -> dict[str, Any]:
+    kind, sourceEntries, traceLines = _getExceptionParts(e)
+
+    result = {"kind": kind, "source": sourceEntries}
+
+    if includeTraceLines:
+        result["trace"] = traceLines
+    return result

@@ -43,6 +43,7 @@ from .module_utils import __line__
 #
 from .module_utils import timestampObj_from_ns
 from .module_utils import asUtf8orBytesOrNone
+from .class_HandledException import getExceptionAsDict
 
 ###################
 #
@@ -76,4 +77,5 @@ __all__ = [
     ,
     "timestampObj_from_ns",
     "asUtf8orBytesOrNone",
+    "getExceptionAsDict",
 ]
