@@ -125,7 +125,7 @@ class PrettyTable_Contents:
         return maxWidths_calc
 
     @staticmethod
-    def create_fromJsonDict(spec: dict) -> "PrettyTable_Contents":
+    def create_fromJsonableSpec(spec: dict) -> "PrettyTable_Contents":
         _titles = spec.get("titles")
         _rows = spec.get("rows")
 
