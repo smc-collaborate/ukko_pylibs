@@ -1195,9 +1195,13 @@ def doRun(mainFunc_or_appDefinition: dict | Callable[[], None]):
             Define(mainFunc_or_appDefinition).doRunner()
         else:
             mainFunc_or_appDefinition()
-        doExit()
+        resultCode = doShutdown()
+        if resultCode != 0:
+            sys.exit(resultCode)
+
     except BaseException as e:
-        exitOnException(e)
+        if e is not SystemExit:
+            exitOnException(e)
 
 
 #
@@ -1235,13 +1239,17 @@ def printVerbose_sysInfo():
 #
 
 
-def doExit(defaultExitCode: int | None = None) -> NoReturn:
+def doShutdown(defaultExitCode: int | None = None) -> int:
     doHalt()
     if defaultExitCode is not None and defaultExitCode != 0:
         exitCode = defaultExitCode
     else:
         exitCode = 1 if appLog.had_error() else 0
-    sys.exit(exitCode)
+    return exitCode
+
+
+def doExit(defaultExitCode: int | None = None) -> NoReturn:
+    sys.exit(doShutdown(defaultExitCode))
 
 
 def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
