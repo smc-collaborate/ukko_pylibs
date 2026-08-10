@@ -125,7 +125,7 @@ class PrettyTable_Contents:
         return maxWidths_calc
 
     @staticmethod
-    def create_fromJsonableSpec(spec: dict) -> "PrettyTable_Contents":
+    def createFrom_jsonableSpec(spec: dict) -> "PrettyTable_Contents":
         _titles = spec.get("titles")
         _rows = spec.get("rows")
 
@@ -164,18 +164,23 @@ class PrettyTable_Contents:
 
     @staticmethod
     def createFrom_dict(
-        src: dict, keyTitle: str | None, option_multiLineValues: bool = True
+        src: dict,
+        keyTitle: str | None,
+        valueTitle: str = "Value",
+        option_multiLineValues: bool = True,
     ) -> "PrettyTable_Contents":
-        import ukkoUtils
+
+        from ukkoUtils import asStr
 
         result = PrettyTable_Contents()
+        _keyTitle = keyTitle if keyTitle is not None else "Name"
 
         for key, value in src.items():
 
             nameValues = NameValuePairList()
 
             if keyTitle is None:
-                nameValues.append(("Name", key))
+                nameValues.append((_keyTitle, key))
 
                 if option_multiLineValues and isinstance(value, dict):
 
@@ -186,19 +191,20 @@ class PrettyTable_Contents:
 
                     for key2, value2 in value.items():
                         if value2 is not None:
-                            lines.append(
-                                f"{key2:<{keyLen}} : {ukkoUtils.asStr(value2)}"
-                            )
-                    nameValues.append(("Value", "\n".join(lines)))
+                            lines.append(f"{key2:<{keyLen}} : {asStr(value2)}")
+                    _valueText = "\n".join(lines)
                 else:
-                    nameValues.append(("Value", ukkoUtils.asStr(value)))
+                    _valueText = asStr(value)
+
+                nameValues.append((valueTitle, _valueText))
             elif isinstance(value, dict):
                 nameValues.append((keyTitle, key))
                 for key2, value2 in value.items():
                     if value2 is not None:
-                        nameValues.append((key2, ukkoUtils.asStr(value2)))
+                        nameValues.append((key2, asStr(value2)))
             else:
-                nameValues.append((keyTitle, ukkoUtils.asStr(value)))
+                nameValues.append((_keyTitle, key))
+                nameValues.append((valueTitle, asStr(value)))
 
             result.appendRow_namePairList(nameValues)
 
