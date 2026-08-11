@@ -153,7 +153,7 @@ Check with: **`pre-commit run -a`**
 │   ├── prettyData
 │   ├── prettyText
 │   ├── schemaHandling
-│   ├── sysInfo
+│   ├── osAccess
 │   ├── transferableData
 │   ├── ukkoAppTemplates
 │   ├── ukkoDataFormats

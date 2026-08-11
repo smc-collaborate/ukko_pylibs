@@ -13,7 +13,7 @@ from .class_ParamSpec import (
     ParamSpecList,
 )
 from ukkoDataFormats import JsonDict, DataContents
-import sysInfo
+import osAccess
 
 #
 ################################################################################
@@ -142,7 +142,7 @@ class AppParamParseResults:
         self.appChoices = appChoices
         self.runEnvironment = {
             "runningDir": os.getcwd(),
-            "python": sysInfo.pyInfo_asJsonable(),
+            "python": osAccess.pyInfo_asJsonable(),
         }
 
     def asBashParams(self) -> dict[str, str]:

@@ -1209,7 +1209,7 @@ def doRun(mainFunc_or_appDefinition: dict | Callable[[], None]):
 
 
 def printVerbose_sysInfo():
-    # @todo: Use sysInfo.pyInfo_asJsonable()
+    # @todo: Use osAccess.pyInfo_asJsonable()
     if appLog.isVerbose():
 
         appLog.print_verbose(f"Python version: {sys.version}")

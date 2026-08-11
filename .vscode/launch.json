@@ -17,7 +17,7 @@
             "name": "sysInfo",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/basic/sysInfo.py",
+            "program": "${workspaceFolder}/pkgs/osAccess/src/module_sysInfo.py",
             "console": "integratedTerminal",
             "args": ["test-arg1"]
         }

@@ -67,7 +67,7 @@ packages = [
     "imageProcessing",
     "schemaHandling",
     "network",
-    "sysInfo",
+    "osAccess",
 ]
 
 [project.optional-dependencies]
