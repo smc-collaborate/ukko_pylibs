@@ -43,6 +43,15 @@ def hasRemovedPrefix(value: str, prefix: str) -> tuple[bool, str]:
         return True, value[len(prefix) :]
 
 
+def hasReplacedPrefix(
+    value: str, prefixBefore: str, prefixAfter: str
+) -> tuple[bool, str]:
+    if not value.startswith(prefixBefore):
+        return False, value
+    else:
+        return True, prefixAfter + value[len(prefixBefore) :]
+
+
 def hasRemovedSuffix(value: str, suffix: str) -> tuple[bool, str]:
     if not value.endswith(suffix):
         return False, value

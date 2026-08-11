@@ -23,7 +23,12 @@ from .module_utils import json_loads, dictFromJsonLikeStr
 from .module_utils import toBool, toHex, rangeAsText
 from .module_utils import DeviceStateEnum
 from .module_utils import getStartupPath
-from .module_utils import hasRemovedPrefix, hasRemovedSuffix, asUtf8orBytes
+from .module_utils import (
+    hasRemovedPrefix,
+    hasRemovedSuffix,
+    asUtf8orBytes,
+    hasReplacedPrefix,
+)
 
 ###################
 # Environment info
@@ -61,6 +66,7 @@ __all__ = [
     "toHex",
     "hasRemovedPrefix",
     "hasRemovedSuffix",
+    "hasReplacedPrefix",
     "asUtf8orBytes",
     "DeviceStateEnum",
     "isStdoutText",
