@@ -53,9 +53,14 @@ class ImageInfo:
         return ext
 
 
-def strToInt(value: str, defaultValue: int, context: str | None = None) -> int:
+def strToInt(
+    value: str,
+    defaultValue: int,
+    context: str | None = None,
+    silentOnBlank: bool = True,
+) -> int:
     try:
-        if (value == "") and context is None:
+        if (value == "") and (context is None or silentOnBlank):
             return defaultValue  # < If expected to fail, avoid an exception to aide debugging where we halt on all exceptions
         return int(value.strip())
     except ValueError:
