@@ -89,9 +89,9 @@ PathConvertOptions = Literal[
 ]
 
 
-def pathAsDisplay(pathName: str) -> str:
+def pathAsDisplay(pathName: str, kind: PathConvertOptions = "friendly") -> str:
     """Converts a path to a friendly display format."""
-    return pathConvert(pathName, kind="friendly").removesuffix(os.sep)
+    return pathConvert(pathName, kind=kind).removesuffix(os.sep)
 
 
 def pathDisplay(pathName: str) -> str:
