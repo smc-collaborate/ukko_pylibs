@@ -10,7 +10,7 @@ import re
 import os
 import sys
 
-from typing import Any, Tuple
+from typing import Any, Literal, Tuple
 from datetime import datetime as dt_datetime
 from datetime import timezone as dt_timezone
 
@@ -77,6 +77,18 @@ def isStdoutText():
     return isConsoleOut
 
 
+PathConvertOptions = Literal[
+    "friendly",
+    "~friendly",
+    "abs:friendly",
+    "rel",
+    "abs:friendly",
+    "rel:real",
+    "abs",
+    "abs:~",
+]
+
+
 def pathAsDisplay(pathName: str) -> str:
     """Converts a path to a friendly display format."""
     return pathConvert(pathName, kind="friendly").removesuffix(os.sep)
@@ -101,7 +113,7 @@ def getStartupPath() -> str:
         return ""
 
 
-def pathConvert(pathName: str, kind: str = "friendly") -> str:
+def pathConvert(pathName: str, kind: PathConvertOptions = "friendly") -> str:
     """Converts a path to [abs, abs:friendly, rel, friendly, raw] format.  If conversion isn't available then returns the pathName given"""
 
     path = pathName
