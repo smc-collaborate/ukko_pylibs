@@ -9,6 +9,47 @@ from pathlib import Path
 from .app_logger import appLog
 
 
+class JLogReference:
+    def __init__(self, fname: str, lineNum: int, caption: str):
+        self.ref_withPadding = f"{fname}#{lineNum:<4}"
+        self.ref_plain = self.ref_withPadding.strip()
+
+        self.caption = caption
+        self.hasBeenPrinted = False
+
+    def asStyled(self) -> str:
+        try:
+            from ukkoStyling import styling
+
+            return styling.asLink(
+                self.ref_withPadding, styleLeadingAndTrailingWhitespace=False
+            )
+        except:
+            pass
+        return self.ref_withPadding
+
+    def asPlain(self) -> str:
+        return self.ref_plain
+
+    def asDecoratedWithCaption(self) -> str:
+        return self.asStyled() + " : " + self.caption
+
+    def noteHasBeenPrinted(self):
+        self.hasBeenPrinted = True
+
+    def printOnce(self):
+        if not self.hasBeenPrinted:
+            appLog.print_always(self.asDecoratedWithCaption())
+            self.hasBeenPrinted = True
+
+    def __del__(self):
+        self.printOnce()
+
+    @staticmethod
+    def create_Empty() -> "JLogReference":
+        return JLogReference("", 0, "")
+
+
 class JsonLinesLogger:
 
     def __init__(self, fname: str, name: str | None = None):
@@ -72,7 +113,9 @@ class JsonLinesLogger:
         fullEntry: Any,
         caption: str,
         captionToShow: str | None = None,
-    ) -> str:
+    ) -> JLogReference:
+
+        logRef: JLogReference
         with self.lock:
             """Add a message to the log file in JSON Lines format. If the log file is not specified, print the message to stdout.
             Returns (bool:'The message was printed to stdout', text:log Reference or ''
@@ -100,7 +143,7 @@ class JsonLinesLogger:
             if self.path is None:
 
                 print(asJsonStr(objOut, indent=2))
-                return ""
+                return JLogReference.create_Empty()
 
             """Add a message to the log file in JSON Lines format."""
             try:
@@ -110,17 +153,12 @@ class JsonLinesLogger:
                 appLog.print_error_withException(
                     e, f"JsonLinesLogger: Failed to write to log file {self.path}"
                 )
-                return ""
+                return JLogReference.create_Empty()
 
-            import ukkoStyling.styling as styling
-
-            logRef = styling.asLink(
-                f"{pathAsDisplay(self.path)}#{self.lineCount:<4}",
-                styleLeadingAndTrailingWhitespace=False,
+            logRef = JLogReference(
+                pathAsDisplay(self.path),
+                self.lineCount,
+                (caption if captionToShow is None else captionToShow),
             )
-
-        appLog.print_always(
-            logRef + " : " + (caption if captionToShow is None else captionToShow)
-        )
 
         return logRef
