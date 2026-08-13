@@ -2,18 +2,26 @@ import subprocess
 import threading
 import time
 from typing import Any, Tuple
-from ukkoUtils import asJsonStr, ProgressMsg, asUtf8orBytesOrNone
+from ukkoUtils import (
+    asJsonStr,
+    ProgressMsg,
+    asUtf8orBytesOrNone,
+    IWithProgressMarker_Interface,
+)
 
 
-class IAsyncAction_Interface:
+class IAsyncAction_Interface(IWithProgressMarker_Interface):
 
     def asProgressMarker(self) -> ProgressMsg:
-        return ProgressMsg(self.caption, self.getTimeLeft_seconds())
+        return ProgressMsg(
+            self.caption, self.additionalDetails, self.getTimeLeft_seconds()
+        )
 
     def __init__(
         self, caption: str, request: dict[str, Any], timeoutSeconds: float | None = 20
     ):
         self.caption = caption
+        self.additionalDetails: Any | None = None
         self.timeoutSeconds = timeoutSeconds
         self.completionAcknowledged = False
         self.request = request

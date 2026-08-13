@@ -1,6 +1,18 @@
 class ProgressMsg:
-    def __init__(self, msg: str, timeout_sec: float | None = None):
+    def __init__(
+        self,
+        msg: str,
+        extraDetails: str | list | None = None,
+        timeout_sec: float | None = None,
+    ):
         self.msg = msg
+        if isinstance(extraDetails, list):
+            self.extraDetails = "\n".join([str(x) for x in extraDetails])
+        elif isinstance(extraDetails, str):
+            self.extraDetails = extraDetails
+        else:
+            self.extraDetails = ""
+
         self.timeout_sec = timeout_sec
 
     def asText(self) -> str:
@@ -12,6 +24,8 @@ class ProgressMsg:
             else:
                 result += " (Timeout in {:.1f} seconds)".format(self.timeout_sec)
 
+        if self.extraDetails:
+            result += "\n" + self.extraDetails
         return result
 
 
