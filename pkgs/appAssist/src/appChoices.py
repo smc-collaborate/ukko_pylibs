@@ -1,19 +1,32 @@
-#########################################################################
+################################################################################
 #
 # app.define- a helper class for command line applications
 #             It basically is the 'app.definition'
 #
 
+
+################################################################################
+#
+# Imports from the standard Python packages
+#
+
 import math
 import os
-
 from typing import Any
+
+################################################################################
+#
+# Imports from within the ukko Collection
+#
+from ukkoDataFormats import JsonDict, DataContents
+import osAccess
+
+################################################################################
+#
 from .class_ParamSpec import (
     ParamSpecAndValue,
     ParamSpecList,
 )
-from ukkoDataFormats import JsonDict, DataContents
-import osAccess
 
 #
 ################################################################################
@@ -42,7 +55,7 @@ class AppChoices:
 
     def appValue(self, name: str) -> Any | None:
 
-        from .appSupport import appValueOrDefault
+        from appSupport import appValueOrDefault
 
         return appValueOrDefault(self.appValues, name)
 

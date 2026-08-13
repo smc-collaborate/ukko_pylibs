@@ -1,22 +1,103 @@
 import subprocess
 import threading
-from typing import Any
+import time
+from typing import Any, Tuple
+from ukkoUtils import asJsonStr, ProgressMsg
 
 
-class ThreadedCommandRunner:
+class IAsyncAction_Interface:
+
+    def asProgressMarker(self) -> ProgressMsg:
+        return ProgressMsg(self.caption, self.getTimeLeft_seconds())
+
+    def __init__(
+        self, caption: str, request: dict[str, Any], timeoutSeconds: float | None = 20
+    ):
+        self.caption = caption
+        self.timeoutSeconds = timeoutSeconds
+        self.completionAcknowledged = False
+        self.request = request
+        self.runResults: Any | None = None
+        self.owner: Any | None = None
+        self.startTime = time.monotonic()
+
+    def getTimeLeft_seconds(self) -> float | None:
+        if self.isComplete() or self.timeoutSeconds is None:
+            return None
+        else:
+            return (self.startTime + self.timeoutSeconds) - time.monotonic()
+
+    def acknowledgeCompletion(self) -> bool:
+        if not self.isComplete():
+            return False
+        if self.completionAcknowledged:
+            return False
+        self.completionAcknowledged = True
+        return True
+
+    def getFullResults(self, runResultsToInclude: Any | None = None) -> dict[str, Any]:
+        result = {
+            "caption": self.caption,
+            "timeout_secs": self.timeoutSeconds,
+            "request": self.request,
+            "runResults": (
+                runResultsToInclude
+                if (runResultsToInclude is not None)
+                else self.runResults
+            ),
+        }
+        result.update(self.getInfo())
+        return result
+
+    def getNewResult(self) -> None | dict[str, Any]:
+        if not self.acknowledgeCompletion():
+            return None
+        return self.getFullResults()
+
+    def _setRunResults(self, runResults: Any | None):
+        self.runResults = runResults
+
+    ###########################################################
+    # Override these + __init__() : Start the process
+    #
+    def getInfo(self) -> dict[str, Any]:
+        return {}
+
+    def isComplete(self) -> bool:
+        return False
+
+
+class ThreadedCommandRunner(IAsyncAction_Interface):
     """Runs as a daemon so will automatically be killed on exit"""
 
-    def __init__(self, runThis: list[str], timeoutSeconds: float | None = 20):
-        self.runThis = runThis
-        self.timeoutSeconds = timeoutSeconds
-        self.results: dict[str, Any] = {
-            "runThis": runThis,
-            "timeout_secs": timeoutSeconds,
-        }
-        self.thread = None
+    def __init__(
+        self,
+        caption: str,
+        runThis: list[str],
+        timeoutSeconds: float | None = 20,
+        additional: Any | None = None,
+        expectedReturnCode: int | None = 0,
+        expectedStdErrOut: str | None = None,
+    ):
 
-    def doRunCmd(self):
-        print(f"doRunCmd: {self.runThis}")
+        request: dict[str, Any] = {"runThis": runThis}
+        if additional is not None:
+            request["additional"] = additional
+
+        super().__init__(caption, request, timeoutSeconds)
+        self.expectedReturnCode: int | None = expectedReturnCode
+        self.expectedStdErrOut: str | None = expectedStdErrOut
+        self.thread = threading.Thread(
+            target=self._doRunCmd, args=[runThis], daemon=True
+        )
+        self.thread.start()
+
+    def isComplete(self):
+        return not self.thread.is_alive()
+
+    def _doRunCmd(self, runThis: list[str]):
+
+        print(f"doRunCmd: {runThis}")
 
         # runThis=["rclone","copy",link,destPath,"--no-traverse"]
 
@@ -24,45 +105,90 @@ class ThreadedCommandRunner:
         #
         # Load runResults
         #
-        results: dict[str, Any] = {
-            "runThis": self.runThis,
-            "timeout_secs": self.timeoutSeconds,
-        }
+        runResults: dict[str, Any] = {}
 
         try:
             runOutputs: subprocess.CompletedProcess[bytes] = subprocess.run(
-                self.runThis,
+                runThis,
                 capture_output=True,
                 timeout=self.timeoutSeconds,
             )
-            results["return_code"] = runOutputs.returncode
-            results["stdout"] = runOutputs.stdout
-            results["stderr"] = runOutputs.stdout
+            runResults["return_code"] = runOutputs.returncode
+            runResults["stdout"] = runOutputs.stdout
+            runResults["stderr"] = runOutputs.stdout
 
         except subprocess.CalledProcessError as ex:
-            results["return_code"] = ex.returncode
-            results["stdout"] = ex.stdout
-            results["stderr"] = ex.stdout
-            results["exception"] = f"CalledProcessError({ex})"
+            runResults["return_code"] = ex.returncode
+            runResults["stdout"] = ex.stdout
+            runResults["stderr"] = ex.stdout
+            runResults["exception"] = f"CalledProcessError({ex})"
 
         except subprocess.TimeoutExpired as ex:
-            results["exception"] = f"TimeoutExpired ({ex.timeout} seconds)"
-            results["stdout"] = ex.stdout
-            results["stderr"] = ex.stdout
+            runResults["exception"] = f"TimeoutExpired ({ex.timeout} seconds)"
+            runResults["stdout"] = ex.stdout
+            runResults["stderr"] = ex.stdout
         except FileNotFoundError:
-            results["exception"] = f"commandNotFound"
+            runResults["exception"] = "CommandNotFound" + (
+                "" if len(runThis) == 0 else f"[{runThis[0]}]"
+            )
         except Exception as ex:
-            results["exception"] = f"Unexpected exception: {ex}"
+            runResults["exception"] = f"Unexpected exception: {ex}"
 
-        print(results)
-        self.results = results
+        errMsg = runResults.get("exception")
+        if (
+            errMsg is None
+            and self.expectedReturnCode is not None
+            and (runResults["return_code"] != self.expectedReturnCode)
+        ):
+            errMsg = f"Returned {runResults["return_code"]}"
 
-    def doStart(self):
-        self.thread = threading.Thread(target=self.doRunCmd, daemon=True)
-        self.thread.start()
+        if self.expectedStdErrOut is not None:
+            _stderr = runResults.get("stderr")
+            if _stderr is not None:
+                if str(_stderr) != self.expectedStdErrOut:
+                    errMsg = f"Gave stderr: {asJsonStr(_stderr)}"
 
-    def isComplete(self):
-        return self.thread is not None and not self.thread.is_alive()
+        if errMsg is not None:
+            runResults["errMsg"] = errMsg
 
-    def isRunning(self):
-        return self.thread is not None and self.thread.is_alive()
+        self._setRunResults(self.onCompletion(runResults))
+
+    ###########################################################
+    # Override these + __init__() : Start the process
+    #
+    def getInfo(self) -> dict[str, Any]:
+        info: dict[str, Any] = {"kind": "ThreadedCommandRunner"}
+        if self.expectedReturnCode is not None:
+            info["expectedReturnCode"] = self.expectedReturnCode
+        if self.expectedStdErrOut is not None:
+            info["expectedStdErrOut"] = self.expectedStdErrOut
+
+        return info
+
+    def onCompletion(self, initialRunResults: dict[str, Any]) -> dict[str, Any]:
+        print(initialRunResults)
+        return initialRunResults
+
+
+class AsyncActionList:
+    def __init__(self):
+        self.entries: list[IAsyncAction_Interface] = []
+
+    def appendNew(self, runner: IAsyncAction_Interface):
+        runner.owner = self
+        self.entries.append(runner)
+
+    def doReview(
+        self,
+    ) -> Tuple[list[IAsyncAction_Interface], list[IAsyncAction_Interface]]:
+        """Returns incompleteList, freshlyCompleted List"""
+        freshlyCompleted: list[IAsyncAction_Interface] = []
+        incomplete: list[IAsyncAction_Interface] = []
+
+        for x in self.entries:
+            if not x.isComplete():
+                incomplete.append(x)
+            elif x.acknowledgeCompletion():
+                freshlyCompleted.append(x)
+
+        return incomplete, freshlyCompleted

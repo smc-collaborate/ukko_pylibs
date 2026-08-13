@@ -4,7 +4,7 @@ import json
 import sys
 import traceback
 from types import NoneType
-from typing import Any, Callable, TextIO, Tuple
+from typing import Any, Callable, TextIO, Tuple, Union
 import os
 from pathlib import Path
 
@@ -52,7 +52,29 @@ class MsgKind:
         }
 
 
+import threading
+
+
 class SimpleLogger:
+    """This is thread protected - using 'self.stderr_lock' to protect stderr writes, which are only done via 'protected_write_to_stderr()' for complete blocks"""
+
+    def __init__(
+        self,
+        name: str,
+        onVerbosityThresholdChange: Callable[[int], None] | None = None,
+        stderr_lock: Union[threading.RLock, None] = None,
+    ):
+        self.name = name
+        self.lastErrorMsg: str | None = None
+        self.onVerbosityThresholdChange = onVerbosityThresholdChange
+        self.kindCounts = {}
+        self.printThreshold = self.MsgKind_WARNING
+
+        self.stderr_lock: threading.RLock = (
+            threading.RLock() if stderr_lock is None else stderr_lock
+        )
+        self.lastWasProgressMessage = False
+
     MsgKind_ALWAYS = 0
     MsgKind_ERROR = 1
     MsgKind_WARNING = 2
@@ -106,24 +128,17 @@ class SimpleLogger:
         return self.amPrinting(SimpleLogger.MsgKind_ERROR)
 
     def print_progress(self, message: str | None = None) -> bool:
-        if self.amPrintingVerbose():
-            if message is None:
-                sys.stderr.write("\n")
-            else:
-                sys.stderr.write(f"\rℹ️  {message}")
-                # Deliberately do not print a newline here to allow overwriting the line with progress updates.
-                # The caller should 'print_progress()' when complete.
-                # Also - do not log these to the app log as they are transient and would not make sense in the log history.
-            return True
+        if message is None:
+            self.protected_write_to_stderr("\n")
         else:
-            return False
+            self.protected_write_to_stderr(message, isProgressMessage=True)
+        return True
 
     def doPrintEntry(
         self,
         level: int,
         message: Any | None,
         noPrefix: bool = False,
-        dest: TextIO | None = None,
     ) -> None | str:
         """
         :return: None (if not printed) or the prefix to use on the next line if continuing this message
@@ -142,13 +157,8 @@ class SimpleLogger:
         if msg_text == "":
             return None
 
-        if dest is None:
-            textOut = sys.stderr
-        else:
-            textOut = dest
-
         lines = msg_text.split("\n")
-        topLine = lines.pop(0).strip().removeprefix(msgKind.icon).strip()
+        topLine = lines[0].strip().removeprefix(msgKind.icon).strip()
 
         prefix = msgKind.icon
         if msgKind.icon != "" and msgKind.name != "":
@@ -161,28 +171,55 @@ class SimpleLogger:
             prefix += f"{self.name}"
             bar = " | "
 
-        import prettyText
         from ukkoStyling import styling
 
         if not styling.isStyled(topLine) and msgKind.topLineStyle is not None:
             topLine = styling.apply(topLine, msgKind.topLineStyle)
 
-        textOut.write(f"{prefix}{bar}{topLine}\n")
+        lines[0] = topLine
 
-        padding = prettyText.asSpaces(prefix)
+        return self.printAlways_multiLines(lines, prefix, bar)
+
+    def printAlways_multiLines(
+        self, printThis: list[str] | str, firstLinePrefix: str = "", separator: str = ""
+    ) -> str | None:
+        """
+        :return: None (if not printed) or the prefix to use on the next line if continuing this message
+        """
+        import prettyText
+
+        if len(printThis) == 0:
+            return None
+
+        if isinstance(printThis, str):
+            lines = printThis.splitlines()
+        else:
+            lines = printThis
+
+        topLine = lines.pop(0)
+        linesOut = f"{firstLinePrefix}{separator}{topLine}\n"
+
+        padding = prettyText.asSpaces(firstLinePrefix)
         for line in lines:
-            textOut.write(f"{padding}{bar}{line}\n")
+            linesOut += f"{padding}{separator}{line}\n"
 
-        return padding + bar
+        self.protected_write_to_stderr(linesOut)
+        return padding + separator
 
-    def __init__(
-        self, name: str, onVerbosityThresholdChange: Callable[[int], None] | None = None
-    ):
-        self.name = name
-        self.lastErrorMsg: str | None = None
-        self.onVerbosityThresholdChange = onVerbosityThresholdChange
-        self.kindCounts = {}
-        self.printThreshold = self.MsgKind_WARNING
+    def protected_write_to_stderr(self, lines: str, isProgressMessage: bool = False):
+
+        with self.stderr_lock:
+            if isProgressMessage:
+                # Deliberately do not print a newline here to allow overwriting the line with progress updates.
+                # The caller should 'print_progress()' when complete.
+                # Also - do not log these to the app log as they are transient and would not make sense in the log history.
+                lines = "\r   " + lines + "\033[0K\r"
+            elif self.lastWasProgressMessage:
+                lines = "\r\033[0K" + lines
+
+            self.lastWasProgressMessage = isProgressMessage
+
+            sys.stderr.write(lines)
 
     def setName(self, name: str):
         self.name = name
@@ -209,7 +246,7 @@ class SimpleLogger:
                 elif setValue == "all":
                     self.printThreshold = self.MsgKind_TEDIOUS
                 elif not silentOnFailure:
-                    sys.stderr.write(
+                    self.protected_write_to_stderr(
                         f"⚠️  setVerbosity({json.dumps(setValue)}): Invalid value\n"
                     )
             if (
@@ -249,11 +286,10 @@ class SimpleLogger:
         self,
         message: str,
         isFatal: bool = False,
-        dest: TextIO | None = None,
     ) -> None | str:
 
         return self.print_error(
-            message or "<unknown error>", isFatal=isFatal, noPrefix=True, dest=dest
+            message or "<unknown error>", isFatal=isFatal, noPrefix=True
         )
 
     def print_error(
@@ -261,7 +297,6 @@ class SimpleLogger:
         message: str,
         isFatal: bool = False,
         noPrefix: bool = False,
-        dest: TextIO | None = None,
     ) -> None | str:
         """Print an error message to stderr with a prefix.  Avoids printing the same message multiple times.
         :param message: The error message to print
@@ -292,7 +327,7 @@ class SimpleLogger:
             prefix = ""
 
         printPrefixToUseOrNone = self.doPrintEntry(
-            self.MsgKind_ERROR, msg, noPrefix=noPrefix, dest=dest
+            self.MsgKind_ERROR, msg, noPrefix=noPrefix
         )
 
         if isFatal:
@@ -309,7 +344,7 @@ class SimpleLogger:
         return str(message)
 
     def _tryVerboseForMoreInfoSuffix(self):
-        from appAssist.appSupport import appInfo_cmdWithVariant_styled
+        from appAssist import appInfo_cmdWithVariant_styled
 
         return f"Try {appInfo_cmdWithVariant_styled({'verbosity':'details'})} for more information"
 
@@ -321,7 +356,7 @@ class SimpleLogger:
         alwaysTraceback: bool = False,
     ):
 
-        from ukkoUtils.class_HandledException import HandledException
+        from ukkoUtils.src.class_HandledException import HandledException
 
         if isinstance(e, IOError) and (e.errno == errno.EPIPE):
             if action is not None:

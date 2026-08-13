@@ -3,6 +3,11 @@
 # app.define- a helper class for command line applications
 #             It basically is the 'app.definition'
 #
+
+################################################################################
+#
+# Imports from the standard Python packages
+#
 import json
 import os
 import sys
@@ -10,7 +15,10 @@ from types import NoneType
 from typing import Any, Tuple, get_args
 import typing
 
-
+################################################################################
+#
+# Imports from within the ukko Collection
+#
 from ukkoUtils import HandledException
 import prettyText
 import ukkoUtils
@@ -18,12 +26,12 @@ from appLogging import appLog
 from ukkoDataFormats import DataContents, JsonDict
 import escapeFormatting
 from ukkoStyling import styling
-
 from prettyData import PrettyData
 
 
-#
 ################################################################################
+#
+#
 
 
 class ValueHelpSummary:

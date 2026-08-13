@@ -1,7 +1,13 @@
-#########################################################################
+################################################################################
 #
 # app.define- a helper class for command line applications
 #             It basically is the 'app.definition'
+#
+
+
+################################################################################
+#
+# Imports from the standard Python packages
 #
 from copy import deepcopy
 import errno
@@ -12,6 +18,10 @@ from typing import Any, Callable, NoReturn, Tuple
 from types import NoneType
 from pathlib import Path
 
+################################################################################
+#
+# Imports from within the ukko Collection
+#
 from fileUtils import module_fileUtils
 
 
@@ -29,6 +39,11 @@ from ukkoUtils import (
 )
 from ukkoStyling import styling
 from escapeFormatting import asBashParam
+
+################################################################################
+#
+# Imports from within this Package
+#
 from .class_Configuration import Configuration
 from .class_ParamSpec import (
     ParamSpec,
@@ -38,7 +53,6 @@ from .class_ParamSpec import (
 )
 from .appChoices import AppParamParseResults, AppChoices
 from . import appHelp as appHelp
-
 
 #
 ################################################################################

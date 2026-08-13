@@ -6,6 +6,7 @@ from collections import OrderedDict
 import hashlib
 import inspect
 import json
+from pathlib import Path
 import re
 import os
 import sys
@@ -79,7 +80,6 @@ def isStdoutText():
 
 PathConvertOptions = Literal[
     "friendly",
-    "~friendly",
     "abs:friendly",
     "rel",
     "abs:friendly",
@@ -89,9 +89,10 @@ PathConvertOptions = Literal[
 ]
 
 
-def pathAsDisplay(pathName: str, kind: PathConvertOptions = "friendly") -> str:
+def pathAsDisplay(pathName: str | Path, kind: PathConvertOptions = "friendly") -> str:
     """Converts a path to a friendly display format."""
-    return pathConvert(pathName, kind=kind).removesuffix(os.sep)
+
+    return pathConvert(str(pathName), kind=kind).removesuffix(os.sep)
 
 
 def pathDisplay(pathName: str) -> str:

@@ -3,6 +3,7 @@
 #
 
 
+from pathlib import Path
 import sys
 from typing import Any, Iterable, Tuple
 from importlib.metadata import version
@@ -11,6 +12,7 @@ from importlib.metadata import version
 from appLogging import appLog
 import prettyText, ukkoUtils
 import escapeFormatting
+from ukkoUtils import pathAsDisplay
 
 g_appColoursAreEnabled = True
 
@@ -168,6 +170,9 @@ def asLink(value: Any | None, styleLeadingAndTrailingWhitespace: bool = True) ->
 def asBoldLink(
     value: Any | None, styleLeadingAndTrailingWhitespace: bool = True
 ) -> str:
+
+    if isinstance(value, Path):
+        value = pathAsDisplay(value)
     return apply(
         value,
         "blue+bold+underline",
