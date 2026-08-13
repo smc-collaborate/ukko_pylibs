@@ -55,7 +55,7 @@ class AppChoices:
 
     def appValue(self, name: str) -> Any | None:
 
-        from appSupport import appValueOrDefault
+        from .appSupport import appValueOrDefault
 
         return appValueOrDefault(self.appValues, name)
 
