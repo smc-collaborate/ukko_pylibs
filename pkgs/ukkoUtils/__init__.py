@@ -54,7 +54,7 @@ from .src.class_HandledException import getExceptionAsDict
 ###################
 # ProgressMsg
 #
-from .src.class_ProgressMsg import ProgressMsg
+from .src.class_ProgressMsg import ProgressMsg, IWithProgressMarker_Interface
 
 ###################
 #
@@ -94,4 +94,5 @@ __all__ = [
     # ProgressMsg
     #
     "ProgressMsg",
+    "IWithProgressMarker_Interface",
 ]

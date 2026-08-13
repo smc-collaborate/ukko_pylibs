@@ -13,3 +13,9 @@ class ProgressMsg:
                 result += " (Timeout in {:.1f} seconds)".format(self.timeout_sec)
 
         return result
+
+
+class IWithProgressMarker_Interface:
+
+    def asProgressMarker(self) -> ProgressMsg:
+        return ProgressMsg("<<NOT_IMPLEMENTED>>")
