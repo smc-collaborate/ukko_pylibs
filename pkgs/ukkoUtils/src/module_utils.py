@@ -316,23 +316,28 @@ def asJsonRStr(obj, indent: int | None = None, sortKeys: bool = False) -> str:
     try:
         import json5
 
-        class Json5EncoderExtended(json5.JSON5Encoder):
-            def default(self, obj):
-                return makeJsonable(obj)
+        if (
+            json5.VERSION != "0.9.14"
+        ):  # < Totally optional debugging hack to avoid throwing a pointless warning message in a particular test scenario.  No difference to functionality
 
-        return json5.dumps(
-            obj,
-            indent=indent,
-            sort_keys=sortKeys,
-            cls=Json5EncoderExtended,
-            separators=None if indent else (",", ":"),
-            ensure_ascii=False,
-            quote_keys=False,
-            skipkeys=True,
-        )
+            class Json5EncoderExtended(json5.JSON5Encoder):
+                def default(self, obj):
+                    return makeJsonable(obj)
+
+            return json5.dumps(
+                obj,
+                indent=indent,
+                sort_keys=sortKeys,
+                cls=Json5EncoderExtended,
+                separators=None if indent else (",", ":"),
+                ensure_ascii=False,
+                quote_keys=False,
+                skipkeys=True,
+            )
     except Exception as e:
         appLog.print_warning_withException(e, "Utils.asJsonRStr")
-        return asJsonStr(obj, indent)
+
+    return asJsonStr(obj, indent)
 
 
 def asStr(obj) -> str:
