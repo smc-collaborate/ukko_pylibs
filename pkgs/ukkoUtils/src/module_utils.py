@@ -958,5 +958,8 @@ def createFrom_basedOnType(valueIn: Any, theType: type) -> Any:
         raise TypeError(_caption + f" Failed ({e})")
 
 
-def createFrom_basedOnTemplate(valueIn: Any, blankValue: Any) -> Any:
-    return createFrom_basedOnType(valueIn, type(blankValue))
+def createFrom_basedOnTemplate(valueIn: Any | None, blankValue: Any) -> Any:
+    if valueIn is None:
+        return blankValue
+    else:
+        return createFrom_basedOnType(valueIn, type(blankValue))
