@@ -36,7 +36,13 @@ from .src.module_utils import (
 #
 from .src.module_utils import isStdoutText
 
-from .src.module_utils import typeAsStr, typeOfAsStr
+from .src.module_utils import (
+    typeAsStr,
+    typeOfAsStr,
+    asStrWithType,
+    createFrom_basedOnTemplate,
+    createFrom_basedOnType,
+)
 
 ###################
 # Debug info
@@ -62,24 +68,13 @@ from .src.class_HandledException import HandledException, getPrettyExceptionInfo
 
 __all__ = [
     "pathAsDisplay",
-    "asJsonStr",
-    "asJsonRStr",
-    "asStr",
-    "asJsonable",
-    "json_loads",
-    "dictFromJsonLikeStr",
-    "toBool",
-    "toHex",
     "hasRemovedPrefix",
     "hasRemovedSuffix",
     "hasReplacedPrefix",
-    "asUtf8orBytes",
     "DeviceStateEnum",
     "isStdoutText",
     "HandledException",
     "getPrettyExceptionInfo",
-    "typeAsStr",
-    "typeOfAsStr",
     "getStartupPath",
     "rangeAsText",
     "__line__"
@@ -90,6 +85,22 @@ __all__ = [
     "timestampObj_from_ns",
     "asUtf8orBytesOrNone",
     "getExceptionAsDict",
+    #############################
+    # Type handling & Conversions
+    "typeAsStr",
+    "typeOfAsStr",
+    "createFrom_basedOnTemplate",
+    "createFrom_basedOnType",
+    "toBool",
+    "toHex",
+    "asJsonStr",
+    "asJsonRStr",
+    "asStr",
+    "asJsonable",
+    "asStrWithType",
+    "json_loads",
+    "dictFromJsonLikeStr",
+    "asUtf8orBytes",
     ###################
     # ProgressMsg
     #
