@@ -676,7 +676,7 @@ class CustomContentsFormatDefinition:
         return f"{self.KIND}: Expected one of {checkedList} headers.  Header=0x{dataIn[:16 if clip is None else clip].hex()}…"
 
     def ADD_STREAM_IN_HERE(self):
-        pass  #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        pass  # ==========================
 
     def suggestSampleFileName(self, suffix: str = "") -> str:
         txt = self.definition("suggested_file_prefix")
