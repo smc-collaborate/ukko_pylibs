@@ -1,6 +1,6 @@
 ###########################
 #
-from .module_dictUtils import (
+from .src.module_dictUtils import (
     getBoolOrFalse,
     get,
     set,
@@ -15,8 +15,9 @@ from .module_dictUtils import (
     addEntryIfNotOneOf,
     addEntryIfNotDefault,
     addEntryIfNotEmpty,
+    asFlattened,
+    extendWithoutOverwrite,
 )
-from .module_dictUtils import asFlattened, extendWithoutOverwrite
 
 __all__ = [
     "getBoolOrFalse",
