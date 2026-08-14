@@ -147,7 +147,7 @@ class SparseList(dict[int, ContentKind], Generic[ContentKind]):
 
     @property
     def classCaption(self) -> str:
-        txt = asJsonStr(self._blankValue)
+        txt = asJsonStr(self.defaultValue)
         if txt == "null":
             txt = ""
         else:
@@ -192,9 +192,14 @@ class SparseList(dict[int, ContentKind], Generic[ContentKind]):
         blankValue: ContentKind,
         src: Union["SparseList[ContentKind]", dict[int, ContentKind], None] = None,
     ):
-        self._blankValue = blankValue
+        self._blankValue = deepcopy(blankValue)
+
         if src is not None:
             self.update(src)
+
+    @property
+    def defaultValue(self) -> ContentKind:
+        return deepcopy(self._blankValue)
 
     def hasData(self) -> bool:
         return len(self) > 0
@@ -231,7 +236,9 @@ class SparseList(dict[int, ContentKind], Generic[ContentKind]):
         return self._setEntry(entry, position)[0]
 
     def _getContentType(self) -> type:
-        return type(self._blankValue)
+        return type(
+            self.defaultValue
+        )  # < Python refuses to believe that 'ContentKind' can be used as a type - since it is a typevar !
 
     def _defaultContent(self) -> ContentKind:
         # print(f"Calling self._defaultContent({ContentKind})")
@@ -248,7 +255,7 @@ class SparseList(dict[int, ContentKind], Generic[ContentKind]):
         raise TypeError(self.classCaption + ": Cannot create default ContentKind")
 
     def _jsonImportContent(self, valueIn) -> ContentKind:
-        return createFrom_basedOnTemplate(valueIn, self._blankValue)
+        return createFrom_basedOnTemplate(valueIn, self.defaultValue)
 
     def getOrCreate(self, position: int) -> ContentKind:
         if position in self:
@@ -260,7 +267,7 @@ class SparseList(dict[int, ContentKind], Generic[ContentKind]):
         if position in self:
             return self[position]
 
-        return deepcopy(self._blankValue)
+        return self.defaultValue
 
 
 class MaxWidths(SparseList[int]):
