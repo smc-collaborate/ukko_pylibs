@@ -726,16 +726,27 @@ def getIdSuffix(id):
     return "" if (id is None) or (id == "") else (str(id) + "/")
 
 
-def typeOfAsStr(obj) -> str:
-    return typeAsStr(type(obj), withBrackets=True)
+def typeOfAsStr(obj, withBrackets=False) -> str:
+    classCaption: str | None = None
+    if hasattr(obj, "classCaption"):
+        try:
+            classCaption = obj.classCaption
+        except:
+            pass
+
+    if classCaption is None:
+        classCaption = typeAsStr(type(obj))
+
+    return classCaption if not withBrackets else ("«" + classCaption + "»")
+
+
+def asStrWithType(value: Any):
+    return f"{typeAsStr(type(value))}({asStr(value)})"
 
 
 def typeAsStr(dataType, withBrackets: bool = False) -> str:
-    txt = str(dataType).removeprefix("<class '").removesuffix("'>")
-    if withBrackets:
-        return "«" + txt + "»"
-    else:
-        return txt
+    classCaption = str(dataType).removeprefix("<class '").removesuffix("'>")
+    return classCaption if not withBrackets else ("«" + classCaption + "»")
 
 
 def _makeJsonable_fromType(o: type) -> str:
