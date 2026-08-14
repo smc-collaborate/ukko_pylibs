@@ -30,7 +30,7 @@ class CellInfo:
         self.baseLines: list[str] = prettyText.textWrapWithPrefixes(
             srcText,
             styleWidth,
-            (False if stylingOption is None else stylingOption.prefixesToWrapWith),
+            (True if stylingOption is None else stylingOption.prefixesToWrapWith),
         )
 
         self._lines: list[str] = []
