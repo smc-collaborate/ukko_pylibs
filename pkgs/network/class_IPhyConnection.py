@@ -36,42 +36,43 @@ class IPhyConnection:
         self.needsReconnecting = False
         appLog.print_verbose(f"{self}: Created[{self.infoText}]")
 
-    def className(self):
+    @property
+    def classCaption(self):
         return self.__class__.__name__
 
     def _getTextName(self) -> str:
         raise NotImplementedError(
-            f"{self.className()}._getTextName: Should be implemented by subclasses"
+            f"{self.classCaption}._getTextName: Should be implemented by subclasses"
         )
 
     def _doClose(self) -> None:
         raise NotImplementedError(
-            f"{self.className()}._doClose: Should be implemented by subclasses"
+            f"{self.classCaption}._doClose: Should be implemented by subclasses"
         )
 
     def _doSetTimeout_seconds(self, timeout_seconds: float):
         raise NotImplementedError(
-            f"{self.className()}._doSetTimeout_seconds: Should be implemented by subclasses"
+            f"{self.classCaption}._doSetTimeout_seconds: Should be implemented by subclasses"
         )
 
     def _getIsConnected(self) -> bool:
         raise NotImplementedError(
-            f"{self.className()}._getIsConnected: Should be implemented by subclasses"
+            f"{self.classCaption}._getIsConnected: Should be implemented by subclasses"
         )
 
     def _doSendAllBytes_orException(self, data: bytes):
         raise NotImplementedError(
-            f"{self.className()}._doSendAllBytes_orException: Should be implemented by subclasses"
+            f"{self.classCaption}._doSendAllBytes_orException: Should be implemented by subclasses"
         )
 
     def _doReadAllBytes(self, length: int, timeout_ms: int | None = None) -> bytes:
         raise NotImplementedError(
-            f"{self.className()}._doReadAllBytes: Should be implemented by subclasses"
+            f"{self.classCaption}._doReadAllBytes: Should be implemented by subclasses"
         )
 
     def _doReadLine(self, timeout_ms: int | None = None) -> str:
         raise NotImplementedError(
-            f"{self.className()}._doReadLine: Should be implemented by subclasses"
+            f"{self.classCaption}._doReadLine: Should be implemented by subclasses"
         )
 
     def printWarning(self, part: str, msg: str):
