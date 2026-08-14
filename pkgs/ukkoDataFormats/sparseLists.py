@@ -78,7 +78,11 @@ class SparseList(dict[int, ContentKind], Generic[ContentKind]):
         if isinstance(spec, list):
             mySrc = list[ContentKind | None]()
             for x in spec:
-                mySrc.append(SparseList[ContentKind](blankValue)._jsonImportContent(x))
+                mySrc.append(
+                    None
+                    if x is None
+                    else SparseList[ContentKind](blankValue)._jsonImportContent(x)
+                )
             return SparseList[ContentKind].create_fromList_andBlank(mySrc, blankValue)
         elif isinstance(spec, dict):
             result = SparseList[ContentKind](blankValue)
