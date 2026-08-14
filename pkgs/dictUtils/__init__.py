@@ -12,6 +12,9 @@ from .module_dictUtils import (
     getBool,
     getInt,
     msg_to_dict,
+    addEntryIfNotOneOf,
+    addEntryIfNotDefault,
+    addEntryIfNotEmpty,
 )
 from .module_dictUtils import asFlattened, extendWithoutOverwrite
 
@@ -29,4 +32,7 @@ __all__ = [
     "msg_to_dict",
     "asFlattened",
     "extendWithoutOverwrite",
+    "addEntryIfNotOneOf",
+    "addEntryIfNotDefault",
+    "addEntryIfNotEmpty",
 ]

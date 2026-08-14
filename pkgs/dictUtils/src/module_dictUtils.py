@@ -459,3 +459,20 @@ def msg_to_json_text(msg, is_full: bool = False):
 
         result = {"msg_to_json_text.ee": str(e)}
         return asJsonStr(result)
+
+
+def addEntryIfNotOneOf(
+    obj: dict[str, Any], key: str, value: Any | None, skipValues: list[Any | None]
+):
+    if value not in skipValues:
+        obj[key] = value
+
+
+def addEntryIfNotDefault(
+    obj: dict[str, Any], key: str, value: Any | None, defaultValue: Any | None = None
+):
+    return addEntryIfNotOneOf(obj, key, value, [defaultValue])
+
+
+def addEntryIfNotEmpty(obj: dict[str, Any], key: str, value: Any | None):
+    return addEntryIfNotOneOf(obj, key, value, [None, set(), list(), dict()])
