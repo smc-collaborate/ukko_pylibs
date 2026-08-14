@@ -475,4 +475,4 @@ def addEntryIfNotDefault(
 
 
 def addEntryIfNotEmpty(obj: dict[str, Any], key: str, value: Any | None):
-    return addEntryIfNotOneOf(obj, key, value, [None, set(), list(), dict()])
+    return addEntryIfNotOneOf(obj, key, value, [None, "", list(), dict()])
