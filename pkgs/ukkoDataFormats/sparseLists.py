@@ -1,11 +1,16 @@
+################
+#
 from copy import deepcopy
-
 from typing import Any, Tuple, Union
-
-
-from appLogging import appLog
-from ukkoUtils import asStrWithType, typeAsStr
 from typing import Generic, TypeVar  # < Needed for compliance with Python 3.10
+
+################
+#
+from ukkoUtils import typeAsStr, createFrom_basedOnTemplate, asJsonable, asJsonStr
+from appLogging import appLog
+
+################
+#
 
 
 def visLength(text: str) -> int:
@@ -140,6 +145,15 @@ class SparseList(dict[int, ContentKind], Generic[ContentKind]):
 
         return result
 
+    @property
+    def classCaption(self) -> str:
+        txt = asJsonStr(self._blankValue)
+        if txt == "null":
+            txt = ""
+        else:
+            txt = "default:" + txt
+        return f"SparseList[{typeAsStr(self._getContentType())}]({txt})"
+
     @staticmethod
     def createOrNone_fromListOrNone_andBlank(
         src: list[ContentKind | None] | None, blankValue: ContentKind
@@ -216,11 +230,8 @@ class SparseList(dict[int, ContentKind], Generic[ContentKind]):
     def setEntry(self, entry: ContentKind, position: int | None = None) -> ContentKind:
         return self._setEntry(entry, position)[0]
 
-    def _getContentType(self) -> Any | None:
+    def _getContentType(self) -> type:
         return type(self._blankValue)
-
-    def _asCaption(self) -> str:
-        return f"SparseList[{typeAsText(self._getContentType)}]"
 
     def _defaultContent(self) -> ContentKind:
         # print(f"Calling self._defaultContent({ContentKind})")
@@ -234,35 +245,10 @@ class SparseList(dict[int, ContentKind], Generic[ContentKind]):
                 return valueOut
             except:
                 pass
-        raise TypeError(self._asCaption() + ": Cannot create default ContentKind")
+        raise TypeError(self.classCaption + ": Cannot create default ContentKind")
 
     def _jsonImportContent(self, valueIn) -> ContentKind:
-        # print(f"Calling self._defaultContent({ContentKind})")
-        theType = self._getContentType()
-
-        if hasattr(theType, "create_fromJsonDictOrNone") and callable(
-            getattr(theType, "create_fromJsonDictOrNone")
-        ):
-            return theType.create_fromJsonDictOrNone(valueIn)  # type: ignore[call-arg]
-        if hasattr(theType, "create_fromJsonDict") and callable(
-            getattr(theType, "create_fromJsonDict")
-        ):
-            return theType.create_fromJsonDict(valueIn)  # type: ignore[call-arg]
-        if hasattr(theType, "create_fromJsonDict_andBlank") and callable(
-            getattr(theType, "create_fromJsonDict_andBlank")
-        ):
-            return theType.create_fromJsonDict_andBlank(valueIn, self._blankValue)  # type: ignore[call-arg]
-        if callable(theType):
-            return theType(valueIn)  # type: ignore[call-arg]
-        if theType in [str, int, float, bool]:
-            return theType(valueIn)  # type: ignore[call-arg]
-
-        try:
-            return valueIn
-        except:
-            raise TypeError(
-                f"SparceList[{typeAsText(self._getContentType)}]: _defaultJsonImportContent({valueIn}) Failed"
-            )
+        return createFrom_basedOnTemplate(valueIn, self._blankValue)
 
     def getOrCreate(self, position: int) -> ContentKind:
         if position in self:
@@ -275,17 +261,6 @@ class SparseList(dict[int, ContentKind], Generic[ContentKind]):
             return self[position]
 
         return deepcopy(self._blankValue)
-
-
-def typeAsText(theType):
-
-    try:
-        txt = str(theType)
-
-        txt = txt.removeprefix("<class '").removesuffix("'>")
-    except Exception:
-        txt = str(theType)
-    return txt
 
 
 class MaxWidths(SparseList[int]):
@@ -325,7 +300,7 @@ class Sparse2D(Generic[CellContentKind]):
             return content_type
 
     def _getContentTypeAsText(self) -> str:
-        return typeAsText(self._getContentType())
+        return typeAsStr(self._getContentType())
 
     def __init__(self, blankCellContent: CellContentKind):
         self.blankEntry = blankCellContent
@@ -340,7 +315,7 @@ class Sparse2D(Generic[CellContentKind]):
 
     def asJsonable(self):
         return {
-            "_kind": f"Sparse2D[{typeAsText(self._getContentType())}]",
+            "_kind": f"Sparse2D[{typeAsStr(self._getContentType())}]",
             "numCols": self._numCols,
             "rows": self.rows.asJsonable(),
         }
