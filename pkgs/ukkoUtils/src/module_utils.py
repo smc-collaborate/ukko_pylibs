@@ -912,3 +912,40 @@ def timestampObj_from_ns(ns: int) -> dict[str, Any] | None:
         "ns": ns,
         "text": formatted,
     }
+
+
+def createFrom_basedOnType(valueIn: Any, theType: type) -> Any:
+    if isinstance(valueIn, theType):
+        return valueIn
+
+    _caption = "createFrom_basedOnType({asStrWithType(valueIn)})"
+    if hasattr(theType, "create_fromJsonDictOrNone") and callable(
+        getattr(theType, "create_fromJsonDictOrNone")
+    ):
+        # |x| print(f"!!!!! {_caption} | create_fromJsonDictOrNone")
+        return theType.create_fromJsonDictOrNone(valueIn)  # type: ignore[call-arg]
+    if hasattr(theType, "create_fromJsonDict") and callable(
+        getattr(theType, "create_fromJsonDict")
+    ):
+        # |x| print(f"!!!!! {_caption} | create_fromJsonDict")
+        return theType.create_fromJsonDict(valueIn)  # type: ignore[call-arg]
+    if hasattr(theType, "create_fromJsonDict_andBlank") and callable(
+        getattr(theType, "create_fromJsonDict_andBlank")
+    ):
+        # |x| print(f"!!!!! {_caption} | create_fromJsonDict_andBlank")
+        return theType.create_fromJsonDict_andBlank(valueIn, self._blankValue)  # type: ignore[call-arg]
+    if callable(theType):
+        # |x| print(f"!!!!! {_caption} |  callable")
+        return theType(valueIn)  # type: ignore[call-arg]
+    if theType in [str, int, float, bool]:
+        # |x| print(f"!!!!! {_caption} |  [str, int, float, bool]")
+        return theType(valueIn)  # type: ignore[call-arg]
+
+    try:
+        return valueIn
+    except Exception as e:
+        raise TypeError(_caption + f" Failed ({e})")
+
+
+def createFrom_basedOnTemplate(valueIn: Any, blankValue: Any) -> Any:
+    return createFrom_basedOnType(valueIn, type(blankValue))
