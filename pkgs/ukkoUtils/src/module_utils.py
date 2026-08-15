@@ -291,7 +291,7 @@ def asJsonStr(obj, indent: int | None = None, sortKeys: bool = False) -> str:
 
         class JsonEncoderExtended(json.JSONEncoder):
             def default(self, o):
-                return makeJsonable(o)
+                return asJsonable(o)
 
         return json.dumps(
             obj,
@@ -322,7 +322,7 @@ def asJsonRStr(obj, indent: int | None = None, sortKeys: bool = False) -> str:
 
             class Json5EncoderExtended(json5.JSON5Encoder):
                 def default(self, obj):
-                    return makeJsonable(obj)
+                    return asJsonable(obj)
 
             return json5.dumps(
                 obj,
@@ -357,7 +357,7 @@ def asStr(obj) -> str:
         return asJsonStr(obj)
 
 
-def makeJsonable(
+def asJsonable(
     contents, base64_encoding=True, recursionDepth: int = 0
 ) -> list | dict[str, Any] | OrderedDict | str | int | float | None:
     try:
@@ -379,14 +379,14 @@ def makeJsonable(
             return "«builtin_function_or_method»"
 
         if recursionDepth >= 20:
-            return f"⚠️  Unable to makeJsonable([{type(contents)}]: Recursion depth of {recursionDepth} reached"
+            return f"⚠️  Unable to asJsonable([{type(contents)}]: Recursion depth of {recursionDepth} reached"
 
         if hasattr(contents, "__slots__"):
             # This is a ROS message
             d = OrderedDict()
             for field_name, field_type in zip(contents.__slots__, contents.SLOT_TYPES):
                 value = getattr(contents, field_name, None)
-                d[field_name.removeprefix("_")] = makeJsonable(
+                d[field_name.removeprefix("_")] = asJsonable(
                     value, base64_encoding, recursionDepth=recursionDepth + 1
                 )
             return d
@@ -395,13 +395,13 @@ def makeJsonable(
             d = OrderedDict()
             try:
                 for key in list(contents.keys()):
-                    d[key] = makeJsonable(
+                    d[key] = asJsonable(
                         contents[key],
                         base64_encoding,
                         recursionDepth=recursionDepth + 1,
                     )
             except Exception as e:
-                print("⚠️ ukkoUtils.makeJsonable(" + str(contents) + "): " + str(e))
+                print("⚠️ ukkoUtils.asJsonable(" + str(contents) + "): " + str(e))
             return d
         if isinstance(contents, bytes):
             if base64_encoding:
@@ -420,7 +420,7 @@ def makeJsonable(
             d = list()
             for x in contents:
                 d.append(
-                    makeJsonable(x, base64_encoding, recursionDepth=recursionDepth + 1)
+                    asJsonable(x, base64_encoding, recursionDepth=recursionDepth + 1)
                 )
             return d
         if hasattr(contents, "asJsonable"):
@@ -435,7 +435,7 @@ def makeJsonable(
                 d = list()
                 for x in contents:
                     d.append(
-                        makeJsonable(
+                        asJsonable(
                             x, base64_encoding, recursionDepth=recursionDepth + 1
                         )
                     )
@@ -447,22 +447,20 @@ def makeJsonable(
                 return contents.T
 
         except Exception as e:
-            appLog.print_verbose(f"ukkoUtils.makeJsonable: numpy issue: {e}")
+            appLog.print_verbose(f"ukkoUtils.asJsonable: numpy issue: {e}")
 
         if hasattr(contents, "__dict__"):
             outResult = {}
             for name, value in contents.__dict__.items():
-                outResult[name] = makeJsonable(
+                outResult[name] = asJsonable(
                     value, base64_encoding, recursionDepth=recursionDepth + 1
                 )
             return outResult
 
-        return f"{contents}"  # ⚠️  Unable to makeJsonable([{type(contents)}]={contents} - No conversion found"
+        return f"{contents}"  # ⚠️  Unable to asJsonable([{type(contents)}]={contents} - No conversion found"
 
     except Exception as e:
-        return (
-            f"⚠️  Unable to makeJsonable([{type(contents)}]={contents} - Exception {e}"
-        )
+        return f"⚠️  Unable to asJsonable([{type(contents)}]={contents} - Exception {e}"
 
 
 # |Alternative|
@@ -471,13 +469,13 @@ def makeJsonable(
 # |Alternative|             _items = o.items()
 # |Alternative|             obj_out: dict[str, Any] = {}
 # |Alternative|             for _name, _value in _items:
-# |Alternative|                 obj_out[_name] = makeJsonable(
+# |Alternative|                 obj_out[_name] = asJsonable(
 # |Alternative|                     _value, currentDepth + 1, hint + _name + "."
 # |Alternative|                 )
 # |Alternative|             return obj_out
 
 
-# |Alternative| def makeJsonable(
+# |Alternative| def asJsonable(
 # |Alternative|     o: Any | None, currentDepth: int = 0, hint: str = ""
 # |Alternative| ) -> dict | str | int | float | bool | list | Any:
 # |Alternative|     if o is None:
@@ -489,7 +487,7 @@ def makeJsonable(
 # |Alternative|     def _showHint(msg: str):
 # |Alternative|         pass
 # |Alternative|         # if currentDepth <=3 and not msg.startswith("⚠️"):
-# |Alternative|         #    print(f"makeJsonable: {hint}Type[{type(o)}] : Depth={currentDepth} : {msg}")
+# |Alternative|         #    print(f"asJsonable: {hint}Type[{type(o)}] : Depth={currentDepth} : {msg}")
 # |Alternative|
 # |Alternative|     _showHint(f" --- Start")
 # |Alternative|
@@ -510,7 +508,7 @@ def makeJsonable(
 # |Alternative|             list_out: list[Any] = []
 # |Alternative|             for index in range(len(o)):
 # |Alternative|                 list_out.append(
-# |Alternative|                     makeJsonable(
+# |Alternative|                     asJsonable(
 # |Alternative|                         o[index],
 # |Alternative|                         currentDepth + 1,
 # |Alternative|                         hint.removesuffix(".") + "[" + str(index) + "].",
@@ -522,7 +520,7 @@ def makeJsonable(
 # |Alternative|             _showHint("dictionary")
 # |Alternative|             result: dict[str, Any] = {}
 # |Alternative|             for key, value in o.items():
-# |Alternative|                 result[key] = makeJsonable(
+# |Alternative|                 result[key] = asJsonable(
 # |Alternative|                     value, currentDepth + 1, hint + key + "."
 # |Alternative|                 )
 # |Alternative|             return result
@@ -546,7 +544,7 @@ def makeJsonable(
 # |Alternative|             _items = o.items()
 # |Alternative|             obj_out: dict[str, Any] = {}
 # |Alternative|             for _name, _value in _items:
-# |Alternative|                 obj_out[_name] = makeJsonable(
+# |Alternative|                 obj_out[_name] = asJsonable(
 # |Alternative|                     _value, currentDepth + 1, hint + _name + "."
 # |Alternative|                 )
 # |Alternative|             return obj_out
@@ -565,7 +563,7 @@ def makeJsonable(
 # |Alternative|         if hasattr(o, "__dict__"):
 # |Alternative|             outResult = {}
 # |Alternative|             for name,value in o.__dict__.items():
-# |Alternative|                 outResult[name]=makeJsonable(value)
+# |Alternative|                 outResult[name]=asJsonable(value)
 # |Alternative|             return outResult
 # |Alternative|
 # |Alternative|         _showHint("⚠️  Other")

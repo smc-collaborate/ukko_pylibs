@@ -18,7 +18,7 @@ from .src.module_utils import pathAsDisplay
 #
 # DataToText
 #
-from .src.module_utils import asJsonStr, asJsonRStr, asStr, makeJsonable as asJsonable
+from .src.module_utils import asJsonStr, asJsonRStr, asStr, asJsonable
 
 from .src.module_utils import json_loads, dictFromJsonLikeStr
 from .src.module_utils import toBool, toHex, rangeAsText
