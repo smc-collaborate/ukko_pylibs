@@ -1,7 +1,13 @@
+##########################################
+#
 from typing import Any, Union
 
+###########################################
+#
+import dictUtils
 
 ################################################################################
+#
 
 
 class RenderOptions_GridPart:
@@ -29,19 +35,16 @@ class RenderOptions_GridPart:
     def export_toJsonDict(self) -> dict[str, Any]:
         obj: dict[str, Any] = {}
 
-        if self.lockedMaxVisWidth is None:
-            obj = {
-                "skip": {
-                    "isWrap": self.isWrap,
-                    "prefixesToWrapWith": self.prefixesToWrapWith,
-                }
-            }
-        else:
-            obj = {
-                "lockedMaxWidth": self.lockedMaxVisWidth,
-                "isWrap": self.isWrap,
-                "prefixesToWrapWith": self.prefixesToWrapWith,
-            }
+        dictUtils.addEntryIfNotDefault(obj, "lockedMaxWidth", self.lockedMaxVisWidth)
+        dictUtils.addEntryIfNotDefault(
+            obj, "prefixesToWrapWith", self.prefixesToWrapWith, True
+        )
+        dictUtils.addEntryIfNotDefault(obj, "isWrap", self.isWrap, True)
+
+        if self.lockedMaxVisWidth is not None:
+            obj["lockedMaxWidth"] = self.lockedMaxVisWidth
+        elif obj:
+            obj = {"skip": obj}
 
         return obj
 
