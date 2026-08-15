@@ -74,6 +74,14 @@ class RenderOptions_Table:
                 colOptions_src
             )
 
+    def asJsonable(self) -> dict[str, Any]:
+        obj: dict[str, Any] = {}
+        dictUtils.addEntryIfNotEmpty(obj, "borders", self.border.asJsonable())
+        dictUtils.addEntryIfNotEmpty(obj, "rowStyling", self.rowStyling)
+        dictUtils.addEntryIfNotEmpty(obj, "colOptions", self.colOptions_.asJsonable())
+
+        return obj
+
     def _getRowStyling(self, rowDescription: str | None) -> str:
         """eg: getRowStyling('title')-> 'red+bold'"""
         if not rowDescription:
