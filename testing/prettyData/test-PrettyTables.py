@@ -2,8 +2,22 @@
 
 VERSION = "0.0.1-wip"  # < Warning: When updating version, ensure you update the tests that report version number too !
 
+#########################################################################
+#
+import sys
+from pathlib import Path
 
-from ukkoCommonCollection import ukkoUtils, AppChoices, app, PrettyData, JsonDict
+sys.path.append(str((Path(__file__).parent.parent.parent / "pkgs").resolve()))
+
+from ukkoCommonCollection import (
+    ukkoUtils,
+    AppChoices,
+    app,
+    PrettyData,
+    JsonDict,
+    asJsonStr,
+)
+from ukkoUtils import asStr, typeAsStr
 
 #########################################################################
 #
@@ -15,7 +29,7 @@ def main():
 
     params: AppChoices = app.Define(
         {
-            "version": "0.0.1",
+            "version": VERSION,
             "description": "Validation Tests for PrettyTable",
             "author": "mac@spacemachines.com",
             "options": [
@@ -68,18 +82,29 @@ def main():
     table_spec = params.param_asJsonable("contents")
     render_spec = params.param_asJsonableOrNone("render")
 
-    contents = PrettyData.Contents.create_fromJsonDict(table_spec)
+    contents = PrettyData.Contents.createFrom_jsonableSpec(table_spec)
 
     renderingList = [
+        {
+            "borders": "mild",
+            "colOptions": {
+                "*": {"lockedMaxWidth": 30, "isWrap": True, "prefixesToWrapWith": True},
+                0: {"lockedMaxWidth": 10},
+            },
+        },
         render_spec,
-        '{"borders":"outer+vert","rowStyling":{"title":"+bold"}}',
+        {"borders": "outer+vert", "rowStyling": {"title": "+bold"}},
     ]
 
     for renderStyle in renderingList:
         print("")
         print(
-            f"Rendering Style[{type(renderStyle)}]: {ukkoUtils.asJsonStr(renderStyle)}"
+            f"Rendering Style: {typeAsStr(type(renderStyle))}〈{asJsonStr(renderStyle)}〉"
         )
+        print(
+            f"Normalised     :       {asJsonStr(PrettyData.TableRenderOptions(renderStyle))}"
+        )
+
         lines_out = PrettyData.Rendered(contents, renderStyle).asTextLines()
 
         for line in lines_out:
