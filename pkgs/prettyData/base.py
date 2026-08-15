@@ -15,7 +15,7 @@ class MaxWidths:
         self.data = SparseList[int](0)
 
     def __getitem__(self, pos: int) -> int:
-        return self.data.get(pos, 0)
+        return self.data[pos]
 
     def getLen(self):
         return self.data.getLen(includingBlanks=True)
