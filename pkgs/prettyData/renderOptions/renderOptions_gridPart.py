@@ -56,7 +56,7 @@ class RenderOptions_GridPart:
         if isinstance(spec, dict):
             _lockedMaxVisWidth = spec.get("lockedMaxWidth", None)
             _isWrap = spec.get("isWrap", True)
-            _prefixesToWrapWith = spec.get("prefixesToWrapWith", None)
+            _prefixesToWrapWith = spec.get("prefixesToWrapWith", True)
 
             return RenderOptions_GridPart(
                 _lockedMaxVisWidth, _prefixesToWrapWith, _isWrap
