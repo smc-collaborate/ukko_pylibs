@@ -108,9 +108,9 @@ class Borders:
                 self.rowBorders[singleName.strip("_")] = entry
 
     @staticmethod
-    def createOrNoneFrom_name(name: str) -> Union["Borders", None]:
+    def getStandardBorders() -> dict[str, "Borders"]:
 
-        standard_borders: dict[str, Borders] = {
+        return {
             "outer+vert": Borders.createFrom_template(
                 1,
                 top___________="┏━━━┳━━━┳━━━┯━━━┳━━━┳━━━┓",
@@ -158,6 +158,11 @@ class Borders:
             "blank": Borders.createFrom_divider(" "),
             "|": Borders.createFrom_divider(" │ "),
         }
+
+    @staticmethod
+    def createOrNoneFrom_name(name: str) -> Union["Borders", None]:
+        standard_borders: dict[str, Borders] = Borders.getStandardBorders()
+
         if name in standard_borders:
             return standard_borders[name]
         else:
