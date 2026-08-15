@@ -8,6 +8,7 @@ from typing import Generic, TypeVar  # < Needed for compliance with Python 3.10
 #
 from ukkoUtils import typeAsStr, createFrom_basedOnTemplate, asJsonable, asJsonStr
 from appLogging import appLog
+import dictUtils
 
 ################
 #
@@ -70,7 +71,7 @@ class RangesInt(list[RangeInt]):
 ContentKind = TypeVar("ContentKind")
 
 
-class SparseList(dict[int, ContentKind], Generic[ContentKind]):
+class SparseList(Generic[ContentKind]):
     @staticmethod
     def create_fromJsonDict_andBlank(
         spec: dict | list, blankValue: ContentKind
@@ -85,9 +86,12 @@ class SparseList(dict[int, ContentKind], Generic[ContentKind]):
                 )
             return SparseList[ContentKind].create_fromList_andBlank(mySrc, blankValue)
         elif isinstance(spec, dict):
-            result = SparseList[ContentKind](blankValue)
+            result = SparseList[ContentKind](
+                createFrom_basedOnTemplate(spec.get("*"), blankValue)
+            )
             for key, value in spec.items():
-                result[int(key)] = result._jsonImportContent(value)
+                if key != "*":
+                    result.entries[int(key)] = result._jsonImportContent(value)
             return result
         else:
             raise TypeError(
@@ -125,11 +129,11 @@ class SparseList(dict[int, ContentKind], Generic[ContentKind]):
                 value = src[n]
                 if value is not None:
                     if type(blankValue) == type(value):
-                        result[n] = value
+                        result.entries[n] = value
                     elif hasattr(
                         blankValue, "create_fromJsonDict_andBlank"
                     ) and callable(getattr(blankValue, "create_fromJsonDict_andBlank")):
-                        result[n] = (
+                        result.entries[n] = (
                             blankValue.create_fromJsonDict_andBlank(  # pyright: ignore[reportAttributeAccessIssue]
                                 value, blankValue
                             )
@@ -137,7 +141,7 @@ class SparseList(dict[int, ContentKind], Generic[ContentKind]):
                     elif hasattr(blankValue, "create_fromJsonDict") and callable(
                         getattr(blankValue, "create_fromJsonDict")
                     ):
-                        result[n] = (
+                        result.entries[n] = (
                             blankValue.create_fromJsonDict(  # pyright: ignore[reportAttributeAccessIssue]
                                 value
                             )
@@ -183,12 +187,21 @@ class SparseList(dict[int, ContentKind], Generic[ContentKind]):
 
         if self.hasData():
 
-            ranges = RangesInt(list(self.keys()))
+            ranges = RangesInt(list(self.entries.keys()))
 
             for _rangeVal in ranges:
-                entry = [self[n] for n in _rangeVal.as_range()]
-                result[_rangeVal.asText()] = entry[0] if len(entry) == 1 else entry
+                entries = [asJsonable(self.entries[n]) for n in _rangeVal.as_range()]
+                if entries:
+                    allSame = True
+                    first = entries[0]
+                    for x in entries:
+                        if x != first:
+                            allSame = False
+                            break
 
+                    result[_rangeVal.asText()] = first if allSame else entries
+
+        dictUtils.addEntryIfNotEmpty(result, "*", asJsonable(self._blankValue))
         return result
 
     def __init__(
@@ -196,25 +209,37 @@ class SparseList(dict[int, ContentKind], Generic[ContentKind]):
         blankValue: ContentKind,
         src: Union["SparseList[ContentKind]", dict[int, ContentKind], None] = None,
     ):
-        self._blankValue = deepcopy(blankValue)
 
-        if src is not None:
-            self.update(src)
+        if isinstance(src, SparseList):
+            self._blankValue = deepcopy(src._blankValue)
+            self.entries = deepcopy(src.entries)
+        elif isinstance(src, dict):
+            self._blankValue = deepcopy(blankValue)
+            self.entries = deepcopy(src)
+        else:
+            self._blankValue = deepcopy(blankValue)
+            self.entries: dict[int, ContentKind] = {}
+
+    def values(self):
+        return self.entries.values()
+
+    def items(self):
+        return self.entries.items()
 
     @property
     def defaultValue(self) -> ContentKind:
         return deepcopy(self._blankValue)
 
     def hasData(self) -> bool:
-        return len(self) > 0
+        return len(self.entries) > 0
 
     def getLen(self, includingBlanks: bool = True) -> int:
         if not self.hasData():
             return 0
         elif not includingBlanks:
-            return len(self.keys())
+            return len(self.entries.keys())
         else:
-            return max(self.keys()) + 1
+            return max(self.entries.keys()) + 1
 
     def asList(self) -> list[ContentKind]:
         return [self.getOrEmpty(n) for n in range(self.getLen())]
@@ -233,11 +258,17 @@ class SparseList(dict[int, ContentKind], Generic[ContentKind]):
         self, entry: ContentKind, position: int | None = None
     ) -> Tuple[ContentKind, int]:
         posUsed = self._newKey(position)
-        self[posUsed] = entry
-        return self[posUsed], posUsed
+        self.entries[posUsed] = entry
+        return self.entries[posUsed], posUsed
 
     def setEntry(self, entry: ContentKind, position: int | None = None) -> ContentKind:
         return self._setEntry(entry, position)[0]
+
+    def __setitem__(self, index: int, value: ContentKind):
+        self.entries[index] = value
+
+    def __getitem__(self, index: int) -> ContentKind:
+        return self.getOrEmpty(index)
 
     def _getContentType(self) -> type:
         return type(
@@ -262,14 +293,14 @@ class SparseList(dict[int, ContentKind], Generic[ContentKind]):
         return createFrom_basedOnTemplate(valueIn, self.defaultValue)
 
     def getOrCreate(self, position: int) -> ContentKind:
-        if position in self:
-            return self[position]
+        if position in self.entries:
+            return self.entries[position]
         else:
             return self.setEntry(self._defaultContent(), position)
 
     def getOrEmpty(self, position: int) -> ContentKind:
-        if position in self:
-            return self[position]
+        if position in self.entries:
+            return self.entries[position]
 
         return self.defaultValue
 
@@ -279,7 +310,7 @@ class MaxWidths(SparseList[int]):
         super().__init__(0)
 
     def includeVal(self, colNum: int, width: int):
-        self[colNum] = max(self.getOrEmpty(colNum), width)
+        self.entries[colNum] = max(self.getOrEmpty(colNum), width)
 
     def includeWidths_list_str(
         self, src: list[str | None], skipIfColIsEmpty: bool = False
@@ -292,7 +323,7 @@ class MaxWidths(SparseList[int]):
     def includeWidths_SparseList(
         self, src: SparseList[str], skipIfColIsEmpty: bool = False
     ):
-        for colNum, colText in src.items():
+        for colNum, colText in src.entries.items():
             if not skipIfColIsEmpty or self.getOrEmpty(colNum) > 0:
                 self.includeVal(colNum, visLength(colText))
 
@@ -361,7 +392,7 @@ class Sparse2D(Generic[CellContentKind]):
         self, row: SparseList[CellContentKind], rowPos: int | None
     ) -> SparseList[CellContentKind]:
         if row:
-            self._noteColNum(max(row.keys()))
+            self._noteColNum(max(row.entries.keys()))
 
         return self.rows.setEntry(row, rowPos)
 
@@ -376,7 +407,7 @@ class Sparse2D(Generic[CellContentKind]):
         self, col: SparseList[CellContentKind], colPosition: int | None = None
     ) -> int:
         colPos = self.numCols() if colPosition is None else colPosition
-        for rowNum, entry in col.items():
+        for rowNum, entry in col.entries.items():
             _row = self.rows.getOrCreate(rowNum)
             _row.setEntry(entry, colPos)
 
