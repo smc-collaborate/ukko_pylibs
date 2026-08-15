@@ -51,7 +51,7 @@ class PrettyTable_Contents:
 
         for name, value in pairsIn:
             if value is not None:
-                rowOut[getColNum(name)] = str(value)
+                rowOut.setEntry(str(value), getColNum(name))
         self.contentsGrid.appendRow(rowOut)
 
     def appendRow(
