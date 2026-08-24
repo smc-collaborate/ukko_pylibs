@@ -1,7 +1,6 @@
 import subprocess
 import threading
 import time
-from types import MethodType
 from typing import Any, Callable, Tuple
 from ukkoUtils import (
     asJsonStr,
@@ -206,7 +205,7 @@ class small_ThreadedCommandRunner(IAsyncAction_Interface):
     def getInfo(self) -> dict[str, Any]:
         if self.onGetInfo is not None:
             info: dict[str, Any] = self.onGetInfo()
-            info["threadedCommandRunner"] = (self.commandRunner_getInfo(),)
+            info["threadedCommandRunner"] = self.commandRunner_getInfo()
         else:
             info: dict[str, Any] = {"kind": "ThreadedCommandRunner"}
             info.update(self.commandRunner_getInfo())

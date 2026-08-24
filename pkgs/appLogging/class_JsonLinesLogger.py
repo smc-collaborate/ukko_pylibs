@@ -1,10 +1,12 @@
 from copy import deepcopy
-import threading
+
 import time
 
 from typing import Any, Tuple
 import os
 from pathlib import Path
+
+from ukkoUtils import ThreadSafe
 
 
 from .app_logger import appLog
@@ -54,21 +56,23 @@ class JLogReference:
 class JsonLinesLogger:
 
     def __init__(self, fname: str, name: str | None = None):
-        self._protected = JsonLinesLogger._ProtectedPart(fname, name)
-        self.lock = threading.Lock()
+        self.protected = ThreadSafe[JsonLinesLogger._ProtectedPart](
+            JsonLinesLogger._ProtectedPart(fname, name)
+        )
 
     @property
     def path(self) -> Path:
-        return self._protected.path
+        with self.protected as protected:
+            return protected.path
 
     def printNewEntries(self):
-        with self.lock:
-            return self._protected.printNewEntries()
+        with self.protected as protected:
+            return protected.printNewEntries()
 
     def getOverview(self, withCount: bool = True) -> Tuple[str, dict[Any, int]]:
         """Returns: Styled text description & key counts"""
-        with self.lock:
-            return self._protected.getOverview(withCount)
+        with self.protected as protected:
+            return protected.getOverview(withCount)
 
     def add(
         self,
@@ -78,10 +82,8 @@ class JsonLinesLogger:
         captionToShow: str | None = None,
     ) -> JLogReference:
 
-        with self.lock:
-            return self._protected.add(
-                categoriesWithInfo, fullEntry, caption, captionToShow
-            )
+        with self.protected as protected:
+            return protected.add(categoriesWithInfo, fullEntry, caption, captionToShow)
 
     class _ProtectedPart:
         def printNewEntries(self):
@@ -143,7 +145,7 @@ class JsonLinesLogger:
             if withCount:
                 result += " " + pluralize(self.lineCount, "entry")
 
-            if self.symLink != "":
+            if self.symLink is not None:
                 result += f" (Linked as {styling.asBoldLink(self.symLink)})"
 
             return result, deepcopy(self.keyCounts)

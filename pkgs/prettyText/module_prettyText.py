@@ -79,7 +79,11 @@ def uniLen_approx(s: str) -> int:
     """A simple approximation of the display width of a string, treating wide characters as 2 and narrow as 1
     This is not intended to be perfect (thus the '_approx' in the name) but works well for our use cases
     """
-    return wcwidth.wcswidth(removeAnsiCodes(s))
+    visLen = wcwidth.wcswidth(removeAnsiCodes(s))
+    return max(
+        0, visLen
+    )  # < Control characters can be '-1' .. which isn't what we want
+
     # |x|    width = 0
     # |x|    for ch in removeAnsiCodes(s):
     # |x|        #if ch in ["🔒", "❌", "✅", "⚠️", "ℹ️", "❓", "⭐", "🔍", "↩", "↤"]:

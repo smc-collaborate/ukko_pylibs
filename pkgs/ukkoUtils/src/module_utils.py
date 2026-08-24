@@ -733,13 +733,7 @@ def typeOfAsStr(obj, withBrackets=False) -> str:
             pass
 
     if classCaption is None:
-        try:
-            classCaption = obj.__class__.__name__
-        except:
-            pass
-
-    if classCaption is None:
-        classCaption = typeAsStr(type(obj))
+        classCaption = type(obj).__name__
 
     return classCaption if not withBrackets else ("«" + classCaption + "»")
 
@@ -749,7 +743,6 @@ def asStrWithType(value: Any):
 
 
 def typeAsStr(dataType: type, withBrackets: bool = False) -> str:
-
     classCaption = str(dataType).removeprefix("<class '").removesuffix("'>")
     return classCaption if not withBrackets else ("«" + classCaption + "»")
 
