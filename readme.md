@@ -1,6 +1,6 @@
-# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.2.3-wip` ] #
+# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.2.3` ] #
 
-# Example Usage #
+## Example Usage ##
 
 ```python
 from ukkoCommonCollection import app
