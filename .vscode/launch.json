@@ -9,15 +9,15 @@
             "name": "test-PrettyTables: wide+render",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/_lib_testing/test-PrettyTables.py",
+            "program": "${workspaceFolder}/testing/prettyData/test-PrettyTables.py",
             "console": "integratedTerminal",
-            "args": ["file:_lib_testing/samples/table-wide.json","--render=file:_lib_testing/samples/render-barred.json"]
+            "args": ["file:${workspaceFolder}/testing/prettyData/samples/table-wide.json","--render=file:${workspaceFolder}/testing/prettyData/samples/render-barred.json"]
         },
         {
             "name": "sysInfo",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/basic/sysInfo.py",
+            "program": "${workspaceFolder}/pkgs/osAccess/src/module_sysInfo.py",
             "console": "integratedTerminal",
             "args": ["test-arg1"]
         }

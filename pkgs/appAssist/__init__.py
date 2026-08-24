@@ -1,20 +1,25 @@
 ###########################
 #
 
-from .appSupport import Define as AppDefinition
-from .appSupport import appConfig, appInfo_get, appGetValue
-from . import appSupport as app
-from .appSupport import print_cyan
-from .appSupport import (
+from .src.appSupport import Define as AppDefinition
+from .src.appSupport import (
+    appConfig,
+    appInfo_get,
+    appGetValue,
+    appInfo_cmdWithVariant_styled,
+)
+from .src import appSupport as app
+from .src.appSupport import print_cyan
+from .src.appSupport import (
     error_exit,
     error_exit_withSuggestion,
     error_exit_internalCause,
     error_exit_withAutoSuggestion,
 )
 
-from .class_Configuration import Configuration
+from .src.class_Configuration import Configuration
 
-from .class_ParamSpec import (
+from .src.class_ParamSpec import (
     ParamSpecAndValue,
     ParamSpecList,
     ValueHelpSummaries,
@@ -22,8 +27,9 @@ from .class_ParamSpec import (
     ParamSpec,
 )
 
-from .appChoices import AppChoices, AppParamParseResults
+from .src.appChoices import AppChoices, AppParamParseResults
 
+from .src.progressDisplay import doUpdate as appShowProgressUpdate
 
 __all__ = [
     "app",
@@ -44,4 +50,6 @@ __all__ = [
     "error_exit_internalCause",
     "error_exit_withAutoSuggestion",
     "print_cyan",
+    "appInfo_cmdWithVariant_styled",
+    "appShowProgressUpdate",
 ]

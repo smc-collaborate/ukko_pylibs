@@ -6,11 +6,12 @@ from collections import OrderedDict
 import hashlib
 import inspect
 import json
+from pathlib import Path
 import re
 import os
 import sys
 
-from typing import Any, Tuple
+from typing import Any, Literal, Tuple
 from datetime import datetime as dt_datetime
 from datetime import timezone as dt_timezone
 
@@ -43,6 +44,15 @@ def hasRemovedPrefix(value: str, prefix: str) -> tuple[bool, str]:
         return True, value[len(prefix) :]
 
 
+def hasReplacedPrefix(
+    value: str, prefixBefore: str, prefixAfter: str
+) -> tuple[bool, str]:
+    if not value.startswith(prefixBefore):
+        return False, value
+    else:
+        return True, prefixAfter + value[len(prefixBefore) :]
+
+
 def hasRemovedSuffix(value: str, suffix: str) -> tuple[bool, str]:
     if not value.endswith(suffix):
         return False, value
@@ -68,9 +78,21 @@ def isStdoutText():
     return isConsoleOut
 
 
-def pathAsDisplay(pathName: str) -> str:
+PathConvertOptions = Literal[
+    "friendly",
+    "abs:friendly",
+    "rel",
+    "abs:friendly",
+    "rel:real",
+    "abs",
+    "abs:~",
+]
+
+
+def pathAsDisplay(pathName: str | Path, kind: PathConvertOptions = "friendly") -> str:
     """Converts a path to a friendly display format."""
-    return pathConvert(pathName, kind="friendly").removesuffix(os.sep)
+
+    return pathConvert(str(pathName), kind=kind).removesuffix(os.sep)
 
 
 def pathDisplay(pathName: str) -> str:
@@ -92,7 +114,7 @@ def getStartupPath() -> str:
         return ""
 
 
-def pathConvert(pathName: str, kind: str = "friendly") -> str:
+def pathConvert(pathName: str, kind: PathConvertOptions = "friendly") -> str:
     """Converts a path to [abs, abs:friendly, rel, friendly, raw] format.  If conversion isn't available then returns the pathName given"""
 
     path = pathName
@@ -269,7 +291,7 @@ def asJsonStr(obj, indent: int | None = None, sortKeys: bool = False) -> str:
 
         class JsonEncoderExtended(json.JSONEncoder):
             def default(self, o):
-                return makeJsonable(o)
+                return asJsonable(o)
 
         return json.dumps(
             obj,
@@ -294,23 +316,28 @@ def asJsonRStr(obj, indent: int | None = None, sortKeys: bool = False) -> str:
     try:
         import json5
 
-        class Json5EncoderExtended(json5.JSON5Encoder):
-            def default(self, obj):
-                return makeJsonable(obj)
+        if (
+            json5.VERSION != "0.9.14"
+        ):  # < Totally optional debugging hack to avoid throwing a pointless warning message in a particular test scenario.  No difference to functionality
 
-        return json5.dumps(
-            obj,
-            indent=indent,
-            sort_keys=sortKeys,
-            cls=Json5EncoderExtended,
-            separators=None if indent else (",", ":"),
-            ensure_ascii=False,
-            quote_keys=False,
-            skipkeys=True,
-        )
+            class Json5EncoderExtended(json5.JSON5Encoder):
+                def default(self, obj):
+                    return asJsonable(obj)
+
+            return json5.dumps(
+                obj,
+                indent=indent,
+                sort_keys=sortKeys,
+                cls=Json5EncoderExtended,
+                separators=None if indent else (",", ":"),
+                ensure_ascii=False,
+                quote_keys=False,
+                skipkeys=True,
+            )
     except Exception as e:
         appLog.print_warning_withException(e, "Utils.asJsonRStr")
-        return asJsonStr(obj, indent)
+
+    return asJsonStr(obj, indent)
 
 
 def asStr(obj) -> str:
@@ -330,7 +357,7 @@ def asStr(obj) -> str:
         return asJsonStr(obj)
 
 
-def makeJsonable(
+def asJsonable(
     contents, base64_encoding=True, recursionDepth: int = 0
 ) -> list | dict[str, Any] | OrderedDict | str | int | float | None:
     try:
@@ -352,14 +379,14 @@ def makeJsonable(
             return "«builtin_function_or_method»"
 
         if recursionDepth >= 20:
-            return f"⚠️  Unable to makeJsonable([{type(contents)}]: Recursion depth of {recursionDepth} reached"
+            return f"⚠️  Unable to asJsonable([{type(contents)}]: Recursion depth of {recursionDepth} reached"
 
         if hasattr(contents, "__slots__"):
             # This is a ROS message
             d = OrderedDict()
             for field_name, field_type in zip(contents.__slots__, contents.SLOT_TYPES):
                 value = getattr(contents, field_name, None)
-                d[field_name.removeprefix("_")] = makeJsonable(
+                d[field_name.removeprefix("_")] = asJsonable(
                     value, base64_encoding, recursionDepth=recursionDepth + 1
                 )
             return d
@@ -368,13 +395,13 @@ def makeJsonable(
             d = OrderedDict()
             try:
                 for key in list(contents.keys()):
-                    d[key] = makeJsonable(
+                    d[key] = asJsonable(
                         contents[key],
                         base64_encoding,
                         recursionDepth=recursionDepth + 1,
                     )
             except Exception as e:
-                print("⚠️ ukkoUtils.makeJsonable(" + str(contents) + "): " + str(e))
+                print("⚠️ ukkoUtils.asJsonable(" + str(contents) + "): " + str(e))
             return d
         if isinstance(contents, bytes):
             if base64_encoding:
@@ -393,7 +420,7 @@ def makeJsonable(
             d = list()
             for x in contents:
                 d.append(
-                    makeJsonable(x, base64_encoding, recursionDepth=recursionDepth + 1)
+                    asJsonable(x, base64_encoding, recursionDepth=recursionDepth + 1)
                 )
             return d
         if hasattr(contents, "asJsonable"):
@@ -408,7 +435,7 @@ def makeJsonable(
                 d = list()
                 for x in contents:
                     d.append(
-                        makeJsonable(
+                        asJsonable(
                             x, base64_encoding, recursionDepth=recursionDepth + 1
                         )
                     )
@@ -420,22 +447,20 @@ def makeJsonable(
                 return contents.T
 
         except Exception as e:
-            appLog.print_verbose(f"ukkoUtils.makeJsonable: numpy issue: {e}")
+            appLog.print_verbose(f"ukkoUtils.asJsonable: numpy issue: {e}")
 
         if hasattr(contents, "__dict__"):
             outResult = {}
             for name, value in contents.__dict__.items():
-                outResult[name] = makeJsonable(
+                outResult[name] = asJsonable(
                     value, base64_encoding, recursionDepth=recursionDepth + 1
                 )
             return outResult
 
-        return f"{contents}"  # ⚠️  Unable to makeJsonable([{type(contents)}]={contents} - No conversion found"
+        return f"{contents}"  # ⚠️  Unable to asJsonable([{type(contents)}]={contents} - No conversion found"
 
     except Exception as e:
-        return (
-            f"⚠️  Unable to makeJsonable([{type(contents)}]={contents} - Exception {e}"
-        )
+        return f"⚠️  Unable to asJsonable([{type(contents)}]={contents} - Exception {e}"
 
 
 # |Alternative|
@@ -444,13 +469,13 @@ def makeJsonable(
 # |Alternative|             _items = o.items()
 # |Alternative|             obj_out: dict[str, Any] = {}
 # |Alternative|             for _name, _value in _items:
-# |Alternative|                 obj_out[_name] = makeJsonable(
+# |Alternative|                 obj_out[_name] = asJsonable(
 # |Alternative|                     _value, currentDepth + 1, hint + _name + "."
 # |Alternative|                 )
 # |Alternative|             return obj_out
 
 
-# |Alternative| def makeJsonable(
+# |Alternative| def asJsonable(
 # |Alternative|     o: Any | None, currentDepth: int = 0, hint: str = ""
 # |Alternative| ) -> dict | str | int | float | bool | list | Any:
 # |Alternative|     if o is None:
@@ -462,7 +487,7 @@ def makeJsonable(
 # |Alternative|     def _showHint(msg: str):
 # |Alternative|         pass
 # |Alternative|         # if currentDepth <=3 and not msg.startswith("⚠️"):
-# |Alternative|         #    print(f"makeJsonable: {hint}Type[{type(o)}] : Depth={currentDepth} : {msg}")
+# |Alternative|         #    print(f"asJsonable: {hint}Type[{type(o)}] : Depth={currentDepth} : {msg}")
 # |Alternative|
 # |Alternative|     _showHint(f" --- Start")
 # |Alternative|
@@ -483,7 +508,7 @@ def makeJsonable(
 # |Alternative|             list_out: list[Any] = []
 # |Alternative|             for index in range(len(o)):
 # |Alternative|                 list_out.append(
-# |Alternative|                     makeJsonable(
+# |Alternative|                     asJsonable(
 # |Alternative|                         o[index],
 # |Alternative|                         currentDepth + 1,
 # |Alternative|                         hint.removesuffix(".") + "[" + str(index) + "].",
@@ -495,7 +520,7 @@ def makeJsonable(
 # |Alternative|             _showHint("dictionary")
 # |Alternative|             result: dict[str, Any] = {}
 # |Alternative|             for key, value in o.items():
-# |Alternative|                 result[key] = makeJsonable(
+# |Alternative|                 result[key] = asJsonable(
 # |Alternative|                     value, currentDepth + 1, hint + key + "."
 # |Alternative|                 )
 # |Alternative|             return result
@@ -519,7 +544,7 @@ def makeJsonable(
 # |Alternative|             _items = o.items()
 # |Alternative|             obj_out: dict[str, Any] = {}
 # |Alternative|             for _name, _value in _items:
-# |Alternative|                 obj_out[_name] = makeJsonable(
+# |Alternative|                 obj_out[_name] = asJsonable(
 # |Alternative|                     _value, currentDepth + 1, hint + _name + "."
 # |Alternative|                 )
 # |Alternative|             return obj_out
@@ -538,7 +563,7 @@ def makeJsonable(
 # |Alternative|         if hasattr(o, "__dict__"):
 # |Alternative|             outResult = {}
 # |Alternative|             for name,value in o.__dict__.items():
-# |Alternative|                 outResult[name]=makeJsonable(value)
+# |Alternative|                 outResult[name]=asJsonable(value)
 # |Alternative|             return outResult
 # |Alternative|
 # |Alternative|         _showHint("⚠️  Other")
@@ -699,16 +724,27 @@ def getIdSuffix(id):
     return "" if (id is None) or (id == "") else (str(id) + "/")
 
 
-def typeOfAsStr(obj) -> str:
-    return typeAsStr(type(obj), withBrackets=True)
+def typeOfAsStr(obj, withBrackets=False) -> str:
+    classCaption: str | None = None
+    if classCaption is None and hasattr(obj, "classCaption"):
+        try:
+            classCaption = obj.classCaption
+        except:
+            pass
+
+    if classCaption is None:
+        classCaption = type(obj).__name__
+
+    return classCaption if not withBrackets else ("«" + classCaption + "»")
 
 
-def typeAsStr(dataType, withBrackets: bool = False) -> str:
-    txt = str(dataType).removeprefix("<class '").removesuffix("'>")
-    if withBrackets:
-        return "«" + txt + "»"
-    else:
-        return txt
+def asStrWithType(value: Any):
+    return f"{typeAsStr(type(value))}({asStr(value)})"
+
+
+def typeAsStr(dataType: type, withBrackets: bool = False) -> str:
+    classCaption = str(dataType).removeprefix("<class '").removesuffix("'>")
+    return classCaption if not withBrackets else ("«" + classCaption + "»")
 
 
 def _makeJsonable_fromType(o: type) -> str:
@@ -885,3 +921,43 @@ def timestampObj_from_ns(ns: int) -> dict[str, Any] | None:
         "ns": ns,
         "text": formatted,
     }
+
+
+def createFrom_basedOnType(valueIn: Any, theType: type) -> Any:
+    if isinstance(valueIn, theType):
+        return valueIn
+
+    _caption = "createFrom_basedOnType({asStrWithType(valueIn)})"
+    if hasattr(theType, "create_fromJsonDictOrNone") and callable(
+        getattr(theType, "create_fromJsonDictOrNone")
+    ):
+        # |x| print(f"!!!!! {_caption} | create_fromJsonDictOrNone")
+        return theType.create_fromJsonDictOrNone(valueIn)  # type: ignore[call-arg]
+    if hasattr(theType, "create_fromJsonDict") and callable(
+        getattr(theType, "create_fromJsonDict")
+    ):
+        # |x| print(f"!!!!! {_caption} | create_fromJsonDict")
+        return theType.create_fromJsonDict(valueIn)  # type: ignore[call-arg]
+    if hasattr(theType, "create_fromJsonDict_andBlank") and callable(
+        getattr(theType, "create_fromJsonDict_andBlank")
+    ):
+        # |x| print(f"!!!!! {_caption} | create_fromJsonDict_andBlank")
+        return theType.create_fromJsonDict_andBlank(valueIn, self._blankValue)  # type: ignore[call-arg]
+    if callable(theType):
+        # |x| print(f"!!!!! {_caption} |  callable")
+        return theType(valueIn)  # type: ignore[call-arg]
+    if theType in [str, int, float, bool]:
+        # |x| print(f"!!!!! {_caption} |  [str, int, float, bool]")
+        return theType(valueIn)  # type: ignore[call-arg]
+
+    try:
+        return valueIn
+    except Exception as e:
+        raise TypeError(_caption + f" Failed ({e})")
+
+
+def createFrom_basedOnTemplate(valueIn: Any | None, blankValue: Any) -> Any:
+    if valueIn is None:
+        return blankValue
+    else:
+        return createFrom_basedOnType(valueIn, type(blankValue))

@@ -15,7 +15,14 @@ from ukkoDataFormats import JsonDict
 
 from appLogging import appLog
 from appLogging import timeFromStart_text as ns_asText
-from ukkoUtils import asJsonStr, asStr, pathAsDisplay, HandledException
+from ukkoUtils import (
+    asJsonStr,
+    asStr,
+    pathAsDisplay,
+    HandledException,
+    getExceptionAsDict,
+    ThreadSafe,
+)
 import prettyText
 from ukkoStyling import styling
 import dictUtils
@@ -40,4 +47,6 @@ __all__ = [
     "escapeFormatting",
     "pluralize",
     "HandledException",
+    "getExceptionAsDict",
+    "ThreadSafe",
 ]

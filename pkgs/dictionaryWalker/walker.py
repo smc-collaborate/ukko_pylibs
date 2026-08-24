@@ -105,8 +105,8 @@ class WalkedEntry:
 
 
 class IWalkTreeAction_Interface:
-    def __init__(self, objToWalk, baseOptions: dict[str, Any] | None = None):
-        self.baseOptions = baseOptions
+    def __init__(self, baseOptions: dict[str, Any] | None = None):
+        self.baseOptions = baseOptions or {}
 
     def isSkipping(self, walkingOptions: dict[str, Any]) -> bool:
         return bool(walkingOptions.get("skip"))

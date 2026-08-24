@@ -373,6 +373,7 @@ def doExportBitstream(
     format: str = "unknown",
     ext: str = ".raw",
     suggestedFilenameNoExt: str | None = None,
+    summariseWithoutPath: bool = False,
 ) -> dict[str, Any]:
     if bitstream is None:
         return {}
@@ -409,9 +410,13 @@ def doExportBitstream(
 
         if out_filename is not None:
             with open(out_filename, "wb") as fileout:
-                _appLog().print_verbose(f"Exporting to {fileout.name}")
+                fnameOut = fileout.name
+                _appLog().print_verbose(f"Exporting to {fnameOut}")
                 fileout.write(bitstream)
-                result["file"] = fileout.name
+
+                result["file"] = (
+                    Path(fnameOut).name if summariseWithoutPath else fnameOut
+                )
     return result
 
 

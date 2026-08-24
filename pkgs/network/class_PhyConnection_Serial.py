@@ -1,7 +1,6 @@
 import serial
 
-
-from network import IPhyConnection
+from .class_IPhyConnection import IPhyConnection
 
 #
 ################################################################################

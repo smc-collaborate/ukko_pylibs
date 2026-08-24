@@ -3,6 +3,7 @@
 #
 
 
+from pathlib import Path
 import sys
 from typing import Any, Iterable, Tuple
 from importlib.metadata import version
@@ -11,6 +12,7 @@ from importlib.metadata import version
 from appLogging import appLog
 import prettyText, ukkoUtils
 import escapeFormatting
+from ukkoUtils import pathAsDisplay
 
 g_appColoursAreEnabled = True
 
@@ -122,7 +124,9 @@ def isEnabled() -> bool:
 
 # First is always the colour, the rest are attributes (eg: bold, underline, etc)
 #
-def apply(value: Any | None, styleText: str) -> str:
+def apply(
+    value: Any | None, styleText: str, styleLeadingAndTrailingWhitespace: bool = True
+) -> str:
 
     if (value == "") or (value is None):
         return ""
@@ -130,11 +134,21 @@ def apply(value: Any | None, styleText: str) -> str:
     if not styleText or not isEnabled():
         return str(value)
 
-    return _applyAlways(str(value), styleText)[0]
+    if styleLeadingAndTrailingWhitespace:
+        return _applyAlways(str(value), styleText)[0]
+    else:
+        value_txt = str(value)
+        start = len(value_txt) - len(value_txt.lstrip())
+        finish = len(value_txt.rstrip())
+        return (
+            value_txt[:start]
+            + _applyAlways(value_txt[start:finish], styleText)[0]
+            + value_txt[finish:]
+        )
 
 
-def isStyled(text: str) -> bool:
-    return prettyText.containsAnsiCode(text)
+def isStyled(contents: Any) -> bool:
+    return prettyText.containsAnsiCode(str(contents))
 
 
 def asSuggestion(value: Any | None) -> str:
@@ -143,6 +157,27 @@ def asSuggestion(value: Any | None) -> str:
 
 def asUnderlinedSuggestion(value: Any | None) -> str:
     return apply(value, "blue+bold+underline")
+
+
+def asLink(value: Any | None, styleLeadingAndTrailingWhitespace: bool = True) -> str:
+    return apply(
+        value,
+        "blue+underline",
+        styleLeadingAndTrailingWhitespace=styleLeadingAndTrailingWhitespace,
+    )
+
+
+def asBoldLink(
+    value: Any | None, styleLeadingAndTrailingWhitespace: bool = True
+) -> str:
+
+    if isinstance(value, Path):
+        value = pathAsDisplay(value)
+    return apply(
+        value,
+        "blue+bold+underline",
+        styleLeadingAndTrailingWhitespace=styleLeadingAndTrailingWhitespace,
+    )
 
 
 def asExceptFor(
@@ -183,8 +218,11 @@ def asBoldUnderline(value: Any | None) -> str:
     return apply(value, "+underline+bold")
 
 
-def asBold(value: Any | None) -> str:
-    return apply(value, "+bold")
+def asBold(value: Any | None, onlyIfUnstyled: bool = False) -> str:
+    if onlyIfUnstyled and isStyled(value):
+        return str(value)
+    else:
+        return apply(value, "+bold")
 
 
 def asExpectedOneOf(entries, butHave):

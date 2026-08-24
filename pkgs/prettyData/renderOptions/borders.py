@@ -1,9 +1,11 @@
 from typing import Any, Union
 
+#############
+#
 
 import ukkoUtils
 from appLogging import appLog
-
+from ukkoUtils import asJsonable
 
 ################################################################################
 
@@ -106,16 +108,16 @@ class Borders:
                 self.rowBorders[singleName.strip("_")] = entry
 
     @staticmethod
-    def createOrNoneFrom_name(name: str) -> Union["Borders", None]:
+    def getStandardBorders() -> dict[str, "Borders"]:
 
-        standard_borders: dict[str, Borders] = {
+        return {
             "outer+vert": Borders.createFrom_template(
                 1,
                 top___________="┏━━━┳━━━┳━━━┯━━━┳━━━┳━━━┓",
                 title_________="┃ A ┃ B ┃ C │ D ┃ E ┃ F ┃",
                 undTopTitle___="┣━━━╋━━━╋━━━┿━━━╋━━━╋━━━┫",
                 entry_1_______="┃ A ┃ B ┃ n │ n ┃ E ┃ F ┃",
-                betweenEntries="",  # "┠───╂───╂───┼───╂───╂───┨",
+                betweenEntries="",
                 entry_2_______="┃ A ┃ B ┃ n │ n ┃ E ┃ F ┃",
                 overBotTitle__="┣━━━╋━━━╋━━━┿━━━╋━━━╋━━━┫",
                 bottom________="┗━━━┻━━━┻━━━┷━━━┻━━━┻━━━┛",
@@ -131,9 +133,36 @@ class Borders:
                 overBotTitle__="┣━━━╋━━━╋━━━┿━━━╋━━━╋━━━┫",
                 bottom________="┗━━━┻━━━┻━━━┷━━━┻━━━┻━━━┛",
             ),
+            "mild": Borders.createFrom_template(
+                1,
+                top___________="┌───┬───┬───┬───┬───┬───┐",
+                title_________="│ A │ B │ C │ D │ E │ F │",
+                undTopTitle___="├───┼───┼───┼───┼───┼───┤",
+                entry_1_______="│ A │ B │ n │ n │ E │ F │",
+                betweenEntries="",
+                entry_2_______="│ A │ B │ n │ n │ E │ F │",
+                overBotTitle__="├───┼───┼───┼───┼───┼───┤",
+                bottom________="└───┴───┴───┴───┴───┴───┘",
+            ),
+            "rounded": Borders.createFrom_template(
+                1,
+                top___________="╭───┬───┬───┬───┬───┬───╮",
+                title_________="│ A │ B │ C │ D │ E │ F │",
+                undTopTitle___="├───┼───┼───┼───┼───┼───┤",
+                entry_1_______="│ A │ B │ n │ n │ E │ F │",
+                betweenEntries="",
+                entry_2_______="│ A │ B │ n │ n │ E │ F │",
+                overBotTitle__="├───┼───┼───┼───┼───┼───┤",
+                bottom________="╰───┴───┴───┴───┴───┴───╯",
+            ),
             "blank": Borders.createFrom_divider(" "),
             "|": Borders.createFrom_divider(" │ "),
         }
+
+    @staticmethod
+    def createOrNoneFrom_name(name: str) -> Union["Borders", None]:
+        standard_borders: dict[str, Borders] = Borders.getStandardBorders()
+
         if name in standard_borders:
             return standard_borders[name]
         else:
@@ -185,6 +214,23 @@ class Borders:
             Borders.createRowBordersFrom_template(paddingCount, bottom________),
         )
         return result
+
+    def _asDict(self) -> dict[str, Any]:
+        obj: dict[str, Any] = {}
+
+        for name, value in self.rowBorders.items():
+            obj[name] = asJsonable(value)
+
+        return obj
+
+    def isSameAs(self, other: "Borders") -> bool:
+        return self._asDict() == other._asDict()
+
+    def asJsonable(self) -> dict[str, Any] | str:
+        for name, value in self.getStandardBorders().items():
+            if self.isSameAs(value):
+                return name
+        return self._asDict()
 
     @staticmethod
     def createFrom_divider(divider: str | None) -> "Borders":

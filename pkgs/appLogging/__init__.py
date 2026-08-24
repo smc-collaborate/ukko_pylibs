@@ -3,7 +3,7 @@
 
 from .app_logger import appLog, timeFromStart_text, timeFromStart_ms
 from .class_SimpleLogger import SimpleLogger
-from .class_JsonLinesLogger import JsonLinesLogger
+from .class_JsonLinesLogger import JsonLinesLogger, JLogReference
 
 __all__ = [
     "appLog",
@@ -11,4 +11,5 @@ __all__ = [
     "timeFromStart_text",
     "timeFromStart_ms",
     "JsonLinesLogger",
+    "JLogReference",
 ]

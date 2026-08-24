@@ -2,9 +2,13 @@ from copy import deepcopy
 from typing import Any, Union
 
 
+##############
+#
 import ukkoUtils
+import dictUtils
 
-
+###############
+#
 from .renderOptions_gridPart import RenderOptions_GridPart
 from .renderOptions_columns import RenderOptions_Columns
 from .borders import Borders
@@ -66,10 +70,17 @@ class RenderOptions_Table:
         if isinstance(colOptions_src, RenderOptions_Columns):
             self.colOptions_ = colOptions_src
         else:
-            self.colOptions_ = (
-                RenderOptions_Columns.createOrNone_fromJsonDictOrNone(colOptions_src)
-                or RenderOptions_Columns()
+            self.colOptions_ = RenderOptions_Columns.create_fromJsonDictOrNone(
+                colOptions_src
             )
+
+    def asJsonable(self) -> dict[str, Any]:
+        obj: dict[str, Any] = {}
+        dictUtils.addEntryIfNotEmpty(obj, "borders", self.border.asJsonable())
+        dictUtils.addEntryIfNotEmpty(obj, "rowStyling", self.rowStyling)
+        dictUtils.addEntryIfNotEmpty(obj, "colOptions", self.colOptions_.asJsonable())
+
+        return obj
 
     def _getRowStyling(self, rowDescription: str | None) -> str:
         """eg: getRowStyling('title')-> 'red+bold'"""
@@ -82,20 +93,18 @@ class RenderOptions_Table:
     ) -> RenderOptions_GridPart | None:
         """eg: getRenderOption(13,'title')"""
         rowStyle = self._getRowStyling(rowDescription)
-        result: RenderOptions_GridPart | None = self.colOptions_.get(colNum)
+        result: RenderOptions_GridPart | None = self.colOptions_[colNum]
         if rowStyle != "":
-            result = deepcopy(result) or RenderOptions_GridPart()
+            result = RenderOptions_GridPart() if result is None else deepcopy(result)
             result.styleAndColour = rowStyle
             # |x| print(f"rowDescription[{rowDescription}]->{rowStyle}")
         return result
 
+    def getColSpec(self, colNum: int) -> RenderOptions_GridPart:
+        return self.colOptions_.getOrEmpty(colNum)
+
     def getMaxVisWidth(self, colNum: int) -> int | None:
-        if colNum not in self.colOptions_:
-            return None
-        elif not self.colOptions_[colNum]:
-            return None
-        else:
-            return self.colOptions_[colNum].lockedMaxVisWidth
+        return self.getColSpec(colNum).lockedMaxVisWidth
 
     def get(self, name: str) -> Any | None:
         return self.specFull.get(name)

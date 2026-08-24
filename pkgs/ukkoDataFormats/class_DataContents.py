@@ -314,7 +314,9 @@ class DataSourceWithInfo:
             result["self.sourceType"] = self.sourceType.asJsonable()
             result["self.contentType"] = self.contentType.asJsonable()
         else:
-            result["contents"] = ukkoUtils.typeOfAsStr(self.asProvidedOrig)
+            result["contents"] = ukkoUtils.typeOfAsStr(
+                self.asProvidedOrig, withBrackets=True
+            )
 
         if self.prefixIssues:
             result["prefixIssues"] = styling.asStylingRemoved(self.prefixIssues)

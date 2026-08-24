@@ -1,12 +1,32 @@
-#########################################################################
+################################################################################
 #
 # appHelp
+
+
+################################################################################
+#
+# Imports from the standard Python packages
+#
 from copy import deepcopy
 import os
-
 from typing import Any, Tuple
 
 
+################################################################################
+#
+# Imports from within the ukko Collection
+#
+
+from appLogging import appLog
+import prettyText
+import ukkoUtils
+from ukkoStyling import styling
+from prettyData import PrettyData
+
+################################################################################
+#
+# Imports from within this Package
+#
 from .appChoices import AppChoices
 from .class_Configuration import Configuration
 from . import appSupport as app
@@ -17,17 +37,9 @@ from .class_ParamSpec import (
 )
 
 
-from appLogging import appLog
-
-import prettyText
-import ukkoUtils
-
-from ukkoStyling import styling
-
-
-from prettyData import PrettyData
-
-
+################################################################################
+#
+#
 def appDoco_replaceTemplateMarkers(appChoices: AppChoices, docoWithMarkers: Any) -> str:
 
     if docoWithMarkers is None:

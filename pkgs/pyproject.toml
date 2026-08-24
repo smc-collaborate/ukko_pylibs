@@ -1,6 +1,6 @@
 [project]
 name = "ukko-fullCollection"
-version = "0.2.2"
+version = "0.2.3"
 
 dependencies = [
     "types-PyYAML>=6.0",
@@ -29,7 +29,8 @@ dependencies = [
     "deepdiff",
     "json5",
     "netifaces",
-    "pyyaml>=5.1"
+    "pyyaml>=5.1",
+    "wcwidth"
 
 ]
 [tool.setuptools]
@@ -67,7 +68,7 @@ packages = [
     "imageProcessing",
     "schemaHandling",
     "network",
-    "sysInfo",
+    "osAccess",
 ]
 
 [project.optional-dependencies]

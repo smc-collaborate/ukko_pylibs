@@ -2,14 +2,21 @@
 #
 # A helper class
 #
-import json
 
+
+################################################################################
+#
+# Imports from the standard Python packages
+#
+
+import json
 from typing import Any, Tuple
 from copy import deepcopy
 
-
-from .class_ParamSpec import ParamSpec
-
+################################################################################
+#
+# Imports from within the ukko Collection
+#
 
 import dictUtils, ukkoUtils
 
@@ -17,8 +24,10 @@ from appLogging import SimpleLogger
 from ukkoUtils import HandledException
 from ukkoStyling import styling
 
-#
+
 ################################################################################
+#
+from .class_ParamSpec import ParamSpec
 
 
 def _recursive_merge(dict1: dict, dict2: dict) -> dict:
@@ -95,7 +104,7 @@ class Configuration:
                 keyAsList.extend(key)
 
             self.log_warning(
-                f"Config key '{key}' not found - nor found in defaults.  Consider adding to app definition as {styling.asSuggestionList(keyAsList,separator='/')}"
+                f"Config key '{key}' not found - nor found in defaults.  Consider adding to APP_DEFINITION as {styling.asSuggestionList(keyAsList,separator='/')}"
             )
         return result
 

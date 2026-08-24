@@ -1,7 +1,13 @@
-#########################################################################
+################################################################################
 #
 # app.define- a helper class for command line applications
 #             It basically is the 'app.definition'
+#
+
+
+################################################################################
+#
+# Imports from the standard Python packages
 #
 from copy import deepcopy
 import errno
@@ -12,6 +18,10 @@ from typing import Any, Callable, NoReturn, Tuple
 from types import NoneType
 from pathlib import Path
 
+################################################################################
+#
+# Imports from within the ukko Collection
+#
 from fileUtils import module_fileUtils
 
 
@@ -29,6 +39,11 @@ from ukkoUtils import (
 )
 from ukkoStyling import styling
 from escapeFormatting import asBashParam
+
+################################################################################
+#
+# Imports from within this Package
+#
 from .class_Configuration import Configuration
 from .class_ParamSpec import (
     ParamSpec,
@@ -38,7 +53,6 @@ from .class_ParamSpec import (
 )
 from .appChoices import AppParamParseResults, AppChoices
 from . import appHelp as appHelp
-
 
 #
 ################################################################################
@@ -1195,9 +1209,13 @@ def doRun(mainFunc_or_appDefinition: dict | Callable[[], None]):
             Define(mainFunc_or_appDefinition).doRunner()
         else:
             mainFunc_or_appDefinition()
-        doExit()
+        resultCode = doShutdown()
+        if resultCode != 0:
+            sys.exit(resultCode)
+
     except BaseException as e:
-        exitOnException(e)
+        if e is not SystemExit:
+            exitOnException(e)
 
 
 #
@@ -1205,7 +1223,7 @@ def doRun(mainFunc_or_appDefinition: dict | Callable[[], None]):
 
 
 def printVerbose_sysInfo():
-    # @todo: Use sysInfo.pyInfo_asJsonable()
+    # @todo: Use osAccess.pyInfo_asJsonable()
     if appLog.isVerbose():
 
         appLog.print_verbose(f"Python version: {sys.version}")
@@ -1235,13 +1253,17 @@ def printVerbose_sysInfo():
 #
 
 
-def doExit(defaultExitCode: int | None = None) -> NoReturn:
+def doShutdown(defaultExitCode: int | None = None) -> int:
     doHalt()
     if defaultExitCode is not None and defaultExitCode != 0:
         exitCode = defaultExitCode
     else:
         exitCode = 1 if appLog.had_error() else 0
-    sys.exit(exitCode)
+    return exitCode
+
+
+def doExit(defaultExitCode: int | None = None) -> NoReturn:
+    sys.exit(doShutdown(defaultExitCode))
 
 
 def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:

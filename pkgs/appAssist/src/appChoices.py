@@ -1,19 +1,32 @@
-#########################################################################
+################################################################################
 #
 # app.define- a helper class for command line applications
 #             It basically is the 'app.definition'
 #
 
+
+################################################################################
+#
+# Imports from the standard Python packages
+#
+
 import math
 import os
-
 from typing import Any
+
+################################################################################
+#
+# Imports from within the ukko Collection
+#
+from ukkoDataFormats import JsonDict, DataContents
+import osAccess
+
+################################################################################
+#
 from .class_ParamSpec import (
     ParamSpecAndValue,
     ParamSpecList,
 )
-from ukkoDataFormats import JsonDict, DataContents
-import sysInfo
 
 #
 ################################################################################
@@ -142,7 +155,7 @@ class AppParamParseResults:
         self.appChoices = appChoices
         self.runEnvironment = {
             "runningDir": os.getcwd(),
-            "python": sysInfo.pyInfo_asJsonable(),
+            "python": osAccess.pyInfo_asJsonable(),
         }
 
     def asBashParams(self) -> dict[str, str]:

@@ -50,7 +50,7 @@ class ITransferableData:
             - json_out: The JSON string output if the export format is a JSON format, otherwise None
         """
         raise NotImplementedError(
-            f"{self.className()}.export_orHandledException: Should be implemented by subclasses"
+            f"{self.classCaption}.export_orHandledException: Should be implemented by subclasses"
         )
 
     def exportToMultipleFormats_orHandledException(self) -> None:
@@ -95,7 +95,7 @@ class ITransferableData:
 
     def toBytes(self, withStreamWrapping: bool = True) -> bytes | None:
         raise NotImplementedError(
-            f"{self.className()}.toBytes: Should be implemented by subclasses"
+            f"{self.classCaption}.toBytes: Should be implemented by subclasses"
         )
 
     @classmethod
@@ -184,7 +184,8 @@ class ITransferableData:
         )
         return cls.create_fromKindWithDict(msgKind, json_dict)
 
-    def className(self):
+    @property
+    def classCaption(self):
         return self.__class__.__name__
 
     def getAnnotation(
