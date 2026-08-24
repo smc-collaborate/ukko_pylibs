@@ -6,6 +6,8 @@ from typing import Any, Tuple
 import os
 from pathlib import Path
 
+from ukkoUtils import ThreadSafe
+
 
 from .app_logger import appLog
 
@@ -54,8 +56,6 @@ class JLogReference:
 class JsonLinesLogger:
 
     def __init__(self, fname: str, name: str | None = None):
-        from ukkoUtils import ThreadSafe
-
         self.protected = ThreadSafe[JsonLinesLogger._ProtectedPart](
             JsonLinesLogger._ProtectedPart(fname, name)
         )
