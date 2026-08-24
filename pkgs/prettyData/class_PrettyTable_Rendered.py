@@ -82,7 +82,10 @@ class PrettyTable_Rendered(IPrettyData_Render_Interface):
         self.out_lines: list[str] = self.doBuild()
 
     def asTextLines(self) -> list[str]:
-        return self.out_lines
+        if False:
+            return [f"Table Style: {self.renderOptions.asJsonable()}"] + self.out_lines
+        else:
+            return self.out_lines
 
     def doBuild(self) -> list[str]:
 

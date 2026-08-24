@@ -147,8 +147,8 @@ def apply(
         )
 
 
-def isStyled(text: str) -> bool:
-    return prettyText.containsAnsiCode(text)
+def isStyled(contents: Any) -> bool:
+    return prettyText.containsAnsiCode(str(contents))
 
 
 def asSuggestion(value: Any | None) -> str:
@@ -218,8 +218,11 @@ def asBoldUnderline(value: Any | None) -> str:
     return apply(value, "+underline+bold")
 
 
-def asBold(value: Any | None) -> str:
-    return apply(value, "+bold")
+def asBold(value: Any | None, onlyIfUnstyled: bool = False) -> str:
+    if onlyIfUnstyled and isStyled(value):
+        return str(value)
+    else:
+        return apply(value, "+bold")
 
 
 def asExpectedOneOf(entries, butHave):

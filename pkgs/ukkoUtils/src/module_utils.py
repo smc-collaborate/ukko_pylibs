@@ -726,9 +726,15 @@ def getIdSuffix(id):
 
 def typeOfAsStr(obj, withBrackets=False) -> str:
     classCaption: str | None = None
-    if hasattr(obj, "classCaption"):
+    if classCaption is None and hasattr(obj, "classCaption"):
         try:
             classCaption = obj.classCaption
+        except:
+            pass
+
+    if classCaption is None:
+        try:
+            classCaption = obj.__class__.__name__
         except:
             pass
 
@@ -742,7 +748,8 @@ def asStrWithType(value: Any):
     return f"{typeAsStr(type(value))}({asStr(value)})"
 
 
-def typeAsStr(dataType, withBrackets: bool = False) -> str:
+def typeAsStr(dataType: type, withBrackets: bool = False) -> str:
+
     classCaption = str(dataType).removeprefix("<class '").removesuffix("'>")
     return classCaption if not withBrackets else ("«" + classCaption + "»")
 

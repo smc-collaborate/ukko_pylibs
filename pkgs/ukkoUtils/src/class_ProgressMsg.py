@@ -22,7 +22,7 @@ class ProgressMsg:
             if self.timeout_sec <= 0:
                 result += " (Timeout now)".format(self.timeout_sec)
             else:
-                result += " (Timeout in {:.1f} seconds)".format(self.timeout_sec)
+                result += " (Timeout in {:.0f} seconds)".format(self.timeout_sec)
 
         if self.extraDetails:
             result += "\n" + self.extraDetails

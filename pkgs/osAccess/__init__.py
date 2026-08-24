@@ -3,7 +3,7 @@
 
 from .src.module_sysInfo import pyInfo_asJsonable
 from .src.module_osAccess import (
-    ThreadedCommandRunner,
+    small_ThreadedCommandRunner,
     IAsyncAction_Interface,
     AsyncActionList,
 )
@@ -12,7 +12,7 @@ from .src.module_osAccess import (
 #
 __all__ = [
     "pyInfo_asJsonable",
-    "ThreadedCommandRunner",
+    "small_ThreadedCommandRunner",
     "IAsyncAction_Interface",
     "AsyncActionList",
 ]

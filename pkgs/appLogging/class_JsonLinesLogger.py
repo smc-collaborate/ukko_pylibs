@@ -1,7 +1,8 @@
+from copy import deepcopy
 import threading
 import time
 
-from typing import Any
+from typing import Any, Tuple
 import os
 from pathlib import Path
 
@@ -15,7 +16,7 @@ class JLogReference:
         self.ref_plain = self.ref_withPadding.strip()
 
         self.caption = caption
-        self.hasBeenPrinted = False
+        self.ownerForPrinting: str | None = None
 
     def asStyled(self) -> str:
         try:
@@ -28,22 +29,22 @@ class JLogReference:
             pass
         return self.ref_withPadding
 
-    def asPlain(self) -> str:
+    @property
+    def plainText(self) -> str:
         return self.ref_plain
 
     def asDecoratedWithCaption(self) -> str:
         return self.asStyled() + " : " + self.caption
 
-    def noteHasBeenPrinted(self):
-        self.hasBeenPrinted = True
+    def noteOwnerForPrinting(self, printingOwner: Any):
+        self.ownerForPrinting = printingOwner
 
     def printOnce(self):
-        if not self.hasBeenPrinted:
+        if self.ownerForPrinting is None:
             appLog.print_always(self.asDecoratedWithCaption())
-            self.hasBeenPrinted = True
-
-    def __del__(self):
-        self.printOnce()
+            self.ownerForPrinting = "_printOnce()"
+        # |x| else:
+        # |x|     appLog.print_always(self.asDecoratedWithCaption()+" -- "+self.ownerForPrinting)
 
     @staticmethod
     def create_Empty() -> "JLogReference":
@@ -53,59 +54,21 @@ class JLogReference:
 class JsonLinesLogger:
 
     def __init__(self, fname: str, name: str | None = None):
-
-        if fname.startswith("~"):
-            fname = str(Path.home()) + os.sep + fname.removeprefix("~").lstrip(os.sep)
-
-        fname = fname.replace(
-            "[LOCAL_WHEN]", time.strftime("%Y-%m-%d_%H-%M-%S_LOCAL", time.localtime())
-        )
-        self.path = Path(fname).absolute()
-        self.name = name
-        self.lineCount = 0
-
-        self.keyCounts: dict[Any, int] = {}
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-
-        self.isAppendable = False
-        self.symLink: Path | None = None
-        try:
-            with open(str(self.path), "a", encoding="utf-8") as f:
-                f.write("")
-            self.isAppendable = True
-        except Exception as e:
-            appLog.print_error_withException(
-                e, f"JsonLinesLogger: Failed to create log file {self.path}"
-            )
-
-        if self.isAppendable:
-            try:
-                _symLink = self.path.parent / "latest"
-                if _symLink.exists() or _symLink.is_symlink():
-                    _symLink.unlink()
-
-                _symLink.symlink_to(self.path)
-                self.symLink = _symLink
-            except Exception as e:
-                appLog.print_error_withException(
-                    e,
-                    f"JsonLinesLogger: Failed to create 'latest' link to file {self.path}",
-                )
-
+        self._protected = JsonLinesLogger._ProtectedPart(fname, name)
         self.lock = threading.Lock()
 
-    def getOverview(self, withCount: bool = True) -> str:
-        from prettyText import pluralize
-        from ukkoStyling import styling
+    @property
+    def path(self) -> Path:
+        return self._protected.path
 
-        result = styling.asBoldLink(self.path)
-        if withCount:
-            result += " " + pluralize(self.lineCount, "entry")
+    def printNewEntries(self):
+        with self.lock:
+            return self._protected.printNewEntries()
 
-        if self.symLink != "":
-            result += f" (Linked as {styling.asBoldLink(self.symLink)})"
-
-        return result
+    def getOverview(self, withCount: bool = True) -> Tuple[str, dict[Any, int]]:
+        """Returns: Styled text description & key counts"""
+        with self.lock:
+            return self._protected.getOverview(withCount)
 
     def add(
         self,
@@ -115,8 +78,85 @@ class JsonLinesLogger:
         captionToShow: str | None = None,
     ) -> JLogReference:
 
-        logRef: JLogReference
         with self.lock:
+            return self._protected.add(
+                categoriesWithInfo, fullEntry, caption, captionToShow
+            )
+
+    class _ProtectedPart:
+        def printNewEntries(self):
+            for x in self.cachedList:
+                x.printOnce()
+
+            self.cachedList = []
+
+        def __init__(self, fname: str, name: str | None = None):
+            if fname.startswith("~"):
+                fname = (
+                    str(Path.home()) + os.sep + fname.removeprefix("~").lstrip(os.sep)
+                )
+
+            fname = fname.replace(
+                "[LOCAL_WHEN]",
+                time.strftime("%Y-%m-%d_%H-%M-%S_LOCAL", time.localtime()),
+            )
+            self.path = Path(fname).absolute()
+            self.name = name
+            self.lineCount = 0
+
+            self.keyCounts: dict[Any, int] = {}
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+
+            self.isAppendable = False
+            self.symLink: Path | None = None
+            self.cachedList: list[JLogReference] = []
+
+            try:
+                with open(str(self.path), "a", encoding="utf-8") as f:
+                    f.write("")
+                self.isAppendable = True
+            except Exception as e:
+                appLog.print_error_withException(
+                    e, f"JsonLinesLogger: Failed to create log file {self.path}"
+                )
+
+            if self.isAppendable:
+                try:
+                    _symLink = self.path.parent / "latest"
+                    if _symLink.exists() or _symLink.is_symlink():
+                        _symLink.unlink()
+
+                    _symLink.symlink_to(self.path)
+                    self.symLink = _symLink
+                except Exception as e:
+                    appLog.print_error_withException(
+                        e,
+                        f"JsonLinesLogger: Failed to create 'latest' link to file {self.path}",
+                    )
+
+        def getOverview(self, withCount: bool = True) -> Tuple[str, dict[Any, int]]:
+            """Returns: Styled text description & key counts"""
+            from prettyText import pluralize
+            from ukkoStyling import styling
+
+            result = styling.asBoldLink(self.path)
+            if withCount:
+                result += " " + pluralize(self.lineCount, "entry")
+
+            if self.symLink != "":
+                result += f" (Linked as {styling.asBoldLink(self.symLink)})"
+
+            return result, deepcopy(self.keyCounts)
+
+        def add(
+            self,
+            categoriesWithInfo: dict[str, Any],
+            fullEntry: Any,
+            caption: str,
+            captionToShow: str | None = None,
+        ) -> JLogReference:
+
+            logRef: JLogReference
             """Add a message to the log file in JSON Lines format. If the log file is not specified, print the message to stdout.
             Returns (bool:'The message was printed to stdout', text:log Reference or ''
             """
@@ -161,4 +201,5 @@ class JsonLinesLogger:
                 (caption if captionToShow is None else captionToShow),
             )
 
-        return logRef
+            self.cachedList.append(logRef)
+            return logRef

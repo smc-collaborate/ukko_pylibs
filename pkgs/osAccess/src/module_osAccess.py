@@ -1,13 +1,15 @@
 import subprocess
 import threading
 import time
-from typing import Any, Tuple
+from types import MethodType
+from typing import Any, Callable, Tuple
 from ukkoUtils import (
     asJsonStr,
     ProgressMsg,
     asUtf8orBytesOrNone,
     IWithProgressMarker_Interface,
 )
+from appLogging import appLog
 
 
 class IAsyncAction_Interface(IWithProgressMarker_Interface):
@@ -94,7 +96,7 @@ def setElement_asReadableBytes(obj: dict[str, Any], key: str, src: bytes | None)
     setElementIfNonNull(obj, key, bytesToReadable(src))
 
 
-class ThreadedCommandRunner(IAsyncAction_Interface):
+class small_ThreadedCommandRunner(IAsyncAction_Interface):
     """Runs as a daemon so will automatically be killed on exit"""
 
     def __init__(
@@ -105,6 +107,8 @@ class ThreadedCommandRunner(IAsyncAction_Interface):
         additional: Any | None = None,
         expectedReturnCode: int | None = 0,
         expectedStdErrOut: str | None = None,
+        onCompletionEvent: Callable | None = None,
+        onGetInfo: Callable | None = None,
     ):
 
         request: dict[str, Any] = {"runThis": runThis}
@@ -117,6 +121,13 @@ class ThreadedCommandRunner(IAsyncAction_Interface):
         self.thread = threading.Thread(
             target=self._doRunCmd, args=[runThis], daemon=True
         )
+        self.onCompletionEvent = (
+            onCompletionEvent
+            if onCompletionEvent is not None
+            else self.onCompletion_default
+        )
+        self.onGetInfo = onGetInfo
+
         self.thread.start()
 
     def isComplete(self):
@@ -124,7 +135,7 @@ class ThreadedCommandRunner(IAsyncAction_Interface):
 
     def _doRunCmd(self, runThis: list[str]):
 
-        print(f"doRunCmd: {runThis}")
+        appLog.print_verbose(f"doRunCmd: {runThis}")
 
         # runThis=["rclone","copy",link,destPath,"--no-traverse"]
 
@@ -178,13 +189,10 @@ class ThreadedCommandRunner(IAsyncAction_Interface):
         if errMsg is not None:
             runResults["errMsg"] = errMsg
 
-        self._setRunResults(self.onCompletion(runResults))
+        self._setRunResults(self.onCompletionEvent(runResults))
 
-    ###########################################################
-    # Override these + __init__() : Start the process
-    #
-    def getInfo(self) -> dict[str, Any]:
-        info: dict[str, Any] = {"kind": "ThreadedCommandRunner"}
+    def commandRunner_getInfo(self) -> dict[str, Any]:
+        info: dict[str, Any] = {}
         if self.expectedReturnCode is not None:
             info["expectedReturnCode"] = self.expectedReturnCode
         if self.expectedStdErrOut is not None:
@@ -192,8 +200,21 @@ class ThreadedCommandRunner(IAsyncAction_Interface):
 
         return info
 
-    def onCompletion(self, initialRunResults: dict[str, Any]) -> dict[str, Any]:
-        print(initialRunResults)
+    ###########################################################
+    # Override these + __init__() : Start the process
+    #
+    def getInfo(self) -> dict[str, Any]:
+        if self.onGetInfo is not None:
+            info: dict[str, Any] = self.onGetInfo()
+            info["threadedCommandRunner"] = (self.commandRunner_getInfo(),)
+        else:
+            info: dict[str, Any] = {"kind": "ThreadedCommandRunner"}
+            info.update(self.commandRunner_getInfo())
+
+        return info
+
+    def onCompletion_default(self, initialRunResults: dict[str, Any]) -> dict[str, Any]:
+        appLog.print_verbose(f"InitialRunResults: {initialRunResults}")
         return initialRunResults
 
 

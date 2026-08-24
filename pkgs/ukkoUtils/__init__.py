@@ -63,6 +63,11 @@ from .src.class_HandledException import getExceptionAsDict
 from .src.class_ProgressMsg import ProgressMsg, IWithProgressMarker_Interface
 
 ###################
+# Threading
+#
+from .src.threadSafety import ThreadSafe
+
+###################
 #
 from .src.class_HandledException import HandledException, getPrettyExceptionInfo
 
@@ -106,4 +111,8 @@ __all__ = [
     #
     "ProgressMsg",
     "IWithProgressMarker_Interface",
+    ###################
+    # Threading
+    #
+    "ThreadSafe",
 ]
