@@ -392,7 +392,7 @@ class Sparse2D(Generic[CellContentKind]):
         self, row: SparseList[CellContentKind], rowPos: int | None
     ) -> SparseList[CellContentKind]:
         if row:
-            self._noteColNum(max(row.entries.keys()))
+            self._noteColNum(max(row.entries.keys(), default=0))
 
         return self.rows.setEntry(row, rowPos)
 
