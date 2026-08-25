@@ -23,7 +23,7 @@ def appendStr(
 
     if not isinstance(obj.get(key, None), str):
         obj[key] = ""
-    if newValue != "":
+    if newValue != "" and obj[key] != "":
         obj[key] += separator
     obj[key] += str(newValue)
 
