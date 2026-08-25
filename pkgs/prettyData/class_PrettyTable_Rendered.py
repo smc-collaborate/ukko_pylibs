@@ -84,6 +84,13 @@ class PrettyTable_Rendered(IPrettyData_Render_Interface):
     def asTextLines(self) -> list[str]:
         return self.out_lines
 
+    @property
+    def textOutput(self) -> str:
+        return "\n".join(self.out_lines)
+
+    def doPrint(self):
+        print(self.textOutput)
+
     def doBuild(self) -> list[str]:
 
         self.proc_visWidths_calc: MaxWidths = (
