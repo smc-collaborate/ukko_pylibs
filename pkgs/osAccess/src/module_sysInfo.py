@@ -11,9 +11,28 @@ import dictUtils
 import dictUtils as Options
 
 from dictionaryWalker import WalkedEntry, IWalkTreeAction_Interface
+import time, datetime, socket
 
 ################################################################################
 #
+
+
+def getLocalTimestampDict(
+    includeIsoDate: bool, now_seconds: float | None = None
+) -> dict[str, Any]:
+    if now_seconds is None:
+        now_seconds = time.time()
+    timestamp_obj: dict[str, Any] = {"epoch [sec]": now_seconds}
+    if includeIsoDate:
+        timestamp_obj["ISO_Z"] = (
+            f"{str(datetime.datetime.fromtimestamp(now_seconds)).removesuffix('Z')}Z"
+        )
+        timestamp_obj["ISO"] = (
+            f"{str(datetime.datetime.fromtimestamp(now_seconds).astimezone(None))}"
+        )
+    timestamp_obj["source"] = socket.gethostname()
+
+    return timestamp_obj
 
 
 def _sysModules_asList(doFilter: bool = True) -> list[dict[str, Any]]:
