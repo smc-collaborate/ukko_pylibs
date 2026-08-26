@@ -24,9 +24,9 @@ def getLocalTimestampDict(
         now_seconds = time.time()
     timestamp_obj: dict[str, Any] = {"epoch [sec]": now_seconds}
     if includeIsoDate:
-        timestamp_obj["ISO_Z"] = (
-            f"{str(datetime.datetime.fromtimestamp(now_seconds)).removesuffix('Z')}Z"
-        )
+        # |timestamp_obj["ISO_Z"] = (
+        # |    f"{str(datetime.datetime.fromtimestamp(now_seconds)).removesuffix('Z')}Z"
+        # |)
         timestamp_obj["ISO"] = (
             f"{str(datetime.datetime.fromtimestamp(now_seconds).astimezone(None))}"
         )
