@@ -35,6 +35,23 @@ def getLocalTimestampDict(
     return timestamp_obj
 
 
+def timestampDict_addLocal(
+    dest: dict[str, Any], now_seconds: float | None = None
+) -> float:
+    timestamp_obj: dict[str, Any] = {}
+
+    if now_seconds is None:
+        now_seconds = time.time()
+    timestamp_obj["epoch [sec]"] = now_seconds
+    timestamp_obj["ISO"] = (
+        f"{str(datetime.datetime.fromtimestamp(now_seconds).astimezone(None))}"
+    )
+
+    dest[socket.gethostname()] = timestamp_obj
+
+    return now_seconds
+
+
 def _sysModules_asList(doFilter: bool = True) -> list[dict[str, Any]]:
 
     moduleList: list[dict[str, Any]] = []
