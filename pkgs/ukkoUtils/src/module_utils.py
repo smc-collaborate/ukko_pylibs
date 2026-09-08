@@ -312,30 +312,27 @@ def asJsonStr(obj, indent: int | None = None, sortKeys: bool = False) -> str:
 
 
 def asJsonRStr(obj, indent: int | None = None, sortKeys: bool = False) -> str:
-    """Safer version of json.dumps that can handle some extra types like bytes and avoids odd crashes"""
+    """Gives as small as possible JSON5-like output"""
+    json5_version = "<None>"
     try:
         import json5
 
-        if (
-            json5.VERSION != "0.9.14"
-        ):  # < Totally optional debugging hack to avoid throwing a pointless warning message in a particular test scenario.  No difference to functionality
+        json5_version = json5.VERSION
+        return json5.dumps(
+            obj,
+            indent=indent,
+            sort_keys=sortKeys,
+            default=asJsonable,
+            separators=None if indent else (",", ":"),
+            ensure_ascii=False,
+            quote_keys=False,
+            skipkeys=True,
+        )
 
-            class Json5EncoderExtended(json5.JSON5Encoder):
-                def default(self, obj):
-                    return asJsonable(obj)
-
-            return json5.dumps(
-                obj,
-                indent=indent,
-                sort_keys=sortKeys,
-                cls=Json5EncoderExtended,
-                separators=None if indent else (",", ":"),
-                ensure_ascii=False,
-                quote_keys=False,
-                skipkeys=True,
-            )
     except Exception as e:
-        appLog.print_warning_withException(e, "Utils.asJsonRStr")
+        appLog.print_warning_withException(
+            e, f"Utils.asJsonRStr[{json5_version}]", printTraceback=False
+        )
 
     return asJsonStr(obj, indent)
 
@@ -361,6 +358,12 @@ def asJsonable(
     contents, base64_encoding=True, recursionDepth: int = 0
 ) -> list | dict[str, Any] | OrderedDict | str | int | float | None:
     try:
+
+        def _child(subContents):
+            return asJsonable(
+                subContents, base64_encoding, recursionDepth=recursionDepth + 1
+            )
+
         if contents is None:
             if recursionDepth > 0:
                 return None
@@ -381,24 +384,12 @@ def asJsonable(
         if recursionDepth >= 20:
             return f"⚠️  Unable to asJsonable([{type(contents)}]: Recursion depth of {recursionDepth} reached"
 
-        if hasattr(contents, "__slots__"):
-            # This is a ROS message
-            d = OrderedDict()
-            for field_name, field_type in zip(contents.__slots__, contents.SLOT_TYPES):
-                value = getattr(contents, field_name, None)
-                d[field_name.removeprefix("_")] = asJsonable(
-                    value, base64_encoding, recursionDepth=recursionDepth + 1
-                )
-            return d
-
         if (type(contents) is dict) or (type(contents) is OrderedDict):
             d = OrderedDict()
             try:
                 for key in list(contents.keys()):
-                    d[key] = asJsonable(
+                    d[key] = _child(
                         contents[key],
-                        base64_encoding,
-                        recursionDepth=recursionDepth + 1,
                     )
             except Exception as e:
                 print("⚠️ ukkoUtils.asJsonable(" + str(contents) + "): " + str(e))
@@ -419,48 +410,58 @@ def asJsonable(
             # Since arrays and ndarrays can't contain mixed types convert to list
             d = list()
             for x in contents:
-                d.append(
-                    asJsonable(x, base64_encoding, recursionDepth=recursionDepth + 1)
-                )
+                d.append(_child(x))
             return d
         if hasattr(contents, "asJsonable"):
-            return contents.asJsonable()
+            return _child(contents.asJsonable())
         if hasattr(contents, "asDict"):
-            return contents.asDict()
+            return _child(contents.asDict())
         try:
-            import numpy as np
+            if contents.__class__.__module__ == "numpy":
+                import numpy as np
 
-            if isinstance(contents, (np.ndarray)):
-                # Since arrays and ndarrays can't contain mixed types convert to list
-                d = list()
-                for x in contents:
-                    d.append(
-                        asJsonable(
-                            x, base64_encoding, recursionDepth=recursionDepth + 1
-                        )
-                    )
-                return d
-            if contents.__class__.__name__.startswith("numpy"):
-                return np.array_str(contents)
+                if isinstance(contents, (np.ndarray)):
+                    # Since arrays and ndarrays can't contain mixed types convert to list
+                    d = list()
+                    for x in contents:
+                        d.append(_child(x))
+                    return d
+                if contents.__class__.__name__.startswith("numpy"):
+                    return np.array_str(contents)
 
-            if hasattr(contents, "T"):
-                return contents.T
+                if hasattr(contents, "item"):
+                    return _child(contents.item())
 
         except Exception as e:
-            appLog.print_verbose(f"ukkoUtils.asJsonable: numpy issue: {e}")
+            appLog.print_warning(f"ukkoUtils.asJsonable: numpy issue: {e}")
+            return "<Invalid numpy>"
+        #
+        # This must be at the end - as 'numpy' etc should have a chance first
+        #
+        if hasattr(contents, "__slots__"):
+            # This is a ROS message or similar
+            d = OrderedDict()
+            for (
+                field_name
+            ) in (
+                contents.__slots__
+            ):  # , field_type in zip(contents.__slots__, contents.SLOT_TYPES):
+                value = getattr(contents, field_name, None)
+                d[field_name.removeprefix("_")] = (
+                    "<owner>" if contents is value else _child(value)
+                )
+            return d
 
         if hasattr(contents, "__dict__"):
             outResult = {}
             for name, value in contents.__dict__.items():
-                outResult[name] = asJsonable(
-                    value, base64_encoding, recursionDepth=recursionDepth + 1
-                )
+                outResult[name] = _child(value)
             return outResult
 
         return f"{contents}"  # ⚠️  Unable to asJsonable([{type(contents)}]={contents} - No conversion found"
 
     except Exception as e:
-        return f"⚠️  Unable to asJsonable([{type(contents)}]={contents} - Exception {e}"
+        return f"⚠️  Unable to asJsonable([{type(contents)}] Exception {e}"
 
 
 # |Alternative|
