@@ -211,6 +211,12 @@ def set(obj: dict[str, Any], key: str | list[str], value: Any) -> bool:
 
 
 @staticmethod
+def increment(obj_in: Any | None, keys: str | list[str], incrementBy: int = 1) -> bool:
+
+    return set(obj_in, keys, getInt(obj_in, keys, 0) + incrementBy)
+
+
+@staticmethod
 def getInt(
     obj_in: Any | None,
     keys: str | list[str],
