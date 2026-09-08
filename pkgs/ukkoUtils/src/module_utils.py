@@ -438,14 +438,10 @@ def asJsonable(
         #
         # This must be at the end - as 'numpy' etc should have a chance first
         #
-        if hasattr(contents, "__slots__"):
+        if hasattr(contents, "_fields_and_field_types"):
             # This is a ROS message or similar
             d = OrderedDict()
-            for (
-                field_name
-            ) in (
-                contents.__slots__
-            ):  # , field_type in zip(contents.__slots__, contents.SLOT_TYPES):
+            for field_name, field_type in contents._fields_and_field_types.items():
                 value = getattr(contents, field_name, None)
                 d[field_name.removeprefix("_")] = (
                     "<owner>" if contents is value else _child(value)
