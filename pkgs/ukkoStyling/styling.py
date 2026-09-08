@@ -12,7 +12,7 @@ from importlib.metadata import version
 from appLogging import appLog
 import prettyText, ukkoUtils
 import escapeFormatting
-from ukkoUtils import pathAsDisplay
+
 
 g_appColoursAreEnabled = True
 
@@ -172,6 +172,8 @@ def asBoldLink(
 ) -> str:
 
     if isinstance(value, Path):
+        from ukkoUtils import pathAsDisplay
+
         value = pathAsDisplay(value)
     return apply(
         value,

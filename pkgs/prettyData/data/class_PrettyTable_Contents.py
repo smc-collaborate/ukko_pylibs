@@ -11,7 +11,7 @@ from prettyData.data.prettyTable_Rows import PrettyTable_Row
 
 
 class PrettyTable_Contents:
-    def __init__(self, titles: PrettyTable_RowList | None = None):
+    def __init__(self, titles: PrettyTable_RowList | list | None = None):
         self.colTitles = PrettyTable_Row(titles)
         self.contentsGrid = Sparse2D[PrettyCellContents](PrettyCellContents())
         self.src = None
@@ -56,12 +56,7 @@ class PrettyTable_Contents:
 
     def appendRow(
         self,
-        row: (
-            PrettyTable_Row
-            | SparseList[PrettyCellContents]
-            | list[PrettyCellContents | None]
-            | None
-        ),
+        row: PrettyTable_Row | SparseList[PrettyCellContents] | list | None,
     ):
         if row is not None:
             if isinstance(row, PrettyTable_Row):
