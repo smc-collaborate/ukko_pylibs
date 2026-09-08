@@ -14,7 +14,7 @@ import errno
 import json
 import os
 import sys
-from typing import Any, Callable, NoReturn, Tuple
+from typing import Any, Callable, Literal, NoReturn, Tuple
 from types import NoneType
 from pathlib import Path
 
@@ -1325,7 +1325,9 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
 
 
 def returnJsonData(
-    resultFull: Any, elementNameIfNotFull: str | None = None
+    resultFull: Any,
+    elementNameIfNotFull: str | None = None,
+    defaultOutputFormat: Literal["json", "text"] = "text",
 ) -> NoReturn:
     outputFormat = appGetValue("output-format", None)
     if outputFormat is None:
@@ -1334,8 +1336,8 @@ def returnJsonData(
             outputFormat = "json" if isJson else "text"
 
     if outputFormat is None:
-        # appLog.print_warning(f"Unspecified 'output-format' : defaulting to json")
-        outputFormat = "text"
+        # appLog.print_warning(f"Unspecified 'output-format' : defaulting to text")
+        outputFormat = defaultOutputFormat
     else:
         appLog.print_verbose(f"Output format: {outputFormat}")
 
