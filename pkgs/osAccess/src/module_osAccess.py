@@ -177,7 +177,7 @@ class small_ThreadedCommandRunner(IAsyncAction_Interface):
             and self.expectedReturnCode is not None
             and (runResults["return_code"] != self.expectedReturnCode)
         ):
-            errMsg = f"Returned {runResults["return_code"]}"
+            errMsg = f"Returned {runResults['return_code']}"
 
         if self.expectedStdErrOut is not None:
             _stderr = runResults.get("stderr")
