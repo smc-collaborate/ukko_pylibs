@@ -69,7 +69,7 @@ class SimpleLogger:
         self.onVerbosityThresholdChange = onVerbosityThresholdChange
         self.kindCounts = {}
         self.printThreshold = self.MsgKind_WARNING
-
+        self.giveTracesOnException = True
         self.stderr_lock: threading.RLock = (
             threading.RLock() if stderr_lock is None else stderr_lock
         )
@@ -249,10 +249,12 @@ class SimpleLogger:
                     self.protected_write_to_stderr(
                         f"⚠️  setVerbosity({json.dumps(setValue)}): Invalid value\n"
                     )
+
             if (
                 oldThreshold != self.printThreshold
                 and self.onVerbosityThresholdChange is not None
             ):
+                self.giveTracesOnException = self.isVerbose()
                 try:
                     self.onVerbosityThresholdChange(self.printThreshold)
                 except Exception:
@@ -353,7 +355,7 @@ class SimpleLogger:
         isError: bool,
         e: BaseException,
         action: str | None = None,
-        alwaysTraceback: bool = False,
+        printTraceback: bool | None = None,
     ):
 
         from ukkoUtils.src.class_HandledException import HandledException
@@ -375,7 +377,11 @@ class SimpleLogger:
             txt += " -- "
         txt += emsgSuffix
 
-        if alwaysTraceback or self.isVerbose():
+        _printTraceback = (
+            self.giveTracesOnException if printTraceback is None else printTraceback
+        )
+
+        if _printTraceback:
             txt += "\nTraceback:\n" + traceback.format_exc()
         else:
             txt += "\n -- " + self._tryVerboseForMoreInfoSuffix()
@@ -386,22 +392,30 @@ class SimpleLogger:
             self.print_warning(txt)
 
     def print_error_withException(
-        self, e: BaseException, action: str | None = None, alwaysTraceback: bool = False
+        self,
+        e: BaseException,
+        action: str | None = None,
+        printTraceback: bool | None = None,
     ):
         """
         :param e: The exception that occurred
         :param action: Custom error message to display
+        :param printTraceback: Yes/No.  None=Use logger default
         """
-        self._print_exception_(True, e, action, alwaysTraceback)
+        self._print_exception_(True, e, action, printTraceback)
 
     def print_warning_withException(
-        self, e: BaseException, action: str | None = None, alwaysTraceback: bool = False
+        self,
+        e: BaseException,
+        action: str | None = None,
+        printTraceback: bool | None = None,
     ):
         """
         :param e: The exception that occurred
         :param action: Custo error message to display
+        :param printTraceback: Yes/No.  None=Use logger default
         """
-        self._print_exception_(False, e, action, alwaysTraceback)
+        self._print_exception_(False, e, action, printTraceback)
 
     def had_error(self) -> bool:
         return self.lastErrorMsg is not None
