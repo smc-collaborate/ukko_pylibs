@@ -396,12 +396,28 @@ def doCleanup(contents: Any) -> Any:
                         valueAsText = None
 
                     if key.startswith("diag_json_") and (valueAsText is not None):
+                        sys.stderr.write(
+                            f"🗑️  Deprecated interpretation: diag_json_*  -> Prefer *_json\n"
+                        )
                         if (valueAsText != "") and (valueAsText != "null"):
                             contents["diag_" + key.removeprefix("diag_json_")] = (
                                 json_loads(valueAsText)
                             )
                         del contents[key]
+                    elif (
+                        key.endswith("_json")
+                        and key != "_json"
+                        and (valueAsText is not None)
+                    ):
+                        if (valueAsText != "") and (valueAsText != "null"):
+                            contents[key.removesuffix("_json")] = json_loads(
+                                valueAsText
+                            )
+                        del contents[key]
                     elif (key == "json") and (valueAsText is not None):
+                        sys.stderr.write(
+                            f"🗑️  Deprecated interpretation: json  -> Prefer *_json\n"
+                        )
                         if (valueAsText != "") and (valueAsText != "null"):
                             contents["json_obj"] = json_loads(valueAsText)
                         del contents[key]
@@ -414,11 +430,12 @@ def doCleanup(contents: Any) -> Any:
                         valueAsText == ""
                     ):
                         del contents[key]
-
+                    elif key.endswith("_txt"):
+                        contents[key] = valueAsText
                 except Exception as e:
-                    sys.stderr.write(f"⚠️ DictUtils.doCleanup({key}): {e}\n")
+                    sys.stderr.write(f"⚠️  DictUtils.doCleanup({key}): {e}\n")
         except Exception as e:
-            sys.stderr.write(f"⚠️ DictUtils.doCleanup({contents}): {e}\n")
+            sys.stderr.write(f"⚠️  DictUtils.doCleanup({contents}): {e}\n")
 
     return contents
 
