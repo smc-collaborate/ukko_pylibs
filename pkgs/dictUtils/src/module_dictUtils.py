@@ -397,7 +397,7 @@ def doCleanup(contents: Any) -> Any:
 
                     if key.startswith("diag_json_") and (valueAsText is not None):
                         sys.stderr.write(
-                            f"🗑️  Deprecated interpretation: diag_json_*  -> Prefer *_json\n"
+                            f"🗑️  Deprecated interpretation: {key}[diag_json_*]  -> Prefer *_json\n"
                         )
                         if (valueAsText != "") and (valueAsText != "null"):
                             contents["diag_" + key.removeprefix("diag_json_")] = (
