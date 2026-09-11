@@ -13,7 +13,6 @@ from appLogging import appLog
 import prettyText, ukkoUtils
 import escapeFormatting
 
-
 g_appColoursAreEnabled = True
 
 g_stylingDisableReason: str = ""
