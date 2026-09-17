@@ -1,10 +1,5 @@
-import sys, os
-
-from pathlib import Path
-
-
 from ukkoDataFormats import SparseList
-import prettyText, ukkoUtils
+import prettyText
 from appLogging import appLog
 
 ################################################################################
@@ -62,8 +57,6 @@ class PrettyTable_Rendered(IPrettyData_Render_Interface):
             renderOptions.Table | str | dict | list[int | None] | None
         ) = None,
     ):
-        self.in_table = tableSrc
-
         if isinstance(renderOptionsIn, str | dict | None):
             #####
             self.renderOptions = renderOptions.Table(renderOptionsIn)
@@ -79,6 +72,11 @@ class PrettyTable_Rendered(IPrettyData_Render_Interface):
                     f"PrettyTableRendered: renderOptionsIn={type(renderOptionsIn)} .v. {(renderOptions.Table)}"
                 )
             self.renderOptions = renderOptions.Table()
+
+        self.in_table = tableSrc.withModifications(
+            self.renderOptions.getTextModificationRules
+        )
+
         self.out_lines: list[str] = self.doBuild()
 
     def asTextLines(self) -> list[str]:

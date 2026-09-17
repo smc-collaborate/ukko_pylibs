@@ -3,7 +3,6 @@ from typing import Any
 
 from ukkoDataFormats import NameValuePairList, Sparse2D, SparseList
 
-
 ################################################################################
 #
 from prettyData.base import PrettyTable_RowList, PrettyCellContents, MaxWidths
@@ -15,6 +14,27 @@ class PrettyTable_Contents:
         self.colTitles = PrettyTable_Row(titles)
         self.contentsGrid = Sparse2D[PrettyCellContents](PrettyCellContents())
         self.src = None
+
+    def withModifications(
+        self, modificationRules: dict[str, str] | None
+    ) -> "PrettyTable_Contents":
+        if not modificationRules:
+            return self
+
+        result = PrettyTable_Contents()
+
+        result.contentsGrid = Sparse2D[PrettyCellContents](PrettyCellContents())
+
+        result.colTitles = PrettyTable_Row(
+            self.colTitles.data.withModifications(modificationRules)
+        )
+
+        for rowNum, rowData in self.contentsGrid.rows.items():
+            result.contentsGrid.includeRow(
+                rowData.withModifications(modificationRules), rowNum
+            )
+
+        return result
 
     def asJsonable(self) -> dict[str, Any]:
         result = {"colTitle": self.colTitles, "contentsGrid": self.contentsGrid}

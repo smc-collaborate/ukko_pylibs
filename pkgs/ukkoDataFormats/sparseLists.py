@@ -184,6 +184,25 @@ class SparseList(Generic[ContentKind]):
             else SparseList[ContentKind].create_fromList_andBlank(src, blankValue)
         )
 
+    def withModifications(
+        self, modificationRules: dict[str, str] | None
+    ) -> "SparseList[ContentKind]":
+        if not modificationRules:
+            return self
+        if not isinstance(self._blankValue, str):
+            appLog.print_warning(
+                f"Modification Rules. Expected str instead of [type:{ContentKind}]={asJsonStr(self._blankValue)}"
+            )
+            return self
+        else:
+            result = SparseList[type(self._blankValue)](self._blankValue)
+            for position, value in self.items():
+                contents = str(value)
+                for needle, replacement in modificationRules.items():
+                    contents = contents.replace(needle, replacement)
+                result.setEntry(contents, position)
+            return result
+
     def asJsonable(self) -> dict[str, Any]:
         result: dict[str, Any] = {}
 
