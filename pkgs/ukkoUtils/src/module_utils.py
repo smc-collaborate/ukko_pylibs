@@ -165,6 +165,8 @@ def pathConvert(pathName: str, kind: PathConvertOptions = "friendly") -> str:
         options.append(pathConvert(os.path.realpath(path), "abs:friendly"))
         options.append(pathConvert(os.path.realpath(path), "rel:real"))
         options.append(path)
+        while "." in options:
+            options.remove(".")
     else:
         options.append(path)
 
