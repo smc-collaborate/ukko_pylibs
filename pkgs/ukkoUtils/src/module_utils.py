@@ -168,7 +168,7 @@ def pathConvert(pathName: str, kind: PathConvertOptions = "friendly") -> str:
     else:
         options.append(path)
 
-    path = min(options, key=lambda x: len(x))
+    path = min(options, key=lambda x: len(x.replace("/../", "/.<cost>./")))
     return path
 
 
