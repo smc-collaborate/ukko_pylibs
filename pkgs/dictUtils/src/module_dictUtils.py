@@ -430,7 +430,7 @@ def doCleanup(contents: Any) -> Any:
                         valueAsText == ""
                     ):
                         del contents[key]
-                    elif key.endswith("_txt"):
+                    elif key.endswith("_txt") or key.endswith("_msg"):
                         contents[key] = valueAsText
                 except Exception as e:
                     sys.stderr.write(f"⚠️  DictUtils.doCleanup({key}): {e}\n")
