@@ -1010,7 +1010,7 @@ class _ArgLoader_ReplaceParams(IArgLoader_Template):
 
     @staticmethod
     def _nameValueToBadBashArg(name: str, valueAsText: str, badReason: str = ""):
-        return asBashParam(f"--{name}={valueAsText}❓  {badReason}")
+        return asBashParam(f"--{name}={valueAsText}❓  {badReason}", withEscaping=False)
 
     def _nameValueToBashArg(self, name: str, valueAsText: str):
         spec = self.getParamSpec(name)

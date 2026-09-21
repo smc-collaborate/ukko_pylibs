@@ -740,11 +740,15 @@ class ParamSpec:
     def asBashParam(self, argText) -> str:
 
         if self.mustBeDirect() or (self.name() == "--"):
-            paramAsText = escapeFormatting.asBashParam(argText)
+            paramAsText = escapeFormatting.asBashParam(argText, withEscaping=False)
         else:
-            paramAsText = "--" + escapeFormatting.asBashParam(self.name())
+            paramAsText = "--" + escapeFormatting.asBashParam(
+                self.name(), withEscaping=False
+            )
             if self.hasValue():
-                paramAsText += "=" + escapeFormatting.asBashParam(argText)
+                paramAsText += "=" + escapeFormatting.asBashParam(
+                    argText, withEscaping=False
+                )
 
         return paramAsText
 
