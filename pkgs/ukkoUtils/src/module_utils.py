@@ -11,6 +11,7 @@ import re
 import os
 import sys
 
+import types
 from typing import Any, Literal, Tuple
 from datetime import datetime as dt_datetime
 from datetime import timezone as dt_timezone
@@ -380,8 +381,8 @@ def asJsonable(
         if isinstance(contents, type):
             return {"«type»": _makeJsonable_fromType(contents)}
 
-        if str(contents) == "<class 'builtin_function_or_method'>":
-            return "«builtin_function_or_method»"
+        if isinstance(contents, types.BuiltinFunctionType):
+            return "«BuiltinFunctionType»"
 
         if recursionDepth >= 20:
             return f"⚠️  Unable to asJsonable([{type(contents)}]: Recursion depth of {recursionDepth} reached"
