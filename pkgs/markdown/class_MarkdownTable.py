@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from typing import Any, Sequence, Union, Tuple
 from pathlib import Path
+import typing
 
 
 import ukkoUtils
@@ -252,12 +253,12 @@ class IMarkdownElement:
             allMarkdownElements[spec.uid], not found
         )
 
-    def __init__(self, spec: Spec):
+    def __init__(self, spec: Spec | None = None):
 
-        self.spec = spec
+        self.spec = IMarkdownElement.Spec() if spec is None else spec
         self.owned: list[IMarkdownElement | str] = []
-        if spec.owner is not None:
-            spec.owner.owned.append(self)
+        if self.spec.owner is not None:
+            self.spec.owner.owned.append(self)
         self._isExported = False  # Do not use directly - use getIsExported() instead which checks the whole ownership chain
         self.referencedByCategory: dict[str, set["IMarkdownElement"]] = {}
 
@@ -449,7 +450,7 @@ class IMarkdownElement:
 class MarkdownTable(IMarkdownElement):
     def __init__(
         self,
-        spec: IMarkdownElement.Spec,
+        spec: IMarkdownElement.Spec | None = None,
         nameParents: str = "",
         titleKind: str = "",
         headers: Sequence[str | dict] = ["name", "value"],
@@ -503,7 +504,7 @@ class MarkdownTable(IMarkdownElement):
             allMarkdownElements[spec.uid], not found
         )
 
-    def addRow(self, row: list[str]):
+    def addRow(self, row):
         self.rows.append(row)
 
     def addExtraNote(self, note: str, allowDuplicates: bool = False):
