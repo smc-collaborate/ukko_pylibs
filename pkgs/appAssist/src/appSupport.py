@@ -723,7 +723,7 @@ class Define:
             if version_provided in _PYAPP_GIT_REV:
                 version_used = _PYAPP_GIT_REV
             else:
-                version_used = version_provided + "-" + _PYAPP_GIT_REV
+                version_used = version_provided + "-" + _PYAPP_GIT_REV.removeprefix("-")
         elif version_provided == "" and _PYAPP_GIT_REV == "":
             version_used = "0.0.0"
         else:
