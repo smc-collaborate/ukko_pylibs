@@ -165,6 +165,54 @@ def exeInfo_isInstalled():
     return "PYAPP_INSTALL_SOURCE" in os.environ
 
 
+def gitInfo_get(
+    gitDirOrFile: str = "",
+) -> dict[Literal["dir", "hash", "branch", "url", "warning", "ver_suffix"], str]:
+
+    results: dict[
+        Literal["dir", "hash", "branch", "url", "warning", "ver_suffix"], str
+    ] = {}
+    try:
+        if gitDirOrFile == "":
+            gitDirOrFile = getMainDir()
+
+        if os.path.isfile(gitDirOrFile):
+            results["dir"] = os.path.dirname(gitDirOrFile)
+        else:
+            results["dir"] = gitDirOrFile
+
+        from dulwich.repo import Repo
+        from dulwich import porcelain
+
+        repo = Repo.discover(results["dir"])
+        st = porcelain.status(repo, untracked_files="no")
+        dirty = any(st.staged.values()) or bool(st.unstaged)
+        results["hash"] = repo.head().decode()[:7] + ("-dirty" if dirty else "")
+        try:
+            results["branch"] = porcelain.active_branch(repo).decode()
+        except (KeyError, IndexError):  # detached HEAD
+            results["branch"] = ""
+        try:
+            results["url"] = (
+                repo.get_config().get((b"remote", b"origin"), b"url").decode()
+            )
+        except KeyError:
+            results["url"] = ""
+
+        if results["hash"] != "":
+            results["ver_suffix"] = "-" + results["hash"]
+            if results["branch"] not in ("", "main"):
+                results["ver_suffix"] = results["branch"] + results["ver_suffix"]
+        else:
+            results["ver_suffix"] = ""
+
+    except Exception as e:
+        results["warning"] = str(e)
+        appLog.print_warning(f"gitInfo_get() - {e}")
+
+    return results
+
+
 appLog.setName(getExeName())
 appConfig = Configuration(
     logger=appLog
@@ -716,18 +764,19 @@ class Define:
 
         ###############
         #
-        _PYAPP_GIT_REV = os.environ.get("_PYAPP_GIT_REV", "")
         version_provided = str(self.app_definition.get("version", ""))
+        version_git_suffix = (
+            gitInfo_get().get("ver_suffix", "").removeprefix("-")
+        )  #  or (os.environ.get("_PYAPP_GIT_REV", "")))
 
-        if version_provided != "" and _PYAPP_GIT_REV != "":
-            if version_provided in _PYAPP_GIT_REV:
-                version_used = _PYAPP_GIT_REV
-            else:
-                version_used = version_provided + "-" + _PYAPP_GIT_REV.removeprefix("-")
-        elif version_provided == "" and _PYAPP_GIT_REV == "":
+        if version_provided == "" and version_git_suffix == "":
             version_used = "0.0.0"
+        elif version_provided == "" or version_git_suffix == "":
+            version_used = version_provided + version_git_suffix
+        elif version_provided in version_git_suffix:
+            version_used = version_git_suffix
         else:
-            version_used = version_provided + _PYAPP_GIT_REV
+            version_used = version_provided + "-" + version_git_suffix
 
         self.app_definition["version"] = "v" + version_used.removeprefix("v")
 
