@@ -713,10 +713,26 @@ class Define:
         self.app_definition = _app_definition
         self.app_definition["exeName"] = getExeName()
         self.original_params = []
+
         ###############
         #
-        if "version" not in self.app_definition:
-            self.app_definition["version"] = "0.0.0"
+        _PYAPP_GIT_REV = os.environ.get("_PYAPP_GIT_REV", "")
+        version_provided = str(self.app_definition.get("version", ""))
+
+        if version_provided != "" and _PYAPP_GIT_REV != "":
+            if version_provided in _PYAPP_GIT_REV:
+                version_used = _PYAPP_GIT_REV
+            else:
+                version_used = version_provided + "-" + _PYAPP_GIT_REV
+        elif version_provided == "" and _PYAPP_GIT_REV == "":
+            version_used = "0.0.0"
+        else:
+            version_used = version_provided + _PYAPP_GIT_REV
+
+        self.app_definition["version"] = "v" + version_used.removeprefix("v")
+
+        ###############
+        #
         if "description" not in self.app_definition:
             self.app_definition["description"] = "No description provided"
 
@@ -768,7 +784,7 @@ class Define:
             return exeInfo_getName()
 
     def dumpVersion(self, includeAuthor: bool = False):
-        txt = f"{prettyText.padToWidth(getExeName(), 32)} v{prettyText.padToWidth(self.app_definition['version'], 10)} {prettyText.padToWidth(str(self.app_definition.get('description','')), 104)}"
+        txt = f"{prettyText.padToWidth(getExeName(), 32)} {prettyText.padToWidth(self.app_definition['version'], 10)} {prettyText.padToWidth(str(self.app_definition.get('description','')), 104)}"
 
         if includeAuthor and ("author" in self.app_definition):
             txt += f" | {self.app_definition['author']}"
