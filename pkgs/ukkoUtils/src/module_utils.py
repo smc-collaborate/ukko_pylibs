@@ -81,10 +81,9 @@ def isStdoutText():
 
 PathConvertOptions = Literal[
     "friendly",
-    "abs:friendly",
     "rel",
-    "abs:friendly",
     "rel:real",
+    "abs:friendly",
     "abs",
     "abs:~",
 ]
