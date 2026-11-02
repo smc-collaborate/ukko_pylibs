@@ -116,31 +116,6 @@ def asFlattened(
 
 
 @staticmethod
-def get(
-    obj_in: dict[str, Any] | list[Any] | Any | None,
-    keys: str | list[str],
-    defaultIfNotFound: Any = None,
-    getDeepestFound: bool = False,
-) -> Any | None:
-    try:
-        if obj_in is None:
-            return defaultIfNotFound
-        iterateList = keys.split("/") if isinstance(keys, str) else keys.copy()
-        obj: Any | None = obj_in
-        for k in iterateList:
-            if isinstance(obj, dict) and k in obj:
-                obj = obj[k]
-            elif isinstance(obj, list) and k.isdigit() and (0 <= int(k) < len(obj)):
-                obj = obj[int(k)]
-            else:
-                return defaultIfNotFound if getDeepestFound == False else obj
-        return obj
-    except Exception as e:
-        sys.stderr.write(f"⚠️  DictUtils.get(): Exception {e}\n")
-        return defaultIfNotFound
-
-
-@staticmethod
 def deleteIfFound(obj: dict[str, Any], keys: str | list[str]) -> bool:
     iterateList = keys.split("/") if isinstance(keys, str) else keys.copy()
 
@@ -214,6 +189,33 @@ def set(obj: dict[str, Any], key: str | list[str], value: Any) -> bool:
 def increment(obj_in: Any | None, keys: str | list[str], incrementBy: int = 1) -> bool:
 
     return set(obj_in, keys, getInt(obj_in, keys, 0) + incrementBy)
+
+
+###########################################################################################
+#
+@staticmethod
+def get(
+    obj_in: dict[str, Any] | list[Any] | Any | None,
+    keys: str | list[str],
+    defaultIfNotFound: Any = None,
+    getDeepestFound: bool = False,
+) -> Any | None:
+    try:
+        if obj_in is None:
+            return defaultIfNotFound
+        iterateList = keys.split("/") if isinstance(keys, str) else keys.copy()
+        obj: Any | None = obj_in
+        for k in iterateList:
+            if isinstance(obj, dict) and k in obj:
+                obj = obj[k]
+            elif isinstance(obj, list) and k.isdigit() and (0 <= int(k) < len(obj)):
+                obj = obj[int(k)]
+            else:
+                return defaultIfNotFound if getDeepestFound == False else obj
+        return obj
+    except Exception as e:
+        sys.stderr.write(f"⚠️  DictUtils.get(): Exception {e}\n")
+        return defaultIfNotFound
 
 
 @staticmethod
@@ -312,6 +314,11 @@ def getDict(
     except Exception as e:
         sys.stderr.write(f"⚠️  DictUtils.getDict({keys}): Exception {e}\n")
         return _defaultIfNotFound
+
+
+#
+#
+###################################
 
 
 @staticmethod
