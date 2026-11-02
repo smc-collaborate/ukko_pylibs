@@ -332,7 +332,7 @@ class IArgLoader_Template:
                     "source": "~appAuto",
                     "shortName": "",
                     "description": "Gives version information for this app: "
-                    + styling.asBold(f"v{self.getAppValue('version')}"),
+                    + styling.asBold(self.getAppValue("version")),
                 }
             )
         )

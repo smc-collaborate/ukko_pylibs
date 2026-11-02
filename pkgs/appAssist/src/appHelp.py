@@ -90,7 +90,7 @@ def getAppHelp_asLines(
     exeName = str(appChoices.appValue("exeName"))
     exeNameDecorated = exeName + appChoices.customisingChoicesMade_withLeadingSpace
 
-    verText = f"v{appChoices.appValue('version')}"
+    verText = str(appChoices.appValue("version"))
 
     # |Logging| from appAssist import print_cyan
     # |Logging| print_cyan(visibleParams)
