@@ -1,4 +1,4 @@
-# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.2.6` ] #
+# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.2.7-wip` ] #
 
 ## Example Usage ##
 
@@ -61,7 +61,7 @@ You can ensure that the packages are available for import via several different 
 
     function apps_doInstallOrClean()
     {
-        installEditablePythonPkgs "git@github.com:smc-collaborate/ukko_pylibs"  --ref='ver:v0.2.3'
+        installEditablePythonPkgs "git@github.com:smc-collaborate/ukko_pylibs"  --ref='ver:v0.2.7'
         do_pyInstall_orClean "hello.py"
     }
 
