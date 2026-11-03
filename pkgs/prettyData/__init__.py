@@ -1,7 +1,7 @@
 from .data.class_PrettyTable_Contents import PrettyTable_Contents
 from .data.prettyTable_Rows import PrettyTable_Row
 from .base import PrettyTable_RowList, IPrettyData_Render_Interface
-from .class_PrettyTable_Rendered import PrettyTable_Rendered
+from .class_PrettyTable_Rendered import PrettyTable_Rendered, doPrint
 from . import renderOptions
 
 
@@ -12,6 +12,7 @@ class PrettyData:
     RowList = PrettyTable_RowList
     ColumnSpec = renderOptions.SingleColumn
     TableRenderOptions = renderOptions.Table
+    doPrint = doPrint
 
 
 __all__ = ["PrettyData", "renderOptions", "IPrettyData_Render_Interface"]

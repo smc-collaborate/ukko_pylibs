@@ -49,6 +49,14 @@ class CellInfo:
         return prettyText.padToWidth(txt, self.width)
 
 
+def doPrint(
+    dataSrc: PrettyTable_Contents,
+    renderOptionsIn: renderOptions.Table | str | dict | list[int | None] | None = None,
+):
+
+    PrettyTable_Rendered(dataSrc, renderOptionsIn).doPrint()
+
+
 class PrettyTable_Rendered(IPrettyData_Render_Interface):
     def __init__(
         self,
