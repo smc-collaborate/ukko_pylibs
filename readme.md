@@ -1,4 +1,4 @@
-# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.2.4-wip` ] #
+# `ukko_pylibs` : Shared Python Libraries  [Revision: `v0.2.6` ] #
 
 ## Example Usage ##
 

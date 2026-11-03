@@ -208,7 +208,7 @@ def gitInfo_get(
 
     except Exception as e:
         results["warning"] = str(e)
-        appLog.print_warning(f"gitInfo_get() - {e}")
+        # |x| appLog.print_warning(f"gitInfo_get() - {e}")
 
     return results
 
