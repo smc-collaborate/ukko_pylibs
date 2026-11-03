@@ -76,21 +76,22 @@ def pluralizeSingular(singular: str):
 
 
 def uniLen_approx(s: str) -> int:
-    """A simple approximation of the display width of a string, treating wide characters as 2 and narrow as 1
-    This is not intended to be perfect (thus the '_approx' in the name) but works well for our use cases
+    """A simple approximation of the display width of a string, treating wide characters as 2 and narrow as 1.
+    This is not intended to be perfect (thus the '_approx' in the name) but works well for our use cases.
     """
-    visLen = wcwidth.wcswidth(removeAnsiCodes(s))
-    return max(
-        0, visLen
-    )  # < Control characters can be '-1' .. which isn't what we want
-
-    # |x|    width = 0
-    # |x|    for ch in removeAnsiCodes(s):
-    # |x|        #if ch in ["🔒", "❌", "✅", "⚠️", "ℹ️", "❓", "⭐", "🔍", "↩", "↤"]:
-    # |x|        #    width += 2
-    # |x|        #else:
-    # |x|        #    width += 1
-    # |x|    return width
+    width_cols = 0
+    prevWidth_cols = 0
+    for c in s:
+        if c == "️" and prevWidth_cols == 1:
+            # Emoji presentation selector (eg '⚠️'): most terminals show the previous character 2 wide.
+            # Older wcwidth versions ignore this.
+            width_cols += 1
+            prevWidth_cols = 2
+            continue
+        # Control characters give '-1' .. which isn't what we want
+        prevWidth_cols = max(0, wcwidth.wcwidth(c))
+        width_cols += prevWidth_cols
+    return width_cols
 
 
 def asSpaces(s: str) -> str:
