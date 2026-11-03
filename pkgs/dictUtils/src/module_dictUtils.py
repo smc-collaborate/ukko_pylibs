@@ -116,31 +116,6 @@ def asFlattened(
 
 
 @staticmethod
-def get(
-    obj_in: dict[str, Any] | list[Any] | Any | None,
-    keys: str | list[str],
-    defaultIfNotFound: Any = None,
-    getDeepestFound: bool = False,
-) -> Any | None:
-    try:
-        if obj_in is None:
-            return defaultIfNotFound
-        iterateList = keys.split("/") if isinstance(keys, str) else keys.copy()
-        obj: Any | None = obj_in
-        for k in iterateList:
-            if isinstance(obj, dict) and k in obj:
-                obj = obj[k]
-            elif isinstance(obj, list) and k.isdigit() and (0 <= int(k) < len(obj)):
-                obj = obj[int(k)]
-            else:
-                return defaultIfNotFound if getDeepestFound == False else obj
-        return obj
-    except Exception as e:
-        sys.stderr.write(f"⚠️  DictUtils.get(): Exception {e}\n")
-        return defaultIfNotFound
-
-
-@staticmethod
 def deleteIfFound(obj: dict[str, Any], keys: str | list[str]) -> bool:
     iterateList = keys.split("/") if isinstance(keys, str) else keys.copy()
 
@@ -208,6 +183,39 @@ def set(obj: dict[str, Any], key: str | list[str], value: Any) -> bool:
             f"⚠️  DictUtils.set(c): Expected dict, but got {type(obj)} for key '{key}' in {asJsonStr(obj)} - \n"
         )
         return False
+
+
+@staticmethod
+def increment(obj_in: Any | None, keys: str | list[str], incrementBy: int = 1) -> bool:
+
+    return set(obj_in, keys, getInt(obj_in, keys, 0) + incrementBy)
+
+
+###########################################################################################
+#
+@staticmethod
+def get(
+    obj_in: dict[str, Any] | list[Any] | Any | None,
+    keys: str | list[str],
+    defaultIfNotFound: Any = None,
+    getDeepestFound: bool = False,
+) -> Any | None:
+    try:
+        if obj_in is None:
+            return defaultIfNotFound
+        iterateList = keys.split("/") if isinstance(keys, str) else keys.copy()
+        obj: Any | None = obj_in
+        for k in iterateList:
+            if isinstance(obj, dict) and k in obj:
+                obj = obj[k]
+            elif isinstance(obj, list) and k.isdigit() and (0 <= int(k) < len(obj)):
+                obj = obj[int(k)]
+            else:
+                return defaultIfNotFound if getDeepestFound == False else obj
+        return obj
+    except Exception as e:
+        sys.stderr.write(f"⚠️  DictUtils.get(): Exception {e}\n")
+        return defaultIfNotFound
 
 
 @staticmethod
@@ -308,6 +316,11 @@ def getDict(
         return _defaultIfNotFound
 
 
+#
+#
+###################################
+
+
 @staticmethod
 def dict_diff(contents_old, contents_new):
     # This can be removed for a release version - it is to make our lives easier for diagnostics
@@ -390,12 +403,28 @@ def doCleanup(contents: Any) -> Any:
                         valueAsText = None
 
                     if key.startswith("diag_json_") and (valueAsText is not None):
+                        sys.stderr.write(
+                            f"🗑️  Deprecated interpretation: {key}[diag_json_*]  -> Prefer *_json\n"
+                        )
                         if (valueAsText != "") and (valueAsText != "null"):
                             contents["diag_" + key.removeprefix("diag_json_")] = (
                                 json_loads(valueAsText)
                             )
                         del contents[key]
+                    elif (
+                        key.endswith("_json")
+                        and key != "_json"
+                        and (valueAsText is not None)
+                    ):
+                        if (valueAsText != "") and (valueAsText != "null"):
+                            contents[key.removesuffix("_json")] = json_loads(
+                                valueAsText
+                            )
+                        del contents[key]
                     elif (key == "json") and (valueAsText is not None):
+                        sys.stderr.write(
+                            f"🗑️  Deprecated interpretation: json  -> Prefer *_json\n"
+                        )
                         if (valueAsText != "") and (valueAsText != "null"):
                             contents["json_obj"] = json_loads(valueAsText)
                         del contents[key]
@@ -408,11 +437,12 @@ def doCleanup(contents: Any) -> Any:
                         valueAsText == ""
                     ):
                         del contents[key]
-
+                    elif key.endswith("_txt") or key.endswith("_msg"):
+                        contents[key] = valueAsText
                 except Exception as e:
-                    sys.stderr.write(f"⚠️ DictUtils.doCleanup({key}): {e}\n")
+                    sys.stderr.write(f"⚠️  DictUtils.doCleanup({key}): {e}\n")
         except Exception as e:
-            sys.stderr.write(f"⚠️ DictUtils.doCleanup({contents}): {e}\n")
+            sys.stderr.write(f"⚠️  DictUtils.doCleanup({contents}): {e}\n")
 
     return contents
 

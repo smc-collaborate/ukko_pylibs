@@ -3,7 +3,6 @@ from typing import Any
 
 from ukkoDataFormats import NameValuePairList, Sparse2D, SparseList
 
-
 ################################################################################
 #
 from prettyData.base import PrettyTable_RowList, PrettyCellContents, MaxWidths
@@ -11,10 +10,31 @@ from prettyData.data.prettyTable_Rows import PrettyTable_Row
 
 
 class PrettyTable_Contents:
-    def __init__(self, titles: PrettyTable_RowList | None = None):
+    def __init__(self, titles: PrettyTable_RowList | list | None = None):
         self.colTitles = PrettyTable_Row(titles)
         self.contentsGrid = Sparse2D[PrettyCellContents](PrettyCellContents())
         self.src = None
+
+    def withModifications(
+        self, modificationRules: dict[str, str] | None
+    ) -> "PrettyTable_Contents":
+        if not modificationRules:
+            return self
+
+        result = PrettyTable_Contents()
+
+        result.contentsGrid = Sparse2D[PrettyCellContents](PrettyCellContents())
+
+        result.colTitles = PrettyTable_Row(
+            self.colTitles.data.withModifications(modificationRules)
+        )
+
+        for rowNum, rowData in self.contentsGrid.rows.items():
+            result.contentsGrid.includeRow(
+                rowData.withModifications(modificationRules), rowNum
+            )
+
+        return result
 
     def asJsonable(self) -> dict[str, Any]:
         result = {"colTitle": self.colTitles, "contentsGrid": self.contentsGrid}
@@ -56,12 +76,7 @@ class PrettyTable_Contents:
 
     def appendRow(
         self,
-        row: (
-            PrettyTable_Row
-            | SparseList[PrettyCellContents]
-            | list[PrettyCellContents | None]
-            | None
-        ),
+        row: PrettyTable_Row | SparseList[PrettyCellContents] | list | None,
     ):
         if row is not None:
             if isinstance(row, PrettyTable_Row):

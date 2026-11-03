@@ -38,6 +38,7 @@ from pathlib import Path
 
 from network import BasicTcpServer
 from ukkoCommonCollection import app, AppChoices, asJsonStr, prettyText, appLog
+from osAccess import getLocalTimestampDict
 
 #
 ################################################################################
@@ -184,11 +185,9 @@ class JsonLineStreamingApp:
             # Now ready to take a new sample
             #
 
-            timestamp_obj: dict[str, Any] = {"epoch [sec]": now_seconds}
-            if self.option_includeIsoDate:
-                timestamp_obj["ISO"] = (
-                    f"{str(datetime.fromtimestamp(now_seconds)).removesuffix('Z')}Z"
-                )
+            timestamp_obj = getLocalTimestampDict(
+                self.option_includeIsoDate, now_seconds
+            )
 
             data: dict[str, Any] = {
                 "Timestamp": timestamp_obj,

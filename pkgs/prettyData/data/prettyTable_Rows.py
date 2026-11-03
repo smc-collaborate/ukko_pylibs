@@ -10,7 +10,8 @@ from prettyData.base import PrettyTable_RowList, PrettyCellContents
 
 class PrettyTable_Row:
     def __init__(
-        self, src: SparseList[PrettyCellContents] | PrettyTable_RowList | None = None
+        self,
+        src: SparseList[PrettyCellContents] | PrettyTable_RowList | list | None = None,
     ):
         if isinstance(src, SparseList):
             self.data = SparseList[PrettyCellContents](PrettyCellContents(), src)

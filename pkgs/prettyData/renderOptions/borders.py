@@ -155,6 +155,17 @@ class Borders:
                 overBotTitle__="├───┼───┼───┼───┼───┼───┤",
                 bottom________="╰───┴───┴───┴───┴───┴───╯",
             ),
+            "markdown": Borders.createFrom_template(
+                1,
+                top___________="",
+                title_________="| A | B | C | D | E | F |",
+                undTopTitle___="|---|---|---|---|---|---|",
+                entry_1_______="| A | B | n | n | E | F |",
+                betweenEntries="",
+                entry_2_______="| A | B | n | n | E | F |",
+                overBotTitle__="",
+                bottom________="",
+            ),
             "blank": Borders.createFrom_divider(" "),
             "|": Borders.createFrom_divider(" │ "),
         }

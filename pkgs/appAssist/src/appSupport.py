@@ -14,7 +14,7 @@ import errno
 import json
 import os
 import sys
-from typing import Any, Callable, NoReturn, Tuple
+from typing import Any, Callable, Literal, NoReturn, Tuple
 from types import NoneType
 from pathlib import Path
 
@@ -163,6 +163,54 @@ def getMainDir() -> str:
 
 def exeInfo_isInstalled():
     return "PYAPP_INSTALL_SOURCE" in os.environ
+
+
+def gitInfo_get(
+    gitDirOrFile: str = "",
+) -> dict[Literal["dir", "hash", "branch", "url", "warning", "ver_suffix"], str]:
+
+    results: dict[
+        Literal["dir", "hash", "branch", "url", "warning", "ver_suffix"], str
+    ] = {}
+    try:
+        if gitDirOrFile == "":
+            gitDirOrFile = getMainDir()
+
+        if os.path.isfile(gitDirOrFile):
+            results["dir"] = os.path.dirname(gitDirOrFile)
+        else:
+            results["dir"] = gitDirOrFile
+
+        from dulwich.repo import Repo
+        from dulwich import porcelain
+
+        repo = Repo.discover(results["dir"])
+        st = porcelain.status(repo, untracked_files="no")
+        dirty = any(st.staged.values()) or bool(st.unstaged)
+        results["hash"] = repo.head().decode()[:7] + ("-dirty" if dirty else "")
+        try:
+            results["branch"] = porcelain.active_branch(repo).decode()
+        except (KeyError, IndexError):  # detached HEAD
+            results["branch"] = ""
+        try:
+            results["url"] = (
+                repo.get_config().get((b"remote", b"origin"), b"url").decode()
+            )
+        except KeyError:
+            results["url"] = ""
+
+        if results["hash"] != "":
+            results["ver_suffix"] = "-" + results["hash"]
+            if results["branch"] not in ("", "main"):
+                results["ver_suffix"] = results["branch"] + results["ver_suffix"]
+        else:
+            results["ver_suffix"] = ""
+
+    except Exception as e:
+        results["warning"] = str(e)
+        # |x| appLog.print_warning(f"gitInfo_get() - {e}")
+
+    return results
 
 
 appLog.setName(getExeName())
@@ -332,7 +380,7 @@ class IArgLoader_Template:
                     "source": "~appAuto",
                     "shortName": "",
                     "description": "Gives version information for this app: "
-                    + styling.asBold(f"v{self.getAppValue('version')}"),
+                    + styling.asBold(self.getAppValue("version")),
                 }
             )
         )
@@ -713,10 +761,27 @@ class Define:
         self.app_definition = _app_definition
         self.app_definition["exeName"] = getExeName()
         self.original_params = []
+
         ###############
         #
-        if "version" not in self.app_definition:
-            self.app_definition["version"] = "0.0.0"
+        version_provided = str(self.app_definition.get("version", ""))
+        version_git_suffix = (
+            gitInfo_get().get("ver_suffix", "").removeprefix("-")
+        )  #  or (os.environ.get("_PYAPP_GIT_REV", "")))
+
+        if version_provided == "" and version_git_suffix == "":
+            version_used = "0.0.0"
+        elif version_provided == "" or version_git_suffix == "":
+            version_used = version_provided + version_git_suffix
+        elif version_provided in version_git_suffix:
+            version_used = version_git_suffix
+        else:
+            version_used = version_provided + "-" + version_git_suffix
+
+        self.app_definition["version"] = "v" + version_used.removeprefix("v")
+
+        ###############
+        #
         if "description" not in self.app_definition:
             self.app_definition["description"] = "No description provided"
 
@@ -768,7 +833,7 @@ class Define:
             return exeInfo_getName()
 
     def dumpVersion(self, includeAuthor: bool = False):
-        txt = f"{prettyText.padToWidth(getExeName(), 32)} v{prettyText.padToWidth(self.app_definition['version'], 10)} {prettyText.padToWidth(str(self.app_definition.get('description','')), 104)}"
+        txt = f"{prettyText.padToWidth(getExeName(), 32)} {prettyText.padToWidth(self.app_definition['version'], 10)} {prettyText.padToWidth(str(self.app_definition.get('description','')), 104)}"
 
         if includeAuthor and ("author" in self.app_definition):
             txt += f" | {self.app_definition['author']}"
@@ -1010,7 +1075,7 @@ class _ArgLoader_ReplaceParams(IArgLoader_Template):
 
     @staticmethod
     def _nameValueToBadBashArg(name: str, valueAsText: str, badReason: str = ""):
-        return asBashParam(f"--{name}={valueAsText}❓  {badReason}")
+        return asBashParam(f"--{name}={valueAsText}❓  {badReason}", withEscaping=False)
 
     def _nameValueToBashArg(self, name: str, valueAsText: str):
         spec = self.getParamSpec(name)
@@ -1325,7 +1390,9 @@ def exitOnException(e: BaseException, action: str | None = None) -> NoReturn:
 
 
 def returnJsonData(
-    resultFull: Any, elementNameIfNotFull: str | None = None
+    resultFull: Any,
+    elementNameIfNotFull: str | None = None,
+    defaultOutputFormat: Literal["json", "text"] = "text",
 ) -> NoReturn:
     outputFormat = appGetValue("output-format", None)
     if outputFormat is None:
@@ -1334,8 +1401,8 @@ def returnJsonData(
             outputFormat = "json" if isJson else "text"
 
     if outputFormat is None:
-        # appLog.print_warning(f"Unspecified 'output-format' : defaulting to json")
-        outputFormat = "text"
+        # appLog.print_warning(f"Unspecified 'output-format' : defaulting to text")
+        outputFormat = defaultOutputFormat
     else:
         appLog.print_verbose(f"Output format: {outputFormat}")
 

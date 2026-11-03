@@ -357,7 +357,11 @@ class ParamSpec:
         for _prefix in [self.longNameWithHyphens(), self.shortNameWithHyphen()]:
             if _prefix:
                 if arg == _prefix:
-                    return (True, None if self.hasValue() else "true")
+                    if self.hasBoolValueForPresence():
+                        _value = "true"
+                    else:
+                        _value = self.spec.get("ifIncludedButNoValue", None)
+                    return (True, _value)
                 if self.hasValue() and arg.startswith(f"{_prefix}="):
                     return (True, arg.split("=", 1)[1])
         return (False, None)
@@ -740,11 +744,15 @@ class ParamSpec:
     def asBashParam(self, argText) -> str:
 
         if self.mustBeDirect() or (self.name() == "--"):
-            paramAsText = escapeFormatting.asBashParam(argText)
+            paramAsText = escapeFormatting.asBashParam(argText, withEscaping=False)
         else:
-            paramAsText = "--" + escapeFormatting.asBashParam(self.name())
+            paramAsText = "--" + escapeFormatting.asBashParam(
+                self.name(), withEscaping=False
+            )
             if self.hasValue():
-                paramAsText += "=" + escapeFormatting.asBashParam(argText)
+                paramAsText += "=" + escapeFormatting.asBashParam(
+                    argText, withEscaping=False
+                )
 
         return paramAsText
 

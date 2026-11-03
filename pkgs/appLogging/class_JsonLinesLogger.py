@@ -6,6 +6,8 @@ from typing import Any, Tuple
 import os
 from pathlib import Path
 
+from ukkoStyling import styling
+
 
 from .app_logger import appLog
 
@@ -180,7 +182,7 @@ class JsonLinesLogger:
             objOut["fromStart_msᵀ"] = timeFromStart_ms()[0]
 
             objOut["entry"] = fullEntry
-            objOut["caption"] = caption
+            objOut["caption"] = styling.asStylingRemoved(caption)
 
             if self.path is None:
 

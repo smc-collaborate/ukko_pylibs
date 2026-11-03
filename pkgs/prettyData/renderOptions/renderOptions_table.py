@@ -103,6 +103,15 @@ class RenderOptions_Table:
     def getColSpec(self, colNum: int) -> RenderOptions_GridPart:
         return self.colOptions_.getOrEmpty(colNum)
 
+    @property
+    def getTextModificationRules(self) -> dict[str, str] | None:
+        replaceThese: dict | None = self.get("replace")
+        return (
+            replaceThese
+            if isinstance(replaceThese, dict) and (len(replaceThese) > 0)
+            else None
+        )
+
     def getMaxVisWidth(self, colNum: int) -> int | None:
         return self.getColSpec(colNum).lockedMaxVisWidth
 

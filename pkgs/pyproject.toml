@@ -30,7 +30,8 @@ dependencies = [
     "json5",
     "netifaces",
     "pyyaml>=5.1",
-    "wcwidth"
+    "wcwidth",
+    "dulwich",
 
 ]
 [tool.setuptools]

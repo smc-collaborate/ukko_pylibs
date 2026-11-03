@@ -1,7 +1,7 @@
 ################
 #
 from copy import deepcopy
-from typing import Any, Tuple, Union
+from typing import Any, Tuple, Union, cast
 from typing import Generic, TypeVar  # < Needed for compliance with Python 3.10
 
 ################
@@ -130,6 +130,8 @@ class SparseList(Generic[ContentKind]):
                 if value is not None:
                     if type(blankValue) == type(value):
                         result.entries[n] = value
+                    elif isinstance(blankValue, str):
+                        result.entries[n] = cast(ContentKind, str(value))
                     elif hasattr(
                         blankValue, "create_fromJsonDict_andBlank"
                     ) and callable(getattr(blankValue, "create_fromJsonDict_andBlank")):
@@ -181,6 +183,25 @@ class SparseList(Generic[ContentKind]):
             if src is None
             else SparseList[ContentKind].create_fromList_andBlank(src, blankValue)
         )
+
+    def withModifications(
+        self, modificationRules: dict[str, str] | None
+    ) -> "SparseList[ContentKind]":
+        if not modificationRules:
+            return self
+        if not isinstance(self._blankValue, str):
+            appLog.print_warning(
+                f"Modification Rules. Expected str instead of [type:{ContentKind}]={asJsonStr(self._blankValue)}"
+            )
+            return self
+        else:
+            result = SparseList[type(self._blankValue)](self._blankValue)
+            for position, value in self.items():
+                contents = str(value)
+                for needle, replacement in modificationRules.items():
+                    contents = contents.replace(needle, replacement)
+                result.setEntry(contents, position)
+            return result
 
     def asJsonable(self) -> dict[str, Any]:
         result: dict[str, Any] = {}
@@ -335,11 +356,16 @@ CellContentKind = TypeVar("CellContentKind")
 
 class Sparse2D(Generic[CellContentKind]):
 
-    def _getContentType(self) -> Any | None:
+    def _getContentType(self) -> type:
         orig_class = getattr(self, "__orig_class__", None)
+        resultType = None
         if orig_class is not None:
-            content_type = getattr(orig_class, "__args__", [None])[0]
-            return content_type
+            resultType = getattr(orig_class, "__args__", [None])[0]
+
+        if resultType is None:
+            resultType = type(self.blankEntry)
+
+        return resultType
 
     def _getContentTypeAsText(self) -> str:
         return typeAsStr(self._getContentType())

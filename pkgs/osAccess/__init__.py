@@ -1,7 +1,11 @@
 ################################################################################
 #
 
-from .src.module_sysInfo import pyInfo_asJsonable
+from .src.module_sysInfo import (
+    pyInfo_asJsonable,
+    getLocalTimestampDict,
+    timestampDict_addLocal,
+)
 from .src.module_osAccess import (
     small_ThreadedCommandRunner,
     IAsyncAction_Interface,
@@ -15,4 +19,6 @@ __all__ = [
     "small_ThreadedCommandRunner",
     "IAsyncAction_Interface",
     "AsyncActionList",
+    "getLocalTimestampDict",
+    "timestampDict_addLocal",
 ]

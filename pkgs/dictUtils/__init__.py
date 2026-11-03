@@ -17,12 +17,14 @@ from .src.module_dictUtils import (
     addEntryIfNotEmpty,
     asFlattened,
     extendWithoutOverwrite,
+    increment,
 )
 
 __all__ = [
     "getBoolOrFalse",
     "get",
     "set",
+    "increment",
     "getStr",
     "getWithDefaultValuesRemoved",
     "appendStr",
