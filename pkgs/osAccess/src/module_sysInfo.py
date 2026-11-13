@@ -123,7 +123,7 @@ def _modulesListAsPackageTree(moduleList: list[dict[str, Any]]) -> dict[str, Any
             entry.pop("package", None)
         entry.pop("leaf", None)
         prevEntry = dictUtils.get(packages, leafTrail)
-        if prevEntry:
+        if isinstance(prevEntry, dict) and prevEntry:
             prevValues = {}
             for x in entry:
                 if x in prevEntry:
