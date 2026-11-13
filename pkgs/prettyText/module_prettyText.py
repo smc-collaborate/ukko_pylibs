@@ -81,7 +81,7 @@ def uniLen_approx(s: str) -> int:
     """
     width_cols = 0
     prevWidth_cols = 0
-    for c in s:
+    for c in removeAnsiCodes(s):
         if c == "️" and prevWidth_cols == 1:
             # Emoji presentation selector (eg '⚠️'): most terminals show the previous character 2 wide.
             # Older wcwidth versions ignore this.
