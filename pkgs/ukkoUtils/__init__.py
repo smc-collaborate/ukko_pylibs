@@ -71,6 +71,13 @@ from .src.threadSafety import ThreadSafe
 #
 from .src.class_HandledException import HandledException, getPrettyExceptionInfo
 
+
+###################
+# GlobalLocking
+
+from .src.class_GlobalExclusiveLock import GlobalExclusiveLock
+
+
 __all__ = [
     "pathAsDisplay",
     "hasRemovedPrefix",
@@ -115,4 +122,8 @@ __all__ = [
     # Threading
     #
     "ThreadSafe",
+    ###################
+    # Locking
+    #
+    "GlobalExclusiveLock",
 ]
