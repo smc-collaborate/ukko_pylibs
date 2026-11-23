@@ -32,6 +32,7 @@ dependencies = [
     "pyyaml>=5.1",
     "wcwidth",
     "dulwich",
+    "filelock"
 
 ]
 [tool.setuptools]
